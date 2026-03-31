@@ -1,19 +1,19 @@
-import { PnexConfig } from '../shared/types';
-import { initTerminal } from './lib/terminal-setup';
-import { initInlineChat } from './lib/inline-chat';
-import { initAiHint } from './lib/ai-hint';
-import { applyTheme } from './lib/theme-applier';
+import { PnexConfig } from "../shared/types";
+import { initTerminal } from "./lib/terminal-setup";
+import { initInlineChat } from "./lib/inline-chat";
+import { initAiHint } from "./lib/ai-hint";
+import { applyTheme, toXtermTheme } from "./lib/theme-applier";
 
-declare const pnex: import('../preload/preload').PnexApi;
+declare const pnex: import("../preload/preload").PnexApi;
 
 async function main(): Promise<void> {
   const config: PnexConfig = await pnex.getConfig();
 
   applyTheme(config.theme);
 
-  const container = document.getElementById('terminal');
+  const container = document.getElementById("terminal");
   if (!container) {
-    throw new Error('Terminal container not found');
+    throw new Error("Terminal container not found");
   }
 
   const { terminal } = initTerminal(container, config);
@@ -23,6 +23,11 @@ async function main(): Promise<void> {
 
   pnex.onNewChat(() => {
     pnex.newChat();
+  });
+
+  pnex.onThemeChanged((theme) => {
+    applyTheme(theme);
+    terminal.options.theme = toXtermTheme(theme);
   });
 
   terminal.focus();

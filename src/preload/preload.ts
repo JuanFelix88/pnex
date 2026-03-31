@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import { IpcChannels } from '../shared/ipc-channels';
-import { PnexConfig } from '../shared/types';
+import { contextBridge, ipcRenderer } from "electron";
+import { IpcChannels } from "../shared/ipc-channels";
+import { PnexConfig } from "../shared/types";
+import { PnexTheme } from "../shared/types";
 
 /** Exposed API for renderer process */
 const api = {
@@ -10,25 +11,13 @@ const api = {
   },
 
   /** Notify main of terminal resize */
-  sendTerminalResize: (
-    cols: number,
-    rows: number
-  ): void => {
-    ipcRenderer.send(
-      IpcChannels.TERMINAL_RESIZE,
-      cols,
-      rows
-    );
+  sendTerminalResize: (cols: number, rows: number): void => {
+    ipcRenderer.send(IpcChannels.TERMINAL_RESIZE, cols, rows);
   },
 
   /** Listen for terminal data from pty */
-  onTerminalData: (
-    callback: (data: string) => void
-  ): void => {
-    ipcRenderer.on(
-      IpcChannels.TERMINAL_DATA,
-      (_event, data) => callback(data)
-    );
+  onTerminalData: (callback: (data: string) => void): void => {
+    ipcRenderer.on(IpcChannels.TERMINAL_DATA, (_event, data) => callback(data));
   },
 
   /** Get current config */
@@ -43,17 +32,28 @@ const api = {
 
   /** Request AI command (Ctrl+I) */
   aiCommand: (prompt: string): Promise<string> => {
-    return ipcRenderer.invoke(
-      IpcChannels.AI_COMMAND,
-      prompt
-    );
+    return ipcRenderer.invoke(IpcChannels.AI_COMMAND, prompt);
   },
 
   /** Request AI chat (Ctrl+Shift+I) */
   aiChat: (prompt: string): Promise<string> => {
-    return ipcRenderer.invoke(
-      IpcChannels.AI_CHAT,
-      prompt
+    return ipcRenderer.invoke(IpcChannels.AI_CHAT, prompt);
+  },
+
+  /** List available builtin themes */
+  listThemes: (): Promise<PnexTheme[]> => {
+    return ipcRenderer.invoke(IpcChannels.THEME_LIST);
+  },
+
+  /** Set and persist a theme by name */
+  setTheme: (themeName: string): Promise<PnexTheme | null> => {
+    return ipcRenderer.invoke(IpcChannels.THEME_SET, themeName);
+  },
+
+  /** Listen for theme changes from menu */
+  onThemeChanged: (callback: (theme: PnexTheme) => void): void => {
+    ipcRenderer.on(IpcChannels.THEME_CHANGED, (_event, theme) =>
+      callback(theme),
     );
   },
 
@@ -68,6 +68,6 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld('pnex', api);
+contextBridge.exposeInMainWorld("pnex", api);
 
 export type PnexApi = typeof api;

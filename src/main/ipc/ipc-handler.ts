@@ -1,7 +1,13 @@
 import { BrowserWindow, ipcMain, shell } from "electron";
 import { IpcChannels } from "../../shared/ipc-channels";
 import { ShellManager } from "../../lib/terminal";
-import { loadConfig, getConfigPath } from "../../lib/config";
+import {
+  loadConfig,
+  saveConfig,
+  getConfigPath,
+  builtinThemes,
+  findThemeByName,
+} from "../../lib/config";
 import {
   executeCommandAgent,
   executeChatAgent,
@@ -20,6 +26,7 @@ export function registerIpcHandlers(
   registerConfigHandlers();
   registerAiHandlers();
   registerAppHandlers();
+  registerThemeHandlers(win);
 }
 
 function registerTerminalHandlers(
@@ -79,5 +86,23 @@ function registerAppHandlers(): void {
   ipcMain.handle(IpcChannels.NEW_CHAT, () => {
     clearChatHistory();
     return true;
+  });
+}
+
+function registerThemeHandlers(win: BrowserWindow): void {
+  ipcMain.handle(IpcChannels.THEME_LIST, () => {
+    return builtinThemes;
+  });
+
+  ipcMain.handle(IpcChannels.THEME_SET, (_event, themeName: string) => {
+    const theme = findThemeByName(themeName);
+    if (!theme) return null;
+
+    const config = loadConfig();
+    config.theme = theme;
+    saveConfig(config);
+
+    win.webContents.send(IpcChannels.THEME_CHANGED, theme);
+    return theme;
   });
 }
