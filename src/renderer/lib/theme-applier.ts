@@ -6,12 +6,69 @@ import { PnexTheme } from "../../shared/types";
  */
 export function applyTheme(theme: PnexTheme): void {
   applyBodyTheme(theme);
+  applyTitlebarTheme(theme);
   applyChatTheme(theme);
 }
 
 function applyBodyTheme(theme: PnexTheme): void {
   document.body.style.backgroundColor = theme.background;
   document.body.style.color = theme.foreground;
+}
+
+function applyTitlebarTheme(theme: PnexTheme): void {
+  const titlebar = document.getElementById("titlebar");
+  const titlebarIcon = document.getElementById("titlebar-icon");
+  const menuPopup = document.getElementById("menu-popup");
+
+  if (titlebar) {
+    titlebar.style.backgroundColor = theme.background;
+    titlebar.style.color = theme.foreground;
+    titlebar.style.borderBottomColor = theme.brightBlack;
+  }
+
+  if (titlebarIcon) {
+    titlebarIcon.style.backgroundColor = theme.blue;
+    titlebarIcon.style.color = theme.brightWhite;
+  }
+
+  if (menuPopup) {
+    menuPopup.style.backgroundColor = theme.background;
+    menuPopup.style.color = theme.foreground;
+    menuPopup.style.borderColor = theme.brightBlack;
+  }
+
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-bg",
+    theme.background,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-fg",
+    theme.foreground,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-border",
+    theme.brightBlack,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-hover",
+    theme.selection,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-accent",
+    theme.blue,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-muted",
+    theme.brightBlack,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-icon-fg",
+    theme.brightWhite,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-titlebar-close-hover",
+    theme.red,
+  );
 }
 
 function applyChatTheme(theme: PnexTheme): void {

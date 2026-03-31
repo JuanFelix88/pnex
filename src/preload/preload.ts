@@ -3,6 +3,13 @@ import { IpcChannels } from "../shared/ipc-channels";
 import { PnexConfig } from "../shared/types";
 import { PnexTheme } from "../shared/types";
 
+export type AppMenuAction =
+  | "config"
+  | "new-chat"
+  | "copy"
+  | "paste"
+  | "select-all";
+
 /** Exposed API for renderer process */
 const api = {
   /** Send terminal input to main process */
@@ -65,6 +72,40 @@ const api = {
   /** Listen for new chat from menu */
   onNewChat: (callback: () => void): void => {
     ipcRenderer.on(IpcChannels.NEW_CHAT, () => callback());
+  },
+
+  onMenuAction: (callback: (action: AppMenuAction) => void): void => {
+    ipcRenderer.on(
+      IpcChannels.APP_MENU_TRIGGER,
+      (_event, action: AppMenuAction) => {
+        callback(action);
+      },
+    );
+  },
+
+  minimizeWindow: (): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannels.WINDOW_MINIMIZE);
+  },
+
+  toggleMaximizeWindow: (): Promise<boolean> => {
+    return ipcRenderer.invoke(IpcChannels.WINDOW_MAXIMIZE);
+  },
+
+  closeWindow: (): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannels.WINDOW_CLOSE);
+  },
+
+  isWindowMaximized: (): Promise<boolean> => {
+    return ipcRenderer.invoke(IpcChannels.WINDOW_IS_MAXIMIZED);
+  },
+
+  onWindowMaximizedChanged: (
+    callback: (isMaximized: boolean) => void,
+  ): void => {
+    ipcRenderer.on(
+      IpcChannels.WINDOW_MAXIMIZED_CHANGED,
+      (_event, isMaximized: boolean) => callback(isMaximized),
+    );
   },
 };
 

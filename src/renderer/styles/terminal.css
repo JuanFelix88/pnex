@@ -1,4 +1,104 @@
 /* Terminal container fills its parent */
+:root {
+  --pnex-titlebar-bg: #1e1e1e;
+  --pnex-titlebar-fg: #cccccc;
+  --pnex-titlebar-border: #3c3c3c;
+  --pnex-titlebar-hover: #264f78;
+  --pnex-titlebar-accent: #2472c8;
+  --pnex-titlebar-muted: #666666;
+  --pnex-titlebar-icon-fg: #ffffff;
+  --pnex-titlebar-close-hover: #cd3131;
+}
+
+#titlebar {
+  user-select: none;
+  background: var(--pnex-titlebar-bg);
+  color: var(--pnex-titlebar-fg);
+  border-bottom-color: var(--pnex-titlebar-border);
+}
+
+.titlebar-menu-item,
+.window-control,
+.menu-popup-item {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.titlebar-menu-item {
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.titlebar-menu-item:hover {
+  color: var(--pnex-titlebar-icon-fg);
+}
+
+.window-control {
+  width: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.window-control:hover {
+  background: var(--pnex-titlebar-hover);
+}
+
+.window-control-close:hover {
+  background: var(--pnex-titlebar-close-hover);
+}
+
+.menu-popup-item {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: pre;
+}
+
+.menu-popup-item:hover {
+  background: var(--pnex-titlebar-hover);
+}
+
+.menu-popup-label {
+  padding: 6px 12px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pnex-titlebar-muted);
+}
+
+.menu-popup-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--pnex-titlebar-border);
+}
+
+#menu-popup {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 204, 204, 0.22) transparent;
+}
+
+#menu-popup::-webkit-scrollbar {
+  width: 6px;
+}
+
+#menu-popup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#menu-popup::-webkit-scrollbar-thumb {
+  background: rgba(204, 204, 204, 0.22);
+  border-radius: 999px;
+}
+
+#menu-popup::-webkit-scrollbar-thumb:hover {
+  background: rgba(36, 114, 200, 0.42);
+}
+
 #terminal {
   padding: 8px;
   box-sizing: border-box;
@@ -18,3 +118,4 @@
 .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
+

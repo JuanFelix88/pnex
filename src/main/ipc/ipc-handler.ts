@@ -87,6 +87,35 @@ function registerAppHandlers(): void {
     clearChatHistory();
     return true;
   });
+
+  ipcMain.handle(IpcChannels.WINDOW_MINIMIZE, (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize();
+  });
+
+  ipcMain.handle(IpcChannels.WINDOW_MAXIMIZE, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return false;
+
+    if (window.isMaximized()) {
+      window.unmaximize();
+      return false;
+    }
+
+    window.maximize();
+    return true;
+  });
+
+  ipcMain.handle(IpcChannels.WINDOW_CLOSE, (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close();
+  });
+
+  ipcMain.handle(IpcChannels.WINDOW_IS_MAXIMIZED, (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
+  });
+
+  ipcMain.on(IpcChannels.WINDOW_MAXIMIZED_CHANGED, () => {
+    // no-op reserved channel for renderer listener registration symmetry
+  });
 }
 
 function registerThemeHandlers(win: BrowserWindow): void {
@@ -105,4 +134,18 @@ function registerThemeHandlers(win: BrowserWindow): void {
     win.webContents.send(IpcChannels.THEME_CHANGED, theme);
     return theme;
   });
+
+  const emitWindowState = (): void => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) {
+      return;
+    }
+
+    win.webContents.send(
+      IpcChannels.WINDOW_MAXIMIZED_CHANGED,
+      win.isMaximized(),
+    );
+  };
+
+  win.on("maximize", emitWindowState);
+  win.on("unmaximize", emitWindowState);
 }

@@ -8,6 +8,15 @@ import {
 } from "../../lib/config";
 import { shell } from "electron";
 
+type AppMenuAction = "config" | "new-chat" | "copy" | "paste" | "select-all";
+
+function triggerRendererMenuAction(
+  win: BrowserWindow,
+  action: AppMenuAction,
+): void {
+  win.webContents.send(IpcChannels.APP_MENU_TRIGGER, action);
+}
+
 /**
  * Build the native application menu.
  * Includes "Options JSON", "New Chat", and "Themes" actions.
@@ -33,13 +42,16 @@ export function buildAppMenu(win: BrowserWindow): void {
       submenu: [
         {
           label: "Options JSON",
-          click: () => shell.openPath(getConfigPath()),
+          click: () => {
+            triggerRendererMenuAction(win, "config");
+          },
         },
         {
           label: "New Chat",
           accelerator: "CmdOrCtrl+N",
           click: () => {
             win.webContents.send(IpcChannels.NEW_CHAT);
+            triggerRendererMenuAction(win, "new-chat");
           },
         },
         { type: "separator" },
@@ -53,7 +65,31 @@ export function buildAppMenu(win: BrowserWindow): void {
     },
     {
       label: "Edit",
-      submenu: [{ role: "copy" }, { role: "paste" }, { role: "selectAll" }],
+      submenu: [
+        {
+          role: "copy",
+          click: () => triggerRendererMenuAction(win, "copy"),
+        },
+        {
+          role: "paste",
+          click: () => triggerRendererMenuAction(win, "paste"),
+        },
+        {
+          role: "selectAll",
+          click: () => triggerRendererMenuAction(win, "select-all"),
+        },
+      ],
+    },
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "About pnex",
+          click: () => {
+            void shell.openPath(getConfigPath());
+          },
+        },
+      ],
     },
   ];
 

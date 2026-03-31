@@ -13,12 +13,16 @@ export function createMainWindow(): BrowserWindow {
     title: "pnex",
     icon: iconPath,
     backgroundColor: "#1e1e1e",
+    frame: false,
+    titleBarStyle: "hidden",
     webPreferences: {
       preload: path.join(__dirname, "..", "..", "preload", "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
     },
   });
+
+  win.setMenuBarVisibility(false);
 
   const htmlPath = path.join(__dirname, "..", "..", "renderer", "index.html");
   win.loadFile(htmlPath);

@@ -10,6 +10,24 @@
   <link rel="stylesheet" href="styles/terminal.css" />
 </head>
 <body class="bg-[#1e1e1e] text-[#cccccc] h-screen w-screen overflow-hidden flex flex-col m-0 p-0">
+  <header id="titlebar" class="flex items-center h-9 shrink-0 select-none border-b border-[#2a2d2e] bg-[#181818] text-[#cccccc]">
+    <div class="flex items-center px-3 gap-3 min-w-0 flex-1" style="-webkit-app-region: drag;">
+      <div id="titlebar-icon" class="w-4 h-4 shrink-0 rounded-sm bg-[#0e639c] text-[10px] leading-4 text-center font-semibold" style="-webkit-app-region: no-drag;">P</div>
+      <nav class="flex items-center gap-4 text-sm" style="-webkit-app-region: no-drag;">
+        <button class="titlebar-menu-item" data-menu="file">File</button>
+        <button class="titlebar-menu-item" data-menu="edit">Edit</button>
+        <button class="titlebar-menu-item" data-menu="help">Help</button>
+      </nav>
+    </div>
+    <div id="window-controls" class="flex items-stretch self-stretch" style="-webkit-app-region: no-drag;">
+      <button id="window-minimize" class="window-control" aria-label="Minimize">&#8212;</button>
+      <button id="window-maximize" class="window-control" aria-label="Maximize">□</button>
+      <button id="window-close" class="window-control window-control-close" aria-label="Close">×</button>
+    </div>
+  </header>
+
+  <div id="menu-popup" class="hidden fixed z-50 min-w-40 max-w-[80vw] overflow-y-auto max-h-[80vh] rounded border border-[#3c3c3c] bg-[#252526] py-1 shadow-lg"></div>
+
   <div id="terminal-container" class="flex-1 relative overflow-hidden">
     <div id="terminal" class="w-full h-full"></div>
     <div id="ai-hint" class="absolute bottom-2 right-4 text-xs opacity-30 pointer-events-none select-none font-mono">
