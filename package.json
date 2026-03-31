@@ -23,7 +23,7 @@
   "license": "ISC",
   "build": {
     "appId": "com.pnex.app",
-    "productName": "pnex",
+    "productName": "Pnex",
     "executableName": "pnex",
     "directories": {
       "output": "release"
