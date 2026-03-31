@@ -1,5 +1,9 @@
 import { Terminal } from "@xterm/xterm";
 import { createFrameLoop, FrameLoop } from "./frame-loop";
+import {
+  getCursorElement,
+  isCursorVisibleInContainer,
+} from "./cursor-visibility";
 
 const PNEX_OSC_CWD = 9001;
 
@@ -64,7 +68,10 @@ function positionBadgeAboveCursor(): void {
 
   const cellHeight = getCellHeight(_terminal);
   const containerRect = _container.getBoundingClientRect();
-  const cursorElement = _terminal.element?.querySelector(".xterm-cursor");
+  const cursorElement = getCursorElement(_terminal);
+  const isCursorVisible = isCursorVisibleInContainer(_terminal, _container);
+
+  _badge.classList.toggle("pnex-hud-hidden", !isCursorVisible);
 
   if (!(cursorElement instanceof HTMLElement)) {
     positionBadgeUsingBuffer(cellHeight, containerRect);

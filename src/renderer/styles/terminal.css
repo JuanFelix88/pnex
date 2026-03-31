@@ -120,6 +120,17 @@
   z-index: 10;
   pointer-events: none;
   display: none;
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+.pnex-hud-fade {
+  transition: opacity 160ms ease;
+}
+
+.pnex-hud-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .pnex-cwd-badge__content {

@@ -1,5 +1,6 @@
 import { Terminal } from "@xterm/xterm";
 import { getCurrentCwd } from "./agent-stream";
+import { isCursorVisibleInContainer } from "./cursor-visibility";
 import { createFrameLoop, FrameLoop } from "./frame-loop";
 import { TerminalContext } from "../../shared/types";
 
@@ -143,6 +144,7 @@ function openChat(
   mode: ChatMode,
   overlayFollowLoop: FrameLoop,
 ): void {
+  elements.box.classList.add("pnex-hud-fade");
   elements.modeLabel.textContent =
     mode === "command" ? "AI Command" : "AI Chat";
   elements.input.placeholder =
@@ -230,6 +232,12 @@ async function submitChat(
 function positionChatOverlay(elements: ChatElements, terminal: Terminal): void {
   const box = elements.box;
   const previousVisibility = box.style.visibility;
+  const terminalContainer = terminal.element?.parentElement;
+  let isCursorVisible = true;
+
+  if (terminalContainer instanceof HTMLElement) {
+    isCursorVisible = isCursorVisibleInContainer(terminal, terminalContainer);
+  }
 
   box.style.visibility = "hidden";
   box.style.left = `${CHAT_EDGE_PADDING}px`;
@@ -256,6 +264,7 @@ function positionChatOverlay(elements: ChatElements, terminal: Terminal): void {
 
   box.style.left = `${left}px`;
   box.style.top = `${top}px`;
+  box.classList.toggle("pnex-hud-hidden", !isCursorVisible);
   box.style.visibility = previousVisibility;
 }
 
