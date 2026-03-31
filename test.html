@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dotti Transportadora | Transporte de Cargas e Mudanças</title>
+    <meta name="description" content="Dotti Transportadora - Soluções em transporte de cargas, mudanças residenciais e comerciais. Rastreamento online e cotação imediata.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* RESET & VARIÁVEIS */
+        :root {
+            --primary: #1a3b8f; /* Azul confiança */
+            --secondary: #f7941d; /* Laranja destaque */
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Open Sans', sans-serif;
+            color: var(--dark);
+            line-height: 1.6;
+            background-color: var(--light);
+        }
+        h1, h2, h3, h4, h5 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+        img {
+            max-width: 100%;
+            display: block;
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: var(--secondary);
+            color: var(--white);
+            padding: 12px 28px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-family: 'Montserrat', sans-serif;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #e0830c;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        .btn-outline {
+            background-color: transparent;
+            border: 2px solid var(--secondary);
+            color: var(--secondary);
+        }
+        .btn-outline:hover {
+            background-color: var(--secondary);
+            color: var(--white);
+        }
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .section-title h2 {
+            font-size: 2.2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        .section-title p {
+            color: var(--gray);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        /* HEADER */
+        header {
+            background-color: var(--white);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo img {
+            height: 50px;
+            width: auto;
+        }
+        .logo-text {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1.8rem;
+            color: var(--primary);
+        }
+        .logo-text span {
+            color: var(--secondary);
+        }
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+        nav a {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--dark);
+            transition: var(--transition);
+            position: relative;
+        }
+        nav a:hover {
+            color: var(--primary);
+        }
+        nav a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            background: var(--secondary);
+            bottom: -5px;
+            left: 0;
+            transition: var(--transition);
+        }
+        nav a:hover::after {
+            width: 100%;
+        }
+        .header-cta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .phone-header {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--primary);
+        }
+
+        /* HERO */
+        .hero {
+            background: linear-gradient(rgba(26, 59, 143, 0.85), rgba(26, 59, 143, 0.7)), url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            color: var(--white);
+            padding: 100px 0;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .hero-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* RASTREAMENTO */
+        .rastreamento {
+            background-color: var(--white);
+            padding: 40px 0;
+            margin-top: -50px;
+            position: relative;
+            z-index: 10;
+            border-radius: var(--radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .rastreamento h3 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+        .rastreamento-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .rastreamento-form input {
+            flex: 1;
+            min-width: 250px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-family: 'Open Sans', sans-serif;
+        }
+        .rastreamento-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* SERVIÇOS */
+        .servicos {
+            padding: 80px 0;
+        }
+        .servicos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+        .servico-card {
+            background-color: var(--white);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            text-align: center;
+        }
+        .servico-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .servico-icon {
+            width: 70px;
+            height: 70px;
+            background-color: rgba(26, 59, 143, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 1.8rem;
+            color: var(--primary);
+        }
+        .servico-card h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        .servico-card p {
+            color: var(--gray);
+            font-size: 0.95rem;
+        }
+
+        /* SOBRE */
+        .sobre {
+            background-color: var(--primary);
+            color: var(--white);
+            padding: 80px 0;
+        }
+        .sobre-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            align-items: center;
+        }
+        .sobre-text h2 {
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .sobre-text p {
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+        }
+        .sobre-image img {
+            border-radius: var(--radius);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--secondary);
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* DEPOIMENTOS */
+        .depoimentos {
+            padding: 80px 0;
+            background-color: var(--light);
+        }
+        .depoimentos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .depoimento-card {
+            background-color: var(--white);
+            padding: 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+        .depoimento-card::before {
+            content: '"';
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-size: 4rem;
+            color: var(--secondary);
+            opacity: 0.2;
+            font-family: serif;
+        }
+        .depoimento-text {
+            margin-bottom: 20px;
+            font-style: italic;
+            color: var(--dark);
+        }
+        .depoimento-author {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .author-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-weight: 700;
+        }
+        .author-info h4 {
+            font-size: 1rem;
+            color: var(--primary);
+        }
+        .author-info p {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+
+        /* CTA SECTION */
+        .cta-section {
+            padding: 80px 0;
+            background: linear-gradient(rgba(26, 59, 143, 0.9), rgba(26, 59, 143, 0.9)), url('https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            text-align: center;
+            color: var(--white);
+        }
+        .cta-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .cta-section p {
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            opacity: 0.9;
+        }
+
+        /* CONTATO RÁPIDO */
+        .contato-rapido {
+            padding: 80px 0;
+        }
+        .contato-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+        .contato-item {
+            text-align: center;
+            padding: 30px;
+            background-color: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        .contato-icon {
+            width: 60px;
+            height: 60px;
+            background-color: var(--primary);
+            color: var(--white);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 1.5rem;
+        }
+        .contato-item h4 {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        .contato-item p {
+            color: var(--gray);
+        }
+
+        /* FOOTER */
+        footer {
+            background-color: var(--dark);
+            color: var(--white);
+            padding: 60px 0 30px;
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .footer-col h3 {
+            color: var(--secondary);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        .footer-col p {
+            opacity: 0.8;
+            margin-bottom: 15px;
+        }
+        .footer-links {
+            list-style: none;
+        }
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+        .footer-links a {
+            opacity: 0.8;
+            transition: var(--transition);
+        }
+        .footer-links a:hover {
+            opacity: 1;
+            color: var(--secondary);
+        }
+        .social-links {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .social-link {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        .social-link:hover {
+            background-color: var(--secondary);
+        }
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 30px;
+            text-align: center;
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+
+        /* WHATSAPP FLOATING */
+        .whatsapp-float {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background-color: #25d366;
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 999;
+            transition: var(--transition);
+        }
+        .whatsapp-float:hover {
+            transform: scale(1.1);
+            background-color: #128c7e;
+        }
+
+        /* RESPONSIVIDADE */
+        @media (max-width: 768px) {
+            .header-container {
+                flex-wrap: wrap;
+            }
+            nav {
+                order: 3;
+                width: 100%;
+                margin-top: 15px;
+                display: none;
+            }
+            nav.active {
+                display: block;
+            }
+            nav ul {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+            .header-cta .phone-header {
+                display: none;
+            }
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            .hero p {
+                font-size: 1rem;
+            }
+            .sobre-container {
+                grid-template-columns: 1fr;
+            }
+            .sobre-image {
+                order: -1;
+            }
+            .stats {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+        @media (max-width: 480px) {
+            .hero {
+                padding: 60px 0;
+            }
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+            .section-title h2 {
+                font-size: 1.8rem;
+            }
+            .btn {
+                padding: 10px 20px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="container header-container">
+            <a href="#" class="logo">
+                <div class="logo-text">DOTTI<span>.Transportes</span></div>
+            </a>
+            
+            <button class="mobile-menu-btn" onclick="toggleMenu()">☰</button>
+            
+            <nav id="main-nav">
+                <ul>
+                    <li><a href="#inicio">Início</a></li>
+                    <li><a href="#servicos">Serviços</a></li>
+                    <li><a href="#rastreamento">Rastreamento</a></li>
+                    <li><a href="#sobre">Sobre</a></li>
+                    <li><a href="#contato">Contato</a></li>
+                </ul>
+            </nav>
+            
+            <div class="header-cta">
+                <a href="tel:+5500000000000" class="phone-header">
+                    📞 (00) 0000-0000
+                </a>
+                <a href="#cotacao" class="btn">Peça Cotação</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero" id="inicio">
+        <div class="container">
+            <h1>Transporte de Cargas com Segurança e Agilidade</h1>
+            <p>Atendemos todo o Brasil com soluções personalizadas para sua necessidade. Mudanças, cargas fracionadas, transporte dedicado e mais.</p>
+            <div class="hero-buttons">
+                <a href="#cotacao" class="btn">Solicitar Cotação</a>
+                <a href="#servicos" class="btn btn-outline">Nossos Serviços</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- RASTREAMENTO -->
+    <section class="container" id="rastreamento">
+        <div class="rastreamento">
+            <h3>🔍 Rastreie sua encomenda</h3>
+            <form class="rastreamento-form" onsubmit="rastrearEncomenda(event)">
+                <input type="text" placeholder="Digite o código de rastreio" required>
+                <button type="submit" class="btn">Rastrear</button>
+            </form>
+            <p id="resultado-rastreio" style="text-align: center; margin-top: 15px; color: var(--primary); font-weight: 600; display: none;"></p>
+        </div>
+    </section>
+
+    <!-- SERVIÇOS -->
+    <section class="servicos" id="servicos">
+        <div class="container">
+            <div class="section-title">
+                <h2>Nossos Serviços</h2>
+                <p>Oferecemos soluções completas em transporte e logística para atender sua necessidade com eficiência.</p>
+            </div>
+            
+            <div class="servicos-grid">
+                <div class="servico-card">
+                    <div class="servico-icon">🚛</div>
+                    <h3>Transporte de Cargas</h3>
+                    <p>Fracionada ou dedicada, com cobertura nacional e rastreamento em tempo real.</p>
+                </div>
+                <div class="servico-card">
+                    <div class="servico-icon">🏠</div>
+                    <h3>Mudanças Residenciais</h3>
+                    <p>Serviço completo com embalagem, transporte e desembaraço de móveis.</p>
+                </div>
+                <div class="servico-card">
+                    <div class="servico-icon">🏢</div>
+                    <h3>Mudanças Comerciais</h3>
+                    <p>Transferência de escritórios, lojas e empresas com planejamento logístico.</p>
+                </div>
+                <div class="servico-card">
+                    <div class="servico-icon">📦</div>
+                    <h3>E-commerce</h3>
+                    <p>Soluções para lojas online com integração e entregas rápidas.</p>
+                </div>
+                <div class="servico-card">
+                    <div class="servico-icon">🚗</div>
+                    <h3>Transporte de Veículos</h3>
+                    <p>Transporte seguro de automóveis, motos e máquinas pesadas.</p>
+                </div>
+                <div class="servico-card">
+                    <div class="servico-icon">📋</div>
+                    <h3>Logística Integrada</h3>
+                    <p>Gestão completa de supply chain para empresas de todos os portes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOBRE -->
+    <section class="sobre" id="sobre">
+        <div class="container">
+            <div class="sobre-container">
+                <div class="sobre-text">
+                    <h2>Conheça a Dotti Transportadora</h2>
+                    <p>Com mais de 15 anos de experiência no mercado, a Dotti é referência em transporte de cargas e mudanças. Nossa missão é entregar sua mercadoria com segurança, pontualidade e transparência.</p>
+                    <p>Contamos com uma frota moderna, equipe treinada e tecnologia de ponta para rastrear cada etapa da sua entrega.</p>
+                    
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-number">15+</div>
+                            <div class="stat-label">Anos de experiência</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">50k+</div>
+                            <div class="stat-label">Entregas realizadas</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">100%</div>
+                            <div class="stat-label">Compromisso</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sobre-image">
+                    <img src="https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Frota Dotti Transportadora">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DEPOIMENTOS -->
+    <section class="depoimentos">
+        <div class="container">
+            <div class="section-title">
+                <h2>O que nossos clientes dizem</h2>
+                <p>A satisfação dos nossos clientes é o nosso maior patrimônio.</p>
+            </div>
+            
+            <div class="depoimentos-grid">
+                <div class="depoimento-card">
+                    <p class="depoimento-text">"Excelente serviço! Minha mudança foi realizada com muita cuidado e pontualidade. Recomendo a Dotti para todos que precisam de transporte confiável."</p>
+                    <div class="depoimento-author">
+                        <div class="author-avatar">RS</div>
+                        <div class="author-info">
+                            <h4>Roberto Silva</h4>
+                            <p>Mudança Residencial - SP</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="depoimento-card">
+                    <p class="depoimento-text">"Como e-commerce, preciso de uma transportadora ágil. A Dotti entrega sempre no prazo e o rastreamento é muito eficiente."</p>
+                    <div class="depoimento-author">
+                        <div class="author-avatar">AM</div>
+                        <div class="author-info">
+                            <h4>Ana Mendes</h4>
+                            <p>Loja Online - RJ</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="depoimento-card">
+                    <p class="depoimento-text">"Transportamos nossos produtos para todo o Brasil com a Dotti. Profissionalismo, segurança e preço justo. Parceria de longa data!"</p>
+                    <div class="depoimento-author">
+                        <div class="author-avatar">LP</div>
+                        <div class="author-info">
+                            <h4>Lucas Pereira</h4>
+                            <p>Empresa de Alimentos - MG</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Pronto para enviar sua carga?</h2>
+            <p> Solicite uma cotação gratuita e receba uma proposta personalizada em minutos.</p>
+            <a href="#cotacao" class="btn" style="background-color: var(--white); color: var(--primary);">Peça Cotação Agora</a>
+        </div>
+    </section>
+
+    <!-- CONTATO RÁPIDO -->
+    <section class="contato-rapido" id="contato">
+        <div class="container">
+            <div class="section-title">
+                <h2>Fale Conosco</h2>
+                <p>Várias formas de entrar em contato com a Dotti.</p>
+            </div>
+            
+            <div class="contato-grid">
+                <div class="contato-item">
+                    <div class="contato-icon">📞</div>
+                    <h4>Telefone</h4>
+                    <p>(00) 0000-0000</p>
+                    <p>Seg-Sex: 8h às 18h</p>
+                </div>
+                <div class="contato-item">
+                    <div class="contato-icon">💬</div>
+                    <h4>WhatsApp</h4>
+                    <p>(00) 00000-0000</p>
+                    <p>Atendimento 24h</p>
+                </div>
+                <div class="contato-item">
+                    <div class="contato-icon">✉️</div>
+                    <h4>E-mail</h4>
+                    <p>contato@dotti.com.br</p>
+                    <p>Respondemos em até 2h</p>
+                </div>
+                <div class="contato-item">
+                    <div class="contato-icon">📍</div>
+                    <h4>Endereço</h4>
+                    <p>Rua Exemplo, 123 - Centro</p>
+                    <p>São Paulo - SP</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3>DOTTI Transportadora</h3>
+                    <p>Transporte de cargas e mudanças com segurança e agilidade. Atendemos todo o Brasil com tecnologia e compromisso.</p>
+                    <div class="social-links">
+                        <a href="#" class="social-link">f</a>
+                        <a href="#" class="social-link">in</a>
+                        <a href="#" class="social-link">ig</a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h3>Links Rápidos</h3>
+                    <ul class="footer-links">
+                        <li><a href="#inicio">Início</a></li>
+                        <li><a href="#servicos">Serviços</a></li>
+                        <li><a href="#rastreamento">Rastreamento</a></li>
+                        <li><a href="#sobre">Sobre Nós</a></li>
+                        <li><a href="#contato">Contato</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Serviços</h3>
+                    <ul class="footer-links">
+                        <li><a href="#">Transporte de Cargas</a></li>
+                        <li><a href="#">Mudanças Residenciais</a></li>
+                        <li><a href="#">Mudanças Comerciais</a></li>
+                        <li><a href="#">E-commerce</a></li>
+                        <li><a href="#">Transporte de Veículos</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Contato</h3>
+                    <p>📞 (00) 0000-0000</p>
+                    <p>💬 (00) 00000-0000</p>
+                    <p>✉️ contato@dotti.com.br</p>
+                    <p>📍 Rua Exemplo, 123 - Centro<br>São Paulo - SP</p>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2026 Dotti Transportadora. Todos os direitos reservados. | <a href="#">Política de Privacidade</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WHATSAPP FLUTUANTE -->
+    <a href="https://wa.me/5500000000000" target="_blank" class="whatsapp-float" title="Fale conosco pelo WhatsApp">
+        💬
+    </a>
+
+    <script>
+        // Menu mobile
+        function toggleMenu() {
+            const nav = document.getElementById('main-nav');
+            nav.classList.toggle('active');
+        }
+
+        // Rastreamento simulado
+        function rastrearEncomenda(event) {
+            event.preventDefault();
+            const input = event.target.querySelector('input');
+            const codigo = input.value.trim();
+            const resultado = document.getElementById('resultado-rastreio');
+            
+            if (codigo) {
+                // Simulação - em produção, conectaria com API da transportadora
+                resultado.style.display = 'block';
+                resultado.innerHTML = `🔍 Rastreando código: <strong>${codigo}</strong><br>Status: Em trânsito - Previsão de entrega: 2 dias úteis`;
+                input.value = '';
+            }
+        }
+
+        // Smooth scroll para links internos
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    // Fechar menu mobile se estiver aberto
+                    document.getElementById('main-nav').classList.remove('active');
+                    
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Animação suave ao rolar a página
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('header');
+            if (window.scrollY > 100) {
+                header.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+            } else {
+                header.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)';
+            }
+        });
+    </script>
+</body>
+</html>

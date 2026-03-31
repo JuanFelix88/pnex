@@ -226,6 +226,34 @@
   to   { background-position: -200% 0; }
 }
 
+/* -- AI Hint text shimmer ---------------------------------------------------------- */
+
+.pnex-ai-hint-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 1) 15%,
+    rgba(255, 255, 255, 0.4) 30%
+  );
+  background-size: 300% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: pnex-hint-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes pnex-hint-shimmer {
+  0% {
+    background-position: 100% center;
+  }
+  80% {
+    background-position: -50% center;
+  }
+  100% {
+    background-position: -50% center;
+  }
+}
+
 /* xterm viewport scrollbar styling (VSCode-like) */
 .xterm-viewport::-webkit-scrollbar {
   width: 10px;
