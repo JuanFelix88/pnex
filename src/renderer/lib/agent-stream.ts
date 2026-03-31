@@ -1,4 +1,5 @@
 import { Terminal } from "@xterm/xterm";
+import { createFrameLoop, FrameLoop } from "./frame-loop";
 
 const PNEX_OSC_CWD = 9001;
 
@@ -6,6 +7,7 @@ let _currentCwd = "";
 let _badge: HTMLElement | null = null;
 let _terminal: Terminal | null = null;
 let _container: HTMLElement | null = null;
+let _badgeFollowLoop: FrameLoop | null = null;
 
 export function getCurrentCwd(): string {
   return _currentCwd;
@@ -18,6 +20,13 @@ export function registerAgentHandlers(
   _terminal = terminal;
   _container = container;
   _badge = createBadge(container);
+  _badgeFollowLoop = createFrameLoop(() => {
+    if (_badge?.style.display !== "block") {
+      return;
+    }
+
+    positionBadgeAboveCursor();
+  });
 
   terminal.parser.registerOscHandler(PNEX_OSC_CWD, (data) => {
     _currentCwd = data;
@@ -36,13 +45,14 @@ function createBadge(container: HTMLElement): HTMLElement {
 }
 
 function renderBadge(cwd: string): void {
-  if (!_badge || !_terminal || !_container) return;
+  if (!_badge || !_terminal || !_container || !_badgeFollowLoop) return;
 
   const label = _badge.querySelector("span");
   if (!label) return;
 
   label.textContent = cwd;
   _badge.style.display = "block";
+  _badgeFollowLoop.start();
 
   requestAnimationFrame(() => {
     positionBadgeAboveCursor();

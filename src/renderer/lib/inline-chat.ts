@@ -1,5 +1,6 @@
 import { Terminal } from "@xterm/xterm";
 import { getCurrentCwd } from "./agent-stream";
+import { createFrameLoop, FrameLoop } from "./frame-loop";
 import { TerminalContext } from "../../shared/types";
 
 declare const pnex: import("../../preload/preload").PnexApi;
@@ -34,11 +35,17 @@ export function initInlineChat(terminal: Terminal): void {
   if (!elements) return;
 
   let mode: ChatMode = "command";
+  const overlayFollowLoop = createOverlayFollowLoop(elements, terminal);
 
-  interceptTerminalKeys(terminal, elements, (m) => {
-    mode = m;
-  });
-  registerChatActions(elements, terminal, () => mode);
+  interceptTerminalKeys(
+    terminal,
+    elements,
+    (m) => {
+      mode = m;
+    },
+    overlayFollowLoop,
+  );
+  registerChatActions(elements, terminal, () => mode, overlayFollowLoop);
 }
 
 function getElements(): ChatElements | null {
@@ -77,6 +84,7 @@ function interceptTerminalKeys(
   terminal: Terminal,
   elements: ChatElements,
   setMode: (m: ChatMode) => void,
+  overlayFollowLoop: FrameLoop,
 ): void {
   terminal.attachCustomKeyEventHandler((e) => {
     if (e.type !== "keydown") return true;
@@ -86,14 +94,14 @@ function interceptTerminalKeys(
     if (key === "i" && e.ctrlKey && e.shiftKey) {
       e.preventDefault();
       setMode("chat");
-      openChat(elements, terminal, "chat");
+      openChat(elements, terminal, "chat", overlayFollowLoop);
       return false;
     }
 
     if (key === "i" && e.ctrlKey && !e.shiftKey) {
       e.preventDefault();
       setMode("command");
-      openChat(elements, terminal, "command");
+      openChat(elements, terminal, "command", overlayFollowLoop);
       return false;
     }
 
@@ -102,7 +110,7 @@ function interceptTerminalKeys(
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      closeChat(elements, terminal);
+      closeChat(elements, terminal, overlayFollowLoop);
     }
   });
 }
@@ -111,19 +119,20 @@ function registerChatActions(
   elements: ChatElements,
   terminal: Terminal,
   getMode: () => ChatMode,
+  overlayFollowLoop: FrameLoop,
 ): void {
   elements.closeBtn.addEventListener("click", () => {
-    closeChat(elements, terminal);
+    closeChat(elements, terminal, overlayFollowLoop);
   });
 
   elements.sendBtn.addEventListener("click", () => {
-    submitChat(elements, terminal, getMode());
+    submitChat(elements, terminal, getMode(), overlayFollowLoop);
   });
 
   elements.input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      submitChat(elements, terminal, getMode());
+      submitChat(elements, terminal, getMode(), overlayFollowLoop);
     }
   });
 }
@@ -132,6 +141,7 @@ function openChat(
   elements: ChatElements,
   terminal: Terminal,
   mode: ChatMode,
+  overlayFollowLoop: FrameLoop,
 ): void {
   elements.modeLabel.textContent =
     mode === "command" ? "AI Command" : "AI Chat";
@@ -142,10 +152,16 @@ function openChat(
   elements.overlay.style.display = "block";
   elements.input.value = "";
   positionChatOverlay(elements, terminal);
+  overlayFollowLoop.start();
   elements.input.focus();
 }
 
-function closeChat(elements: ChatElements, terminal: Terminal): void {
+function closeChat(
+  elements: ChatElements,
+  terminal: Terminal,
+  overlayFollowLoop?: FrameLoop,
+): void {
+  overlayFollowLoop?.stop();
   elements.overlay.style.display = "none";
   elements.input.value = "";
   elements.response.style.display = "none";
@@ -182,6 +198,7 @@ async function submitChat(
   elements: ChatElements,
   terminal: Terminal,
   mode: ChatMode,
+  overlayFollowLoop: FrameLoop,
 ): Promise<void> {
   const prompt = elements.input.value.trim();
   if (!prompt) return;
@@ -195,7 +212,7 @@ async function submitChat(
 
     if (mode === "command") {
       const command = await pnex.aiCommand(prompt, context);
-      closeChat(elements, terminal);
+      closeChat(elements, terminal, overlayFollowLoop);
       pnex.sendTerminalInput(command + "\n");
     } else {
       const reply = await pnex.aiChat(prompt, context);
@@ -281,4 +298,17 @@ function getTerminalFallbackPosition(terminal: Terminal): ChatPosition {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function createOverlayFollowLoop(
+  elements: ChatElements,
+  terminal: Terminal,
+): FrameLoop {
+  return createFrameLoop(() => {
+    if (elements.overlay.style.display !== "block") {
+      return;
+    }
+
+    positionChatOverlay(elements, terminal);
+  });
 }
