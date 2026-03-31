@@ -44,6 +44,8 @@ function registerTerminalHandlers(
     win.webContents.send(IpcChannels.TERMINAL_DATA, data);
   });
 
+  shellManager.initPrompt();
+
   win.once("closed", () => {
     shellManager.kill();
   });

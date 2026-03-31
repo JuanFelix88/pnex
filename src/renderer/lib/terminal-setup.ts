@@ -3,6 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { PnexConfig } from "../../shared/types";
 import { toXtermTheme } from "./theme-applier";
+import { registerAgentHandlers } from "./agent-stream";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -30,6 +31,7 @@ export function initTerminal(
   terminal.loadAddon(webLinksAddon);
   terminal.open(container);
 
+  registerAgentHandlers(terminal, container);
   connectToPty(terminal, fitAddon);
   observeResize(container, fitAddon);
   enablePaste(terminal);

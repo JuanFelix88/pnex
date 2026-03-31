@@ -7,10 +7,12 @@ import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
  */
 export class ShellManager {
   private process: pty.IPty | null = null;
+  private _spawnedCommand: string = "";
 
   /** Spawn a new shell process */
   spawn(shell?: string, cols = 80, rows = 24): pty.IPty {
     const { command, args } = this.parseShell(shell);
+    this._spawnedCommand = command;
     this.process = pty.spawn(command, args, {
       name: "xterm-256color",
       cols,
@@ -40,6 +42,24 @@ export class ShellManager {
   /** Get the underlying pty process */
   getProcess(): pty.IPty | null {
     return this.process;
+  }
+
+  /** Inject the pnex custom prompt into the spawned shell */
+  initPrompt(): void {
+    if (!this.process) return;
+
+    const lower = this._spawnedCommand.toLowerCase();
+    const isPowerShell = lower.includes("powershell") || lower.includes("pwsh");
+
+    if (isPowerShell) {
+      this.process.write(
+        'function prompt { $d=(Get-Location).Path; "$([char]27)]9001;$d$([char]7)`n$ " }; cls\r',
+      );
+    } else {
+      this.process.write(
+        ' __pnex_prompt(){ local d="$(pwd)";PS1="\\[\\033]9001;${d}\\007\\]\\n\\$ ";};PROMPT_COMMAND=__pnex_prompt;clear\r',
+      );
+    }
   }
 
   private getDefaultShell(): string {

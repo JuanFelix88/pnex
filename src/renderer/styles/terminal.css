@@ -115,6 +115,26 @@
   height: 100%;
 }
 
+.pnex-cwd-badge {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  display: none;
+}
+
+.pnex-cwd-badge__content {
+  display: inline-block;
+  padding: 0px 10px;
+  transform: translateY(-2px);
+  border-radius: 6px;
+  border: 1px solid var(--pnex-titlebar-fg);
+  background: color-mix(in srgb, var(--pnex-titlebar-fg) 15%, transparent);
+  color: var(--pnex-titlebar-fg);
+  font-size: 11px;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
 /* xterm viewport scrollbar styling (VSCode-like) */
 .xterm-viewport::-webkit-scrollbar {
   width: 10px;
