@@ -1,5 +1,7 @@
 import { BrowserWindow, ipcMain, shell } from "electron";
 import { readdirSync } from "fs";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { IpcChannels } from "../../shared/ipc-channels";
 import { ShellManager } from "../../lib/terminal";
 import { TerminalContext } from "../../shared/types";
@@ -15,6 +17,8 @@ import {
   executeChatAgent,
   clearChatHistory,
 } from "../../lib/ai";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Register all IPC handlers between main and renderer.
@@ -62,6 +66,38 @@ function registerTerminalHandlers(
       shellManager.resize(cols, rows);
     },
   );
+
+  ipcMain.handle(IpcChannels.TERMINAL_HUD, async (_event, cwd: string) => {
+    return getTerminalHudInfo(cwd);
+  });
+}
+
+async function getTerminalHudInfo(
+  cwd: string,
+): Promise<{ gitBranch: string; pendingCommits: string }> {
+  const gitBranch = await runGitCommand(cwd, ["branch", "--show-current"]);
+  const pendingCommits = await runGitCommand(cwd, [
+    "rev-list",
+    "--count",
+    "@{u}..HEAD",
+  ]);
+
+  return {
+    gitBranch,
+    pendingCommits,
+  };
+}
+
+async function runGitCommand(cwd: string, args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync("git", args, {
+      cwd,
+      windowsHide: true,
+    });
+    return stdout.trim();
+  } catch {
+    return "";
+  }
 }
 
 function registerConfigHandlers(): void {
@@ -147,6 +183,10 @@ function registerAppHandlers(): void {
 
   ipcMain.on(IpcChannels.WINDOW_MAXIMIZED_CHANGED, () => {
     // no-op reserved channel for renderer listener registration symmetry
+  });
+
+  ipcMain.handle(IpcChannels.DEVTOOLS_TOGGLE, (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.webContents.toggleDevTools();
   });
 }
 

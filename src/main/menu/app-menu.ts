@@ -84,6 +84,13 @@ export function buildAppMenu(win: BrowserWindow): void {
       label: "Help",
       submenu: [
         {
+          label: "Toggle DevTools",
+          accelerator: "F12",
+          click: () => {
+            win.webContents.toggleDevTools();
+          },
+        },
+        {
           label: "About pnex",
           click: () => {
             void shell.openPath(getConfigPath());

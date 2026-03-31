@@ -53,11 +53,11 @@ export class ShellManager {
 
     if (isPowerShell) {
       this.process.write(
-        'function prompt { $d=(Get-Location).Path; $pad = " " * ([Math]::Max($d.Length + 4, 1)); "$([char]27)]9001;$d$([char]7)$pad`n$ " }; cls\r',
+        'function prompt { $code = if ($?) { 0 } else { 1 }; $d=(Get-Location).Path; $pad = " " * ([Math]::Max($d.Length + 4, 1)); "$([char]27)]9002;$code$([char]7)$([char]27)]9001;$d$([char]7)$pad`n$ " }; cls\r',
       );
     } else {
       this.process.write(
-        ' __pnex_prompt(){ local d="$(pwd)"; local pad=""; local width=$((${#d}+4)); printf -v pad "%*s" "$width" ""; PS1="\\n\\[\\033]9001;${d}\\007\\]${pad}\\n\\$ ";};PROMPT_COMMAND=__pnex_prompt;clear\r',
+        ' __pnex_prompt(){ local exit_code="$?"; local d="$(pwd)"; local pad=""; local width=$((${#d}+4)); printf -v pad "%*s" "$width" ""; PS1="\\n\\[\\033]9002;${exit_code}\\007\\]\\[\\033]9001;${d}\\007\\]${pad}\\n\\$ ";};PROMPT_COMMAND=__pnex_prompt;clear\r',
       );
     }
   }

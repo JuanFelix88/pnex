@@ -115,11 +115,16 @@
   height: 100%;
 }
 
+/* -- HUD container ---------------------------------------------------------------- */
+
 .pnex-cwd-badge {
   position: absolute;
   z-index: 10;
   pointer-events: none;
   display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
   opacity: 1;
   transition: opacity 160ms ease;
 }
@@ -133,10 +138,12 @@
   pointer-events: none;
 }
 
+/* -- Badge base -------------------------------------------------------------------- */
+
 .pnex-cwd-badge__content {
-  display: inline-block;
-  padding: 0px 6px;
-  transform: translateY(2px);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
   border-radius: 6px;
   border: 1px solid var(--pnex-titlebar-fg);
   background: color-mix(in srgb, var(--pnex-titlebar-fg) 15%, transparent);
@@ -144,6 +151,79 @@
   font-size: 11px;
   font-family: inherit;
   white-space: nowrap;
+  transform: translateY(2px);
+}
+
+/* -- Badge variants ---------------------------------------------------------------- */
+
+.pnex-cwd-badge__content[data-variant="git"] {
+  border-color: #569cd6;
+  background: color-mix(in srgb, #569cd6 18%, transparent);
+}
+
+.pnex-cwd-badge__content[data-variant="pending"] {
+  border-color: #d7ba7d;
+  background: color-mix(in srgb, #d7ba7d 18%, transparent);
+}
+
+.pnex-cwd-badge__content[data-variant="success"] {
+  border-color: #4ec9b0;
+  background: color-mix(in srgb, #4ec9b0 18%, transparent);
+}
+
+.pnex-cwd-badge__content[data-variant="error"] {
+  border-color: #f44747;
+  background: color-mix(in srgb, #f44747 18%, transparent);
+}
+
+/* -- Status dot -------------------------------------------------------------------- */
+
+.pnex-status-dot {
+  display: inline-block;
+  width: 8px;
+  min-width: 8px;
+  min-height: 8px;
+  height: 8px;
+  max-height: 8px;
+  border-radius: 999px;
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--pnex-hud-running);
+  background: transparent;
+  /* flex-shrink: 0; */
+  transform: translateY(2px);
+  margin-right: 3px;
+}
+
+.pnex-status-dot--running { border-color: var(--pnex-hud-running); }
+.pnex-status-dot--success { border-color: var(--pnex-hud-ok); }
+.pnex-status-dot--error   { border-color: var(--pnex-hud-error); }
+
+/* -- Skeleton loading -------------------------------------------------------------- */
+
+.pnex-cwd-badge__content[data-variant="skeleton"] {
+  border-color: color-mix(in srgb, var(--pnex-titlebar-fg) 20%, transparent);
+  color: transparent;
+  min-width: 88px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.08) 25%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.08) 75%
+    ),
+    color-mix(in srgb, var(--pnex-titlebar-fg) 10%, transparent);
+  background-size: 200% 100%;
+  animation: pnex-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.pnex-cwd-badge__content.skeleton--short {
+  min-width: 64px;
+}
+
+@keyframes pnex-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
 }
 
 /* xterm viewport scrollbar styling (VSCode-like) */

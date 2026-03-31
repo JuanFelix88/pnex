@@ -3,12 +3,18 @@ import { IpcChannels } from "../shared/ipc-channels";
 import { PnexConfig, TerminalContext } from "../shared/types";
 import { PnexTheme } from "../shared/types";
 
+interface TerminalHudInfo {
+  gitBranch: string;
+  pendingCommits: string;
+}
+
 export type AppMenuAction =
   | "config"
   | "new-chat"
   | "copy"
   | "paste"
-  | "select-all";
+  | "select-all"
+  | "toggle-devtools";
 
 /** Exposed API for renderer process */
 const api = {
@@ -20,6 +26,10 @@ const api = {
   /** Notify main of terminal resize */
   sendTerminalResize: (cols: number, rows: number): void => {
     ipcRenderer.send(IpcChannels.TERMINAL_RESIZE, cols, rows);
+  },
+
+  getTerminalHud: (cwd: string): Promise<TerminalHudInfo> => {
+    return ipcRenderer.invoke(IpcChannels.TERMINAL_HUD, cwd);
   },
 
   /** Listen for terminal data from pty */
@@ -85,6 +95,10 @@ const api = {
 
   minimizeWindow: (): Promise<void> => {
     return ipcRenderer.invoke(IpcChannels.WINDOW_MINIMIZE);
+  },
+
+  toggleDevTools: (): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannels.DEVTOOLS_TOGGLE);
   },
 
   toggleMaximizeWindow: (): Promise<boolean> => {

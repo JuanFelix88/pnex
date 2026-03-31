@@ -68,7 +68,10 @@ function setupTitlebar(): void {
     }
 
     if (menuKey === "help") {
-      return [{ type: "action", label: "About pnex", action: "config" }];
+      return [
+        { type: "action", label: "Toggle DevTools", action: "toggle-devtools" },
+        { type: "action", label: "About pnex", action: "config" },
+      ];
     }
 
     return [];
@@ -90,6 +93,9 @@ function setupTitlebar(): void {
         break;
       case "select-all":
         document.execCommand("selectAll");
+        break;
+      case "toggle-devtools":
+        await pnex.toggleDevTools();
         break;
     }
   };

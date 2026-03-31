@@ -68,6 +68,19 @@ function applyTitlebarTheme(theme: PnexTheme): void {
     "--pnex-titlebar-close-hover",
     theme.red,
   );
+
+  document.documentElement.style.setProperty(
+    "--pnex-hud-ok",
+    theme.brightGreen,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-hud-error",
+    theme.brightRed,
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-hud-running",
+    theme.yellow,
+  );
 }
 
 function applyChatTheme(theme: PnexTheme): void {

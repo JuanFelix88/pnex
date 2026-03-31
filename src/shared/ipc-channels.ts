@@ -3,6 +3,7 @@ export const IpcChannels = {
   TERMINAL_DATA: "terminal:data",
   TERMINAL_INPUT: "terminal:input",
   TERMINAL_RESIZE: "terminal:resize",
+  TERMINAL_HUD: "terminal:hud",
   TERMINAL_CLEAR: "terminal:clear",
   CONFIG_GET: "config:get",
   CONFIG_OPEN: "config:open",
@@ -18,6 +19,7 @@ export const IpcChannels = {
   THEME_LIST: "theme:list",
   THEME_SET: "theme:set",
   THEME_CHANGED: "theme:changed",
+  DEVTOOLS_TOGGLE: "devtools:toggle",
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
