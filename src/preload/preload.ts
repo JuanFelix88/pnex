@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IpcChannels } from "../shared/ipc-channels";
-import { PnexConfig } from "../shared/types";
+import { PnexConfig, TerminalContext } from "../shared/types";
 import { PnexTheme } from "../shared/types";
 
 export type AppMenuAction =
@@ -38,13 +38,13 @@ const api = {
   },
 
   /** Request AI command (Ctrl+I) */
-  aiCommand: (prompt: string): Promise<string> => {
-    return ipcRenderer.invoke(IpcChannels.AI_COMMAND, prompt);
+  aiCommand: (prompt: string, context?: TerminalContext): Promise<string> => {
+    return ipcRenderer.invoke(IpcChannels.AI_COMMAND, prompt, context);
   },
 
   /** Request AI chat (Ctrl+Shift+I) */
-  aiChat: (prompt: string): Promise<string> => {
-    return ipcRenderer.invoke(IpcChannels.AI_CHAT, prompt);
+  aiChat: (prompt: string, context?: TerminalContext): Promise<string> => {
+    return ipcRenderer.invoke(IpcChannels.AI_CHAT, prompt, context);
   },
 
   /** List available builtin themes */

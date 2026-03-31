@@ -1,4 +1,4 @@
-import { AiConfig } from "../../shared/types";
+import { AiConfig, TerminalContext } from "../../shared/types";
 import { getClient } from "./openai-client";
 import { normalizeAiError, validateAiConfig } from "./ai-error";
 
@@ -30,6 +30,32 @@ interface ChatMessage {
 /** Conversation history for multi-turn chat */
 let conversationHistory: ChatMessage[] = [];
 
+function buildUserPrompt(
+  prompt: string,
+  context?: TerminalContext,
+  localFiles?: string[],
+): string {
+  const parts: string[] = [];
+
+  if (context?.cwd) {
+    parts.push(`[Current Directory]\n${context.cwd}`);
+  }
+
+  if (localFiles && localFiles.length > 0) {
+    parts.push(`[Local Files]\n${localFiles.join("\n")}`);
+  }
+
+  if (context?.bufferLines && context.bufferLines.length > 0) {
+    parts.push(
+      `[Terminal Buffer (last ${context.bufferLines.length} lines)]\n${context.bufferLines.join("\n")}`,
+    );
+  }
+
+  parts.push(`[User Request]\n${prompt}`);
+
+  return parts.join("\n\n");
+}
+
 /**
  * Send a chat message and get an informational response.
  * Maintains conversation history for context.
@@ -38,14 +64,17 @@ export async function executeChatAgent(
   prompt: string,
   config: AiConfig,
   shell?: string,
+  context?: TerminalContext,
+  localFiles?: string[],
 ): Promise<string> {
   try {
     validateAiConfig(config);
     const client = getClient(config);
     const systemPrompt = buildSystemPrompt(shell);
+    const userContent = buildUserPrompt(prompt, context, localFiles);
     const userMessage: ChatMessage = {
       role: "user",
-      content: prompt,
+      content: userContent,
     };
 
     const messages: ChatMessage[] = [

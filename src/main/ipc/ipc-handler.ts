@@ -1,6 +1,8 @@
 import { BrowserWindow, ipcMain, shell } from "electron";
+import { readdirSync } from "fs";
 import { IpcChannels } from "../../shared/ipc-channels";
 import { ShellManager } from "../../lib/terminal";
+import { TerminalContext } from "../../shared/types";
 import {
   loadConfig,
   saveConfig,
@@ -72,16 +74,44 @@ function registerConfigHandlers(): void {
   });
 }
 
-function registerAiHandlers(): void {
-  ipcMain.handle(IpcChannels.AI_COMMAND, async (_event, prompt: string) => {
-    const config = loadConfig();
-    return executeCommandAgent(prompt, config.ai, config.shell);
-  });
+function getLocalFiles(cwd: string): string[] {
+  try {
+    return readdirSync(cwd);
+  } catch {
+    return [];
+  }
+}
 
-  ipcMain.handle(IpcChannels.AI_CHAT, async (_event, prompt: string) => {
-    const config = loadConfig();
-    return executeChatAgent(prompt, config.ai, config.shell);
-  });
+function registerAiHandlers(): void {
+  ipcMain.handle(
+    IpcChannels.AI_COMMAND,
+    async (_event, prompt: string, context?: TerminalContext) => {
+      const config = loadConfig();
+      const localFiles = context?.cwd ? getLocalFiles(context.cwd) : [];
+      return executeCommandAgent(
+        prompt,
+        config.ai,
+        config.shell,
+        context,
+        localFiles,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.AI_CHAT,
+    async (_event, prompt: string, context?: TerminalContext) => {
+      const config = loadConfig();
+      const localFiles = context?.cwd ? getLocalFiles(context.cwd) : [];
+      return executeChatAgent(
+        prompt,
+        config.ai,
+        config.shell,
+        context,
+        localFiles,
+      );
+    },
+  );
 }
 
 function registerAppHandlers(): void {

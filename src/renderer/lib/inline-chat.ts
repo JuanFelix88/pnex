@@ -1,4 +1,6 @@
 import { Terminal } from "@xterm/xterm";
+import { getCurrentCwd } from "./agent-stream";
+import { TerminalContext } from "../../shared/types";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -21,6 +23,7 @@ interface ChatPosition {
 
 const CHAT_OFFSET_Y = 5;
 const CHAT_EDGE_PADDING = 16;
+const TERMINAL_BUFFER_MAX_LINES = 50;
 
 /**
  * Set up the inline chat overlay and keyboard shortcuts.
@@ -149,6 +152,32 @@ function closeChat(elements: ChatElements, terminal: Terminal): void {
   terminal.focus();
 }
 
+function captureTerminalBuffer(
+  terminal: Terminal,
+  maxLines = TERMINAL_BUFFER_MAX_LINES,
+): string[] {
+  const buffer = terminal.buffer.active;
+  const totalRows = buffer.length;
+  const start = Math.max(0, totalRows - maxLines);
+  const lines: string[] = [];
+
+  for (let i = start; i < totalRows; i++) {
+    const line = buffer.getLine(i);
+    if (line) {
+      lines.push(line.translateToString(true));
+    }
+  }
+
+  return lines;
+}
+
+function buildTerminalContext(terminal: Terminal): TerminalContext {
+  return {
+    cwd: getCurrentCwd(),
+    bufferLines: captureTerminalBuffer(terminal),
+  };
+}
+
 async function submitChat(
   elements: ChatElements,
   terminal: Terminal,
@@ -162,12 +191,14 @@ async function submitChat(
   elements.response.style.display = "block";
 
   try {
+    const context = buildTerminalContext(terminal);
+
     if (mode === "command") {
-      const command = await pnex.aiCommand(prompt);
+      const command = await pnex.aiCommand(prompt, context);
       closeChat(elements, terminal);
       pnex.sendTerminalInput(command + "\n");
     } else {
-      const reply = await pnex.aiChat(prompt);
+      const reply = await pnex.aiChat(prompt, context);
       elements.response.textContent = reply;
     }
   } catch (err) {

@@ -1,4 +1,4 @@
-import { AiConfig } from "../../shared/types";
+import { AiConfig, TerminalContext } from "../../shared/types";
 import { getClient } from "./openai-client";
 import { normalizeAiError, validateAiConfig } from "./ai-error";
 
@@ -23,6 +23,32 @@ function buildSystemPrompt(shell?: string): string {
 - If you cannot determine a command, respond with: echo "Unable to determine command"`;
 }
 
+function buildUserPrompt(
+  prompt: string,
+  context?: TerminalContext,
+  localFiles?: string[],
+): string {
+  const parts: string[] = [];
+
+  if (context?.cwd) {
+    parts.push(`[Current Directory]\n${context.cwd}`);
+  }
+
+  if (localFiles && localFiles.length > 0) {
+    parts.push(`[Local Files]\n${localFiles.join("\n")}`);
+  }
+
+  if (context?.bufferLines && context.bufferLines.length > 0) {
+    parts.push(
+      `[Terminal Buffer (last ${context.bufferLines.length} lines)]\n${context.bufferLines.join("\n")}`,
+    );
+  }
+
+  parts.push(`[User Request]\n${prompt}`);
+
+  return parts.join("\n\n");
+}
+
 /**
  * Generate a terminal command from a natural language prompt.
  * @returns The raw command string to execute
@@ -31,17 +57,20 @@ export async function executeCommandAgent(
   prompt: string,
   config: AiConfig,
   shell?: string,
+  context?: TerminalContext,
+  localFiles?: string[],
 ): Promise<string> {
   try {
     validateAiConfig(config);
     const client = getClient(config);
     const systemPrompt = buildSystemPrompt(shell);
+    const userPrompt = buildUserPrompt(prompt, context, localFiles);
 
     const response = await client.chat.completions.create({
       model: config.model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
+        { role: "user", content: userPrompt },
       ],
       temperature: 0.1,
       max_tokens: 500,
