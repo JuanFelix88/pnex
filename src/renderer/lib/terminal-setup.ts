@@ -29,11 +29,13 @@ export function initTerminal(
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(webLinksAddon);
   terminal.open(container);
-  fitAddon.fit();
 
   connectToPty(terminal, fitAddon);
   observeResize(container, fitAddon);
   enablePaste(terminal);
+
+  // Fit after resize handlers are attached so the initial size is sent to the PTY.
+  fitAddon.fit();
 
   return { terminal, fitAddon };
 }
