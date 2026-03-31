@@ -6,12 +6,21 @@ type ChatMode = "command" | "chat";
 
 interface ChatElements {
   overlay: HTMLElement;
+  box: HTMLElement;
   input: HTMLInputElement;
   response: HTMLElement;
   modeLabel: HTMLElement;
   closeBtn: HTMLElement;
   sendBtn: HTMLElement;
 }
+
+interface ChatPosition {
+  left: number;
+  top: number;
+}
+
+const CHAT_OFFSET_Y = 5;
+const CHAT_EDGE_PADDING = 16;
 
 /**
  * Set up the inline chat overlay and keyboard shortcuts.
@@ -31,18 +40,28 @@ export function initInlineChat(terminal: Terminal): void {
 
 function getElements(): ChatElements | null {
   const overlay = document.getElementById("chat-overlay");
+  const box = document.getElementById("chat-box");
   const input = document.getElementById("chat-input");
   const response = document.getElementById("chat-response");
   const modeLabel = document.getElementById("chat-mode-label");
   const closeBtn = document.getElementById("chat-close");
   const sendBtn = document.getElementById("chat-send");
 
-  if (!overlay || !input || !response || !modeLabel || !closeBtn || !sendBtn) {
+  if (
+    !overlay ||
+    !box ||
+    !input ||
+    !response ||
+    !modeLabel ||
+    !closeBtn ||
+    !sendBtn
+  ) {
     return null;
   }
 
   return {
     overlay,
+    box,
     input: input as HTMLInputElement,
     response,
     modeLabel,
@@ -64,14 +83,14 @@ function interceptTerminalKeys(
     if (key === "i" && e.ctrlKey && e.shiftKey) {
       e.preventDefault();
       setMode("chat");
-      openChat(elements, "chat");
+      openChat(elements, terminal, "chat");
       return false;
     }
 
     if (key === "i" && e.ctrlKey && !e.shiftKey) {
       e.preventDefault();
       setMode("command");
-      openChat(elements, "command");
+      openChat(elements, terminal, "command");
       return false;
     }
 
@@ -106,15 +125,20 @@ function registerChatActions(
   });
 }
 
-function openChat(elements: ChatElements, mode: ChatMode): void {
+function openChat(
+  elements: ChatElements,
+  terminal: Terminal,
+  mode: ChatMode,
+): void {
   elements.modeLabel.textContent =
     mode === "command" ? "AI Command" : "AI Chat";
   elements.input.placeholder =
     mode === "command" ? "Ask about commands" : "Ask anything...";
   elements.response.style.display = "none";
   elements.response.textContent = "";
-  elements.overlay.style.display = "flex";
+  elements.overlay.style.display = "block";
   elements.input.value = "";
+  positionChatOverlay(elements, terminal);
   elements.input.focus();
 }
 
@@ -153,4 +177,77 @@ async function submitChat(
     elements.input.disabled = false;
     elements.input.focus();
   }
+}
+
+function positionChatOverlay(elements: ChatElements, terminal: Terminal): void {
+  const box = elements.box;
+  const previousVisibility = box.style.visibility;
+
+  box.style.visibility = "hidden";
+  box.style.left = `${CHAT_EDGE_PADDING}px`;
+  box.style.top = `${CHAT_EDGE_PADDING}px`;
+
+  const anchor =
+    getCursorAnchorPosition(terminal) ?? getTerminalFallbackPosition(terminal);
+  const boxRect = box.getBoundingClientRect();
+  const maxLeft = Math.max(
+    CHAT_EDGE_PADDING,
+    window.innerWidth - boxRect.width - CHAT_EDGE_PADDING,
+  );
+  const maxTop = Math.max(
+    CHAT_EDGE_PADDING,
+    window.innerHeight - boxRect.height - CHAT_EDGE_PADDING,
+  );
+
+  const preferredTop = anchor.top + CHAT_OFFSET_Y;
+  const opensAbove = preferredTop > maxTop;
+  const top = opensAbove
+    ? Math.max(CHAT_EDGE_PADDING, anchor.top - boxRect.height - CHAT_OFFSET_Y)
+    : Math.min(preferredTop, maxTop);
+  const left = clamp(anchor.left, CHAT_EDGE_PADDING, maxLeft);
+
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.visibility = previousVisibility;
+}
+
+function getCursorAnchorPosition(terminal: Terminal): ChatPosition | null {
+  const terminalElement = terminal.element;
+  if (!terminalElement) return null;
+
+  const cursorElement = terminalElement.querySelector(".xterm-cursor");
+  if (!(cursorElement instanceof HTMLElement)) {
+    return null;
+  }
+
+  const cursorRect = cursorElement.getBoundingClientRect();
+  if (cursorRect.width === 0 && cursorRect.height === 0) {
+    return null;
+  }
+
+  return {
+    left: cursorRect.left,
+    top: cursorRect.bottom,
+  };
+}
+
+function getTerminalFallbackPosition(terminal: Terminal): ChatPosition {
+  const terminalElement = terminal.element;
+  const rect = terminalElement?.getBoundingClientRect();
+
+  if (!rect) {
+    return {
+      left: CHAT_EDGE_PADDING,
+      top: CHAT_EDGE_PADDING,
+    };
+  }
+
+  return {
+    left: rect.left + CHAT_EDGE_PADDING,
+    top: rect.bottom - 80,
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
