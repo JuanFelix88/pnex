@@ -140,6 +140,18 @@ function registerChatActions(
   });
 }
 
+function applyTerminalFont(elements: ChatElements, terminal: Terminal): void {
+  const fontFamily =
+    (terminal.options.fontFamily as string | undefined) || "monospace";
+  let fontSize = (terminal.options.fontSize as number | undefined) || 14;
+
+  fontSize -= 1;
+  elements.input.style.fontFamily = fontFamily;
+  elements.input.style.fontSize = `${fontSize}px`;
+  elements.response.style.fontFamily = fontFamily;
+  elements.response.style.fontSize = `${fontSize}px`;
+}
+
 function openChat(
   elements: ChatElements,
   terminal: Terminal,
@@ -155,6 +167,7 @@ function openChat(
   elements.response.textContent = "";
   elements.overlay.style.display = "block";
   elements.input.value = "";
+  applyTerminalFont(elements, terminal);
   positionChatOverlay(elements, terminal);
   overlayFollowLoop.start();
   elements.input.focus();

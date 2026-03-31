@@ -61,12 +61,12 @@
   <div id="chat-overlay" class="fixed inset-0 z-50 pointer-events-none" style="display: none;">
     <div id="chat-box" class="rounded-md border overflow-hidden pointer-events-auto"
       style="background: #252526; border-color: #3c3c3c; position: fixed; min-width: 320px; max-width: min(560px, calc(100vw - 32px));">
-      <div id="chat-response" class="px-3 py-2 text-sm font-mono whitespace-pre-wrap max-h-40 overflow-y-auto"
+      <div id="chat-response" class="px-2 py-1 whitespace-pre-wrap max-h-40 overflow-y-auto"
         style="display: none; color: #cccccc;"></div>
-      <div class="flex items-center px-3 py-1">
+      <div class="flex items-center px-2 py-0.5">
         <span id="chat-mode-label" class="text-xs uppercase tracking-wide mr-2 shrink-0" style="color: #569cd6;">AI
           Command</span>
-        <input id="chat-input" type="text" class="flex-1 bg-transparent outline-none text-sm font-mono"
+        <input id="chat-input" type="text" class="flex-1 bg-transparent outline-none"
           placeholder="Ask about commands" autocomplete="off" spellcheck="false" style="color: #cccccc;" />
         <button id="chat-close" class="ml-2 opacity-50 hover:opacity-100 text-xs cursor-pointer"
           style="color: #cccccc;">Esc</button>
