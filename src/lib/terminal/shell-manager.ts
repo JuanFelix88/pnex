@@ -1,5 +1,5 @@
 import * as os from "os";
-import * as pty from "node-pty";
+import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 
 /**
  * Manages a pseudo-terminal process via node-pty.

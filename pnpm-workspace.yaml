@@ -1,0 +1,3 @@
+onlyBuiltDependencies:
+  - "@homebridge/node-pty-prebuilt-multiarch"
+  - "electron"
