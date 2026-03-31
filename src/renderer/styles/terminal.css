@@ -35,6 +35,11 @@
   color: var(--pnex-titlebar-icon-fg);
 }
 
+#titlebar-icon {
+  color: var(--pnex-titlebar-icon-fg);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pnex-titlebar-bg) 70%, transparent);
+}
+
 .window-control {
   width: 46px;
   display: inline-flex;

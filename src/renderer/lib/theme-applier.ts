@@ -27,7 +27,6 @@ function applyTitlebarTheme(theme: PnexTheme): void {
   }
 
   if (titlebarIcon) {
-    titlebarIcon.style.backgroundColor = theme.blue;
     titlebarIcon.style.color = theme.brightWhite;
   }
 

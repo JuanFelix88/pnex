@@ -23,6 +23,11 @@ const filesToCopy = [
     dest: path.join(distDir, "assets", "icon.png"),
     label: "assets/icon.png",
   },
+  {
+    src: path.join(__dirname, "..", "assets", "p.svg"),
+    dest: path.join(distDir, "assets", "p.svg"),
+    label: "assets/p.svg",
+  },
 ];
 
 for (const file of filesToCopy) {
