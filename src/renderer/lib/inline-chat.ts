@@ -22,9 +22,10 @@ interface ChatElements {
 interface ChatPosition {
   left: number;
   top: number;
+  bottom?: number;
 }
 
-const CHAT_OFFSET_Y = 5;
+const CHAT_OFFSET_Y = 0;
 const CHAT_EDGE_PADDING = 16;
 const TERMINAL_BUFFER_MAX_LINES = 50;
 
@@ -146,10 +147,10 @@ function openChat(
   overlayFollowLoop: FrameLoop,
 ): void {
   elements.box.classList.add("pnex-hud-fade");
-  elements.modeLabel.textContent =
-    mode === "command" ? "AI Command" : "AI Chat";
+  elements.modeLabel.textContent = mode === "command" ? "" : "AI Chat";
+  elements.modeLabel.style.display = mode === "command" ? "none" : "inline";
   elements.input.placeholder =
-    mode === "command" ? "Ask about commands" : "Ask anything...";
+    mode === "command" ? "Ai command..." : "Ask anything...";
   elements.response.style.display = "none";
   elements.response.textContent = "";
   elements.overlay.style.display = "block";
@@ -258,12 +259,11 @@ function positionChatOverlay(elements: ChatElements, terminal: Terminal): void {
     window.innerHeight - boxRect.height - CHAT_EDGE_PADDING,
   );
 
-  const preferredTop = anchor.top + CHAT_OFFSET_Y;
-  const opensAbove = preferredTop > maxTop;
-  const top = opensAbove
-    ? Math.max(CHAT_EDGE_PADDING, anchor.top - boxRect.height - CHAT_OFFSET_Y)
-    : Math.min(preferredTop, maxTop);
-  const left = clamp(anchor.left, CHAT_EDGE_PADDING, maxLeft);
+  let top = clamp(anchor.top - CHAT_OFFSET_Y, CHAT_EDGE_PADDING, maxTop);
+  let left = clamp(anchor.left, CHAT_EDGE_PADDING, maxLeft);
+
+  top -= 2;
+  left -= 1;
 
   box.style.left = `${left}px`;
   box.style.top = `${top}px`;
@@ -287,7 +287,8 @@ function getCursorAnchorPosition(terminal: Terminal): ChatPosition | null {
 
   return {
     left: cursorRect.left,
-    top: cursorRect.bottom,
+    top: cursorRect.top,
+    bottom: cursorRect.bottom,
   };
 }
 
