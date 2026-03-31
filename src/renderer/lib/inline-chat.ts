@@ -2,6 +2,7 @@ import { Terminal } from "@xterm/xterm";
 import { getCurrentCwd } from "./agent-stream";
 import { isCursorVisibleInContainer } from "./cursor-visibility";
 import { createFrameLoop, FrameLoop } from "./frame-loop";
+import { isCommandRunning } from "./terminal-command-state";
 import { TerminalContext } from "../../shared/types";
 
 declare const pnex: import("../../preload/preload").PnexApi;
@@ -236,7 +237,9 @@ function positionChatOverlay(elements: ChatElements, terminal: Terminal): void {
   let isCursorVisible = true;
 
   if (terminalContainer instanceof HTMLElement) {
-    isCursorVisible = isCursorVisibleInContainer(terminal, terminalContainer);
+    isCursorVisible =
+      !isCommandRunning() &&
+      isCursorVisibleInContainer(terminal, terminalContainer);
   }
 
   box.style.visibility = "hidden";

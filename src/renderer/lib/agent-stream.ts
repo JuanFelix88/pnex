@@ -4,6 +4,7 @@ import {
   getCursorElement,
   isCursorVisibleInContainer,
 } from "./cursor-visibility";
+import { isCommandRunning, markPromptReady } from "./terminal-command-state";
 
 const PNEX_OSC_CWD = 9001;
 
@@ -33,6 +34,7 @@ export function registerAgentHandlers(
   });
 
   terminal.parser.registerOscHandler(PNEX_OSC_CWD, (data) => {
+    markPromptReady();
     _currentCwd = data;
     renderBadge(data);
     return true;
@@ -69,7 +71,8 @@ function positionBadgeAboveCursor(): void {
   const cellHeight = getCellHeight(_terminal);
   const containerRect = _container.getBoundingClientRect();
   const cursorElement = getCursorElement(_terminal);
-  const isCursorVisible = isCursorVisibleInContainer(_terminal, _container);
+  const isCursorVisible =
+    !isCommandRunning() && isCursorVisibleInContainer(_terminal, _container);
 
   _badge.classList.toggle("pnex-hud-hidden", !isCursorVisible);
 

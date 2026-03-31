@@ -4,6 +4,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { PnexConfig } from "../../shared/types";
 import { toXtermTheme } from "./theme-applier";
 import { registerAgentHandlers } from "./agent-stream";
+import { markCommandRunning } from "./terminal-command-state";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -48,12 +49,20 @@ function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
   });
 
   terminal.onData((data: string) => {
+    if (containsCommandSubmission(data)) {
+      markCommandRunning();
+    }
+
     pnex.sendTerminalInput(data);
   });
 
   terminal.onResize(({ cols, rows }) => {
     pnex.sendTerminalResize(cols, rows);
   });
+}
+
+function containsCommandSubmission(data: string): boolean {
+  return data.includes("\r") || data.includes("\n");
 }
 
 function observeResize(container: HTMLElement, fitAddon: FitAddon): void {
