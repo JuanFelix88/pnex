@@ -1,0 +1,8 @@
+{
+  "symbols.folders.associations": {
+    "ui-themes": "folder-interfaces",
+    "renderer": "folder-orange",
+    "main": "folder-blue",
+    "preload": "folder-pink-outline"
+  }
+}
