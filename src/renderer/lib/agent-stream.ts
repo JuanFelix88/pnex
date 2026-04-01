@@ -1,21 +1,19 @@
-import { Terminal } from "@xterm/xterm";
-import { createFrameLoop, FrameLoop } from "./frame-loop";
+import { IDecoration, IMarker, Terminal } from "@xterm/xterm";
 import {
-  getCursorElement,
-  isCursorVisibleInContainer,
-} from "./cursor-visibility";
+  PromptHudStatus,
+  ThemeCommandBase,
+  ThemeContext,
+} from "../ui-themes/theme-command-base";
+import { defaultUiThemeName, findUiThemeByName } from "../ui-themes";
 import {
-  isCommandRunning,
   markPromptReady,
   onCommandStateChange,
 } from "./terminal-command-state";
-import { findUiThemeByName, defaultUiThemeName } from "../ui-themes";
-import { ThemeContext } from "../ui-themes/theme-base";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
-const PNEX_OSC_CWD = 9001;
-const PNEX_OSC_COMMAND_EXIT_CODE = 9002;
+const PNEX_STREAM_CWD = "__PNEX_CWD__";
+const PNEX_STREAM_EXIT = "__PNEX_EXIT__";
 
 class StaleUiThemeRenderError extends Error {
   public constructor() {
@@ -23,16 +21,37 @@ class StaleUiThemeRenderError extends Error {
   }
 }
 
-let _currentCwd = "";
-let _badge: HTMLElement | null = null;
-let _terminal: Terminal | null = null;
-let _container: HTMLElement | null = null;
-let _badgeFollowLoop: FrameLoop | null = null;
-let _activeUiThemeName = defaultUiThemeName;
-let _uiThemeRenderId = 0;
+interface PromptHudEntry {
+  id: number;
+  cwd: string;
+  status: PromptHudStatus;
+  marker: IMarker;
+  decoration: IDecoration;
+  frameElement: HTMLElement;
+  contentElement: HTMLElement;
+  hostElement: HTMLElement | null;
+  theme: ThemeCommandBase | null;
+  renderVersion: number;
+  isDisposed: boolean;
+}
 
+let _currentCwd = "";
+let _terminal: Terminal | null = null;
+let _activeUiThemeName = defaultUiThemeName;
+let _pendingExitCode = 0;
+let _pendingPromptCwd: string | null = null;
+let _nextPromptHudId = 1;
+let _activePromptHudId: number | null = null;
+let _debugOverlay: HTMLElement | null = null;
+
+const _promptHudHistory = new Map<number, PromptHudEntry>();
+const _promptHudOrder: number[] = [];
 export function getCurrentCwd(): string {
   return _currentCwd;
+}
+
+export function resetCommandHudHistory(): void {
+  clearPromptHudHistory();
 }
 
 export function registerAgentHandlers(
@@ -41,118 +60,248 @@ export function registerAgentHandlers(
   initialUiThemeName?: string,
 ): void {
   _terminal = terminal;
-  _container = container;
   _activeUiThemeName = initialUiThemeName || defaultUiThemeName;
-  _badge = createBadge(container);
-  _badgeFollowLoop = createFrameLoop(() => {
-    if (_badge?.style.display === "none") {
-      return;
-    }
+  _debugOverlay = getOrCreateDebugOverlay(container);
 
-    positionBadgeAboveCursor();
-  });
-
-  terminal.parser.registerOscHandler(PNEX_OSC_CWD, (data) => {
-    markPromptReady();
-    _currentCwd = data;
-    void renderHud();
-    return true;
-  });
-
-  terminal.parser.registerOscHandler(PNEX_OSC_COMMAND_EXIT_CODE, (data) => {
-    void data;
-    requestAnimationFrame(() => {
-      positionBadgeAboveCursor();
-    });
-    return true;
+  terminal.onWriteParsed(() => {
+    updateDebugOverlay("onWriteParsed disparou");
+    flushPendingPromptHud();
   });
 
   pnex.onUiThemeChanged((themeName) => {
     _activeUiThemeName = themeName || defaultUiThemeName;
-    void renderHud();
+    rerenderAllPromptHuds();
   });
 
-  onCommandStateChange(() => {
-    requestAnimationFrame(() => {
-      positionBadgeAboveCursor();
-    });
-  });
-}
-
-function createBadge(container: HTMLElement): HTMLElement {
-  const el = document.createElement("div");
-  el.id = "pnex-ui-theme-hud";
-  el.className = "pnex-ui-theme-hud pnex-hud-fade";
-  el.style.display = "none";
-  container.appendChild(el);
-  return el;
-}
-
-async function renderHud(): Promise<void> {
-  if (!_badge || !_terminal || !_container || !_badgeFollowLoop) return;
-  if (!_currentCwd) {
-    _badge.replaceChildren();
-    _badge.style.display = "none";
-    return;
-  }
-
-  const renderId = ++_uiThemeRenderId;
-  const themeCtor = findUiThemeByName(_activeUiThemeName);
-  const context = createThemeContext(_badge, _currentCwd, renderId);
-  const theme = new themeCtor(context);
-
-  _badge.dataset.uiTheme = theme.name;
-  _badge.style.display = "flex";
-  _badgeFollowLoop.start();
-
-  try {
-    context.clearUi();
-    await Promise.resolve(theme.render(context));
-  } catch (error) {
-    if (!(error instanceof StaleUiThemeRenderError)) {
-      console.error("Failed to render UI theme", error);
+  onCommandStateChange((isRunning) => {
+    if (isRunning) {
+      markActivePromptHudRunning();
     }
+  });
+}
+
+function createPromptHud(cwd: string): void {
+  if (!_terminal) {
     return;
   }
 
-  if (renderId !== _uiThemeRenderId) {
+  const marker = _terminal.registerMarker(0);
+  updateDebugOverlay(`marker criado: line=${marker.line}`);
+  const decoration = _terminal.registerDecoration({
+    marker,
+    x: 0,
+    width: 1,
+    height: 1,
+  });
+
+  if (!decoration) {
+    updateDebugOverlay("registerDecoration retornou undefined");
     return;
   }
+
+  updateDebugOverlay(`decoration criada para cwd: ${cwd}`);
+
+  const entry: PromptHudEntry = {
+    id: _nextPromptHudId++,
+    cwd,
+    status: "ready",
+    marker,
+    decoration,
+    frameElement: createHudFrameElement(),
+    contentElement: createHudContentElement(),
+    hostElement: null,
+    theme: null,
+    renderVersion: 0,
+    isDisposed: false,
+  };
+
+  entry.frameElement.appendChild(entry.contentElement);
+  bindDecoration(entry);
+
+  _promptHudHistory.set(entry.id, entry);
+  _promptHudOrder.push(entry.id);
+  _activePromptHudId = entry.id;
+
+  decoration.onDispose(() => {
+    disposePromptHudEntry(entry.id, false);
+  });
+
+  marker.onDispose(() => {
+    disposePromptHudEntry(entry.id, false);
+  });
+
+  createOrRefreshTheme(entry, true);
 
   requestAnimationFrame(() => {
-    positionBadgeAboveCursor();
+    _terminal?.refresh(0, _terminal.rows - 1);
   });
 }
 
-function createThemeContext(
-  elementContainer: HTMLElement,
-  directoryPath: string,
-  renderId: number,
-): ThemeContext {
-  const ensureActiveRender = (): void => {
-    if (renderId !== _uiThemeRenderId) {
+function bindDecoration(entry: PromptHudEntry): void {
+  entry.decoration.onRender((element) => {
+    if (entry.isDisposed) {
+      return;
+    }
+
+    updateDebugOverlay(`decoration.onRender disparou: hud=${entry.id}`);
+
+    entry.hostElement = element;
+    element.classList.add("pnex-command-decoration");
+    element.style.overflow = "visible";
+    element.style.width = "0px";
+    element.style.height = "0px";
+    element.style.pointerEvents = "none";
+    element.style.zIndex = "20";
+
+    if (entry.frameElement.parentElement !== element) {
+      element.replaceChildren(entry.frameElement);
+    }
+
+    syncPromptHudDataset(entry);
+  });
+}
+
+function flushPendingPromptHud(): void {
+  if (!_pendingPromptCwd) {
+    return;
+  }
+
+  const cwd = _pendingPromptCwd;
+  _pendingPromptCwd = null;
+  finalizeActivePromptHud(_pendingExitCode);
+  createPromptHud(cwd);
+}
+
+function finalizeActivePromptHud(exitCode: number): void {
+  if (_activePromptHudId === null) {
+    return;
+  }
+
+  const entry = _promptHudHistory.get(_activePromptHudId);
+  if (!entry || entry.isDisposed) {
+    _activePromptHudId = null;
+    return;
+  }
+
+  entry.status = exitCode === 0 ? "success" : "error";
+  renderPromptHud(entry);
+  _activePromptHudId = null;
+}
+
+function markActivePromptHudRunning(): void {
+  if (_activePromptHudId === null) {
+    return;
+  }
+
+  const entry = _promptHudHistory.get(_activePromptHudId);
+  if (!entry || entry.isDisposed || entry.status === "running") {
+    return;
+  }
+
+  entry.status = "running";
+  renderPromptHud(entry);
+}
+
+function rerenderAllPromptHuds(): void {
+  for (const promptHudId of _promptHudOrder) {
+    const entry = _promptHudHistory.get(promptHudId);
+    if (!entry || entry.isDisposed) {
+      continue;
+    }
+
+    createOrRefreshTheme(entry, true);
+  }
+}
+
+function createOrRefreshTheme(
+  entry: PromptHudEntry,
+  runInitialLoad: boolean,
+): void {
+  const ThemeCtor = findUiThemeByName(_activeUiThemeName);
+  const context = createThemeContext(entry);
+  const theme = new ThemeCtor(context);
+  theme.status = entry.status;
+  theme.doRender = () => {
+    renderPromptHudById(entry.id);
+  };
+
+  entry.theme = theme;
+  renderPromptHud(entry);
+
+  if (!runInitialLoad) {
+    return;
+  }
+
+  void Promise.resolve(theme.onInitialLoad()).catch((error) => {
+    if (!(error instanceof StaleUiThemeRenderError)) {
+      console.error("Failed to initialize UI theme", error);
+    }
+  });
+}
+
+function renderPromptHudById(promptHudId: number): void {
+  const entry = _promptHudHistory.get(promptHudId);
+  if (!entry || entry.isDisposed) {
+    return;
+  }
+
+  renderPromptHud(entry);
+}
+
+function renderPromptHud(entry: PromptHudEntry): void {
+  if (!entry.theme || entry.isDisposed) {
+    return;
+  }
+
+  entry.renderVersion += 1;
+  entry.theme.status = entry.status;
+  syncPromptHudDataset(entry);
+
+  try {
+    void Promise.resolve(entry.theme.render(entry.theme.context)).catch(
+      (error) => {
+        if (!(error instanceof StaleUiThemeRenderError)) {
+          console.error("Failed to render command HUD", error);
+        }
+      },
+    );
+  } catch (error) {
+    if (!(error instanceof StaleUiThemeRenderError)) {
+      console.error("Failed to render command HUD", error);
+    }
+  }
+}
+
+function createThemeContext(entry: PromptHudEntry): ThemeContext {
+  const guard = async <T>(promise: Promise<T>): Promise<T> => {
+    const renderVersion = entry.renderVersion;
+    const result = await promise;
+
+    if (entry.isDisposed || renderVersion !== entry.renderVersion) {
+      throw new StaleUiThemeRenderError();
+    }
+
+    return result;
+  };
+
+  const ensureActive = (): void => {
+    if (entry.isDisposed) {
       throw new StaleUiThemeRenderError();
     }
   };
 
-  const guard = async <T>(promise: Promise<T>): Promise<T> => {
-    const result = await promise;
-    ensureActiveRender();
-    return result;
-  };
-
   return {
-    elementContainer,
-    directoryPath,
+    elementContainer: entry.contentElement,
+    directoryPath: entry.cwd,
     clearUi(): void {
-      ensureActiveRender();
-      elementContainer.replaceChildren();
+      ensureActive();
+      entry.contentElement.replaceChildren();
     },
     readFile(filePath: string): Promise<string> {
       return guard(pnex.uiThemeReadFile(filePath));
     },
-    readDir(dirPath: string): Promise<string[]> {
-      return guard(pnex.uiThemeReadDir(dirPath));
+    readDir(directoryPath: string): Promise<string[]> {
+      return guard(pnex.uiThemeReadDir(directoryPath));
     },
     writeFile(filePath: string, content: string): Promise<void> {
       return guard(pnex.uiThemeWriteFile(filePath, content));
@@ -174,60 +323,142 @@ function createThemeContext(
       return guard(pnex.uiThemeIsFile(filePath));
     },
     resolvePath(...segments: string[]): string {
-      ensureActiveRender();
+      ensureActive();
       return pnex.uiThemeResolvePath(...segments);
     },
   };
 }
 
-function positionBadgeAboveCursor(): void {
-  if (!_badge || !_terminal || !_container) return;
+function clearPromptHudHistory(): void {
+  for (const promptHudId of [..._promptHudOrder]) {
+    disposePromptHudEntry(promptHudId, true);
+  }
 
-  const cellHeight = getCellHeight(_terminal);
-  const containerRect = _container.getBoundingClientRect();
-  const cursorElement = getCursorElement(_terminal);
-  const isCursorVisible =
-    !isCommandRunning() && isCursorVisibleInContainer(_terminal, _container);
+  _currentCwd = "";
+  _activePromptHudId = null;
+  _pendingExitCode = 0;
+  _pendingPromptCwd = null;
+}
 
-  _badge.classList.toggle("pnex-hud-hidden", !isCursorVisible);
-
-  if (!(cursorElement instanceof HTMLElement)) {
-    positionBadgeUsingBuffer(cellHeight, containerRect);
+function disposePromptHudEntry(
+  promptHudId: number,
+  disposeDecoration: boolean,
+): void {
+  const entry = _promptHudHistory.get(promptHudId);
+  if (!entry || entry.isDisposed) {
     return;
   }
 
-  const cursorRect = cursorElement.getBoundingClientRect();
-  const badgeRect = _badge.getBoundingClientRect();
-  const left = 8;
-  const top = cursorRect.top - containerRect.top - badgeRect.height;
+  entry.isDisposed = true;
+  entry.hostElement = null;
+  entry.contentElement.replaceChildren();
+  entry.frameElement.remove();
+  _promptHudHistory.delete(promptHudId);
 
-  _badge.style.left = `${left}px`;
-  _badge.style.top = `${Math.max(0, top)}px`;
-}
-
-function positionBadgeUsingBuffer(
-  cellHeight: number,
-  containerRect: DOMRect,
-): void {
-  if (!_badge || !_terminal) return;
-
-  const cursorY = _terminal.buffer.active.cursorY;
-  const termRect = _terminal.element?.getBoundingClientRect();
-  if (!termRect) return;
-
-  const badgeRect = _badge.getBoundingClientRect();
-  const offsetTop = termRect.top - containerRect.top;
-  const top = offsetTop + Math.max(cursorY - 1, 0) * cellHeight;
-  const centeredTop = top + Math.max((cellHeight - badgeRect.height) / 2, 0);
-
-  _badge.style.left = "8px";
-  _badge.style.top = `${centeredTop}px`;
-}
-
-function getCellHeight(terminal: Terminal): number {
-  const core = (terminal as any)._core;
-  if (core?._renderService?.dimensions?.css?.cell?.height) {
-    return core._renderService.dimensions.css.cell.height;
+  const orderIndex = _promptHudOrder.indexOf(promptHudId);
+  if (orderIndex >= 0) {
+    _promptHudOrder.splice(orderIndex, 1);
   }
-  return 17;
+
+  if (_activePromptHudId === promptHudId) {
+    _activePromptHudId = null;
+  }
+
+  if (disposeDecoration) {
+    entry.decoration.dispose();
+    entry.marker.dispose();
+  }
+}
+
+function createHudFrameElement(): HTMLElement {
+  const frame = document.createElement("div");
+  frame.className = "pnex-command-hud-frame";
+  return frame;
+}
+
+function createHudContentElement(): HTMLElement {
+  const content = document.createElement("div");
+  content.className = "pnex-command-hud-content pnex-hud-fade";
+  return content;
+}
+
+function syncPromptHudDataset(entry: PromptHudEntry): void {
+  entry.frameElement.dataset.status = entry.status;
+  entry.contentElement.dataset.status = entry.status;
+
+  if (entry.hostElement) {
+    entry.hostElement.dataset.status = entry.status;
+  }
+}
+
+function parseExitCode(data: string): number {
+  const parsed = Number.parseInt(data, 10);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+export function extractPnexOscPayload(data: string): string {
+  let sanitized = data;
+
+  sanitized = extractPnexToken(sanitized, PNEX_STREAM_EXIT, (payload) => {
+    _pendingExitCode = parseExitCode(payload);
+    updateDebugOverlay(`EXIT recebido: ${payload}`);
+  });
+
+  sanitized = extractPnexToken(sanitized, PNEX_STREAM_CWD, (payload) => {
+    _currentCwd = payload;
+    _pendingPromptCwd = payload;
+    updateDebugOverlay(`CWD recebido: ${payload}`);
+    markPromptReady();
+  });
+
+  return sanitized;
+}
+
+function extractPnexToken(
+  data: string,
+  token: string,
+  onValue: (value: string) => void,
+): string {
+  let sanitized = data;
+  let startIndex = sanitized.indexOf(token);
+
+  while (startIndex >= 0) {
+    const valueStart = startIndex + token.length;
+    const endIndex = sanitized.indexOf(token, valueStart);
+    if (endIndex < 0) {
+      break;
+    }
+
+    const value = sanitized.slice(valueStart, endIndex);
+    onValue(value);
+    sanitized =
+      sanitized.slice(0, startIndex) + sanitized.slice(endIndex + token.length);
+    startIndex = sanitized.indexOf(token);
+  }
+
+  return sanitized;
+}
+
+function getOrCreateDebugOverlay(container: HTMLElement): HTMLElement {
+  const existing = container.querySelector<HTMLElement>(
+    "#pnex-decoration-debug",
+  );
+  if (existing) {
+    return existing;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "pnex-decoration-debug";
+  overlay.className = "pnex-decoration-debug-overlay";
+  overlay.textContent = "debug: aguardando OSC";
+  container.appendChild(overlay);
+  return overlay;
+}
+
+function updateDebugOverlay(message: string): void {
+  if (_debugOverlay) {
+    _debugOverlay.textContent = `debug: ${message}`;
+  }
+
+  console.debug("[pnex decoration debug]", message);
 }

@@ -17,12 +17,21 @@ export interface ThemeContext {
   resolvePath(...segments: string[]): string;
 }
 
+export type PromptHudStatus = "ready" | "running" | "success" | "error";
+
 /**
  * Use this api for render UI theme
  */
-export class ThemeBase {
+export class ThemeCommandBase {
   public name: string = "Base Theme";
+  public status: PromptHudStatus = "ready";
+  public doRender: () => void = () => {};
   public constructor(public context: ThemeContext) {}
 
+  /**
+   * Default rendering
+   */
   public render(ctx: ThemeContext): Promise<void> | void {}
+
+  public async onInitialLoad(): Promise<void> {}
 }

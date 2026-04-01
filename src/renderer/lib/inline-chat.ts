@@ -3,6 +3,7 @@ import { getCurrentCwd } from "./agent-stream";
 import { isCursorVisibleInContainer } from "./cursor-visibility";
 import { createFrameLoop, FrameLoop } from "./frame-loop";
 import { isCommandRunning } from "./terminal-command-state";
+import { markCommandRunning } from "./terminal-command-state";
 import { TerminalContext } from "../../shared/types";
 
 declare const pnex: import("../../preload/preload").PnexApi;
@@ -230,6 +231,7 @@ async function submitChat(
     if (mode === "command") {
       const command = await pnex.aiCommand(prompt, context);
       closeChat(elements, terminal, overlayFollowLoop);
+      markCommandRunning();
       pnex.sendTerminalInput(command + "\n");
     } else {
       const reply = await pnex.aiChat(prompt, context);

@@ -14,6 +14,22 @@
   animation: default-theme-fade-in 0.13s ease-in-out;
 }
 
+.default-theme-hud-dir[data-status="success"] {
+  color: color-mix(in srgb, var(--pnex-theme-yellow) 84%, var(--pnex-hud-ok));
+}
+
+.default-theme-hud-dir[data-status="error"] {
+  color: color-mix(in srgb, var(--pnex-theme-yellow) 78%, var(--pnex-hud-error));
+}
+
+.default-theme-hud-dir[data-status="running"] {
+  color: color-mix(in srgb, var(--pnex-theme-yellow) 88%, white);
+}
+
+.default-theme-status-dot {
+  margin-right: 1px;
+}
+
 .default-theme-dir-icon {
   display: flex;
   color: var(--pnex-theme-blue);
@@ -43,6 +59,14 @@
   animation: default-theme-fade-in 0.22s ease-in-out;
 }
 
+.default-theme-git-status[data-status="success"] {
+  color: color-mix(in srgb, var(--pnex-theme-cyan) 78%, var(--pnex-hud-ok));
+}
+
+.default-theme-git-status[data-status="error"] {
+  color: color-mix(in srgb, var(--pnex-theme-cyan) 78%, var(--pnex-hud-error));
+}
+
 .default-theme-git-status > svg {
   width: calc(var(--pnex-font-size, 14px) - 2px);
   height: calc(var(--pnex-font-size, 14px) - 2px);
@@ -60,6 +84,14 @@
   white-space: nowrap;
   background: transparent;
   animation: default-theme-fade-in 0.22s ease-in-out;
+}
+
+.default-theme-git-actual-user[data-status="success"] {
+  color: color-mix(in srgb, var(--pnex-theme-green) 72%, var(--pnex-hud-ok));
+}
+
+.default-theme-git-actual-user[data-status="error"] {
+  color: color-mix(in srgb, var(--pnex-theme-green) 72%, var(--pnex-hud-error));
 }
 
 .default-theme-skeleton {

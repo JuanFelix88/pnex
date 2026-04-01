@@ -168,6 +168,59 @@
   transition: opacity 160ms ease;
 }
 
+.pnex-command-decoration {
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pnex-decoration-debug-overlay {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 40;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #ff7b72;
+  font-family: var(--pnex-font-family);
+  font-size: 11px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pnex-command-hud-frame {
+  position: absolute;
+  left: 0px;
+  top: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+.pnex-command-hud-content {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pnex-command-hud-frame[data-status="ready"] {
+  opacity: 1;
+}
+
+.pnex-command-hud-frame[data-status="running"] {
+  opacity: 1;
+}
+
+.pnex-command-hud-frame[data-status="success"] {
+  opacity: 0.82;
+}
+
+.pnex-command-hud-frame[data-status="error"] {
+  opacity: 0.92;
+}
+
 .pnex-hud-fade {
   transition: opacity 160ms ease;
 }
