@@ -17,6 +17,7 @@ export interface TerminalContext {
 export interface PnexConfig {
   ai: AiConfig;
   theme: PnexTheme;
+  uiThemeName?: string;
   shell?: string;
   fontSize?: number;
   fontFamily?: string;

@@ -5,6 +5,7 @@ import { initAiHint } from "./lib/ai-hint";
 import { applyTheme, toXtermTheme } from "./lib/theme-applier";
 import type { AppMenuAction } from "../preload/preload";
 import type { PnexTheme } from "../shared/types";
+import { listUiThemes, defaultUiThemeName } from "./ui-themes";
 
 declare const pnex: import("../preload/preload").PnexApi;
 
@@ -44,21 +45,35 @@ function setupTitlebar(): void {
   }
 
   let activeThemeName = "";
+  let activeUiThemeName = defaultUiThemeName;
 
   type MenuItem =
     | { type: "action"; label: string; action: AppMenuAction }
     | { type: "theme"; label: string; themeName: string; checked: boolean }
+    | {
+        type: "ui-theme";
+        label: string;
+        themeName: string;
+        checked: boolean;
+      }
     | { type: "separator" }
     | { type: "label"; label: string };
 
   const getMenuItems = async (menuKey: string): Promise<MenuItem[]> => {
     if (menuKey === "file") {
       const themes = await pnex.listThemes();
+      const uiThemes = listUiThemes();
       const themeItems: MenuItem[] = themes.map((theme) => ({
         type: "theme",
         label: theme.name,
         themeName: theme.name,
         checked: theme.name === activeThemeName,
+      }));
+      const uiThemeItems: MenuItem[] = uiThemes.map((themeName) => ({
+        type: "ui-theme",
+        label: themeName,
+        themeName,
+        checked: themeName === activeUiThemeName,
       }));
 
       return [
@@ -67,6 +82,9 @@ function setupTitlebar(): void {
         { type: "separator" },
         { type: "label", label: "Themes" },
         ...themeItems,
+        { type: "separator" },
+        { type: "label", label: "UI Themes" },
+        ...uiThemeItems,
       ];
     }
 
@@ -144,7 +162,7 @@ function setupTitlebar(): void {
       button.type = "button";
       button.className = "menu-popup-item";
       button.textContent =
-        item.type === "theme"
+        item.type === "theme" || item.type === "ui-theme"
           ? `${item.checked ? "✓ " : "   "}${item.label}`
           : item.label;
       button.addEventListener("click", async () => {
@@ -154,6 +172,14 @@ function setupTitlebar(): void {
           const theme = await pnex.setTheme(item.themeName);
           if (theme) {
             activeThemeName = theme.name;
+          }
+          return;
+        }
+
+        if (item.type === "ui-theme") {
+          const themeName = await pnex.setUiTheme(item.themeName);
+          if (themeName) {
+            activeUiThemeName = themeName;
           }
           return;
         }
@@ -217,10 +243,15 @@ function setupTitlebar(): void {
 
   void pnex.getConfig().then((config) => {
     activeThemeName = config.theme.name;
+    activeUiThemeName = config.uiThemeName || defaultUiThemeName;
   });
 
   pnex.onThemeChanged((theme: PnexTheme) => {
     activeThemeName = theme.name;
+  });
+
+  pnex.onUiThemeChanged((themeName) => {
+    activeUiThemeName = themeName;
   });
 }
 

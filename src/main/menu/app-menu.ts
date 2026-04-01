@@ -7,6 +7,7 @@ import {
   saveConfig,
 } from "../../lib/config";
 import { shell } from "electron";
+import { defaultUiThemeName, listUiThemes } from "../../renderer/ui-themes";
 
 type AppMenuAction = "config" | "new-chat" | "copy" | "paste" | "select-all";
 
@@ -22,16 +23,32 @@ function triggerRendererMenuAction(
  * Includes "Options JSON", "New Chat", and "Themes" actions.
  */
 export function buildAppMenu(win: BrowserWindow): void {
+  const config = loadConfig();
+
   const themeSubmenu: MenuItemConstructorOptions[] = builtinThemes.map(
     (theme) => ({
       label: theme.name,
       type: "radio" as const,
-      checked: loadConfig().theme.name === theme.name,
+      checked: config.theme.name === theme.name,
       click: () => {
         const config = loadConfig();
         config.theme = theme;
         saveConfig(config);
         win.webContents.send(IpcChannels.THEME_CHANGED, theme);
+      },
+    }),
+  );
+
+  const uiThemeSubmenu: MenuItemConstructorOptions[] = listUiThemes().map(
+    (themeName) => ({
+      label: themeName,
+      type: "radio" as const,
+      checked: (config.uiThemeName || defaultUiThemeName) === themeName,
+      click: () => {
+        const config = loadConfig();
+        config.uiThemeName = themeName;
+        saveConfig(config);
+        win.webContents.send(IpcChannels.UI_THEME_CHANGED, themeName);
       },
     }),
   );
@@ -58,6 +75,10 @@ export function buildAppMenu(win: BrowserWindow): void {
         {
           label: "Themes",
           submenu: themeSubmenu,
+        },
+        {
+          label: "UI Themes",
+          submenu: uiThemeSubmenu,
         },
         { type: "separator" },
         { role: "quit" },

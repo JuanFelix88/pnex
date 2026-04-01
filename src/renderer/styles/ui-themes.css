@@ -1,31 +1,94 @@
+/*
+  UI THEME: default-theme
+  =====================================================================
+*/
 .default-theme-hud-dir {
+  display: flex;
   color: var(--pnex-theme-yellow);
+  font-weight: 600;
+  font-family: var(--pnex-font-family);
+  font-size: var(--pnex-font-size, 14px);
+  white-space: nowrap;
+  border-radius: 4px;
+  background: transparent;
+  animation: default-theme-fade-in 0.13s ease-in-out;
+}
+
+.default-theme-dir-icon {
+  display: flex;
+  color: var(--pnex-theme-blue);
+  margin-right: 2px;
   font-weight: 600;
   font-family: var(--pnex-font-family);
   font-size: var(--pnex-font-size, 14px);
 }
 
+.default-theme-dir-icon > svg {
+  width: calc(var(--pnex-font-size, 14px) + 2px);
+  height: calc(var(--pnex-font-size, 14px) + 2px);
+  margin-right: 1px;
+  animation: default-theme-pulse 1.2s ease-in-out infinite;
+}
+
 .default-theme-git-status {
+  color: var(--pnex-theme-cyan);
+  display: inline-flex;
+  align-items: center;
   font-family: var(--pnex-font-family);
   font-size: var(--pnex-font-size, 14px);
-  height: calc(var(--pnex-font-size, 14px) + 8px);
+  height: calc(var(--pnex-font-size, 14px) + 4px);
+  white-space: nowrap;
+  border-radius: 4px;
+  background: transparent;
+  animation: default-theme-fade-in 0.22s ease-in-out;
+}
+
+.default-theme-git-status > svg {
+  width: calc(var(--pnex-font-size, 14px) - 2px);
+  height: calc(var(--pnex-font-size, 14px) - 2px);
+  margin-right: 4px;
 }
 
 .default-theme-git-actual-user {
+  color: var(--pnex-theme-green);
+  display: inline-flex;
+  align-items: center;
   font-family: var(--pnex-font-family);
   font-size: var(--pnex-font-size, 14px);
-  height: calc(var(--pnex-font-size, 14px) + 8px);
+  height: calc(var(--pnex-font-size, 14px) + 4px);
+  border-radius: 4px;
+  white-space: nowrap;
+  background: transparent;
+  animation: default-theme-fade-in 0.22s ease-in-out;
 }
 
 .default-theme-skeleton {
+  background-size: 200% 100%;
+  animation: default-theme-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.default-theme-git-status.default-theme-skeleton {
   background:
     linear-gradient(90deg,
       color-mix(in srgb, var(--pnex-theme-white) 8%, transparent) 25%,
       color-mix(in srgb, var(--pnex-theme-white) 20%, transparent) 50%,
       color-mix(in srgb, var(--pnex-theme-white) 8%, transparent) 75%),
-      color-mix(in srgb, var(--pnex-theme-yellow) 18%, transparent);
+    color-mix(in srgb, var(--pnex-theme-cyan) 40%, transparent);
   background-size: 200% 100%;
   animation: default-theme-skeleton-shimmer 1.2s ease-in-out infinite;
+  opacity: 80%;
+}
+
+.default-theme-git-actual-user.default-theme-skeleton {
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--pnex-theme-white) 8%, transparent) 25%,
+      color-mix(in srgb, var(--pnex-theme-white) 20%, transparent) 50%,
+      color-mix(in srgb, var(--pnex-theme-white) 8%, transparent) 75%),
+    color-mix(in srgb, var(--pnex-theme-green) 40%, transparent);
+  background-size: 200% 100%;
+  animation: default-theme-skeleton-shimmer 1.2s ease-in-out infinite;
+  opacity: 80%;
 }
 
 @keyframes default-theme-skeleton-shimmer {
@@ -37,3 +100,30 @@
     background-position: -200% 0;
   }
 }
+
+@keyframes default-theme-fade-in {
+  from {
+    opacity: 0%;
+    transform: translateY(2%);
+  }
+  to {
+    opacity: 100%;
+    transform: translateY(0%);
+  }
+}
+
+@keyframes default-theme-pulse {
+  0%, 100% {
+    opacity: 100%;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 90%;
+    filter: brightness(1.4);
+  }
+}
+
+/*
+  END THEME
+  =====================================================================
+*/

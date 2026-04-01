@@ -11,6 +11,10 @@ export interface ThemeContext {
     options?: { cwd?: string },
   ): Promise<string>;
   isFile(filePath: string): Promise<boolean>;
+  /**
+   * Equivalent for path.resolve
+   */
+  resolvePath(...segments: string[]): string;
 }
 
 /**
@@ -20,5 +24,5 @@ export class ThemeBase {
   public name: string = "Base Theme";
   public constructor(public context: ThemeContext) {}
 
-  public render(ctx: ThemeContext) {}
+  public render(ctx: ThemeContext): Promise<void> | void {}
 }

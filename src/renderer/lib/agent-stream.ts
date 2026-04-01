@@ -9,19 +9,18 @@ import {
   markPromptReady,
   onCommandStateChange,
 } from "./terminal-command-state";
+import { findUiThemeByName, defaultUiThemeName } from "../ui-themes";
+import { ThemeContext } from "../ui-themes/theme-base";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
 const PNEX_OSC_CWD = 9001;
 const PNEX_OSC_COMMAND_EXIT_CODE = 9002;
 
-interface HudState {
-  cwd: string;
-  gitBranch: string;
-  pendingCommits: string;
-  lastExitCode: string;
-  isGitBranchLoading: boolean;
-  isPendingCommitsLoading: boolean;
+class StaleUiThemeRenderError extends Error {
+  public constructor() {
+    super("Stale UI theme render");
+  }
 }
 
 let _currentCwd = "";
@@ -29,15 +28,8 @@ let _badge: HTMLElement | null = null;
 let _terminal: Terminal | null = null;
 let _container: HTMLElement | null = null;
 let _badgeFollowLoop: FrameLoop | null = null;
-let _hudState: HudState = {
-  cwd: "",
-  gitBranch: "",
-  pendingCommits: "",
-  lastExitCode: "",
-  isGitBranchLoading: false,
-  isPendingCommitsLoading: false,
-};
-let _hudRequestId = 0;
+let _activeUiThemeName = defaultUiThemeName;
+let _uiThemeRenderId = 0;
 
 export function getCurrentCwd(): string {
   return _currentCwd;
@@ -46,12 +38,14 @@ export function getCurrentCwd(): string {
 export function registerAgentHandlers(
   terminal: Terminal,
   container: HTMLElement,
+  initialUiThemeName?: string,
 ): void {
   _terminal = terminal;
   _container = container;
+  _activeUiThemeName = initialUiThemeName || defaultUiThemeName;
   _badge = createBadge(container);
   _badgeFollowLoop = createFrameLoop(() => {
-    if (_badge?.style.display !== "block") {
+    if (_badge?.style.display === "none") {
       return;
     }
 
@@ -61,45 +55,129 @@ export function registerAgentHandlers(
   terminal.parser.registerOscHandler(PNEX_OSC_CWD, (data) => {
     markPromptReady();
     _currentCwd = data;
-    _hudState.cwd = data;
-    renderHud();
-    void refreshHudMetadata(data);
+    void renderHud();
     return true;
   });
 
   terminal.parser.registerOscHandler(PNEX_OSC_COMMAND_EXIT_CODE, (data) => {
-    _hudState.lastExitCode = data;
-    renderHud();
+    void data;
+    requestAnimationFrame(() => {
+      positionBadgeAboveCursor();
+    });
     return true;
   });
 
-  onCommandStateChange((isRunning) => {
-    if (isRunning) {
-      _hudState.lastExitCode = "";
-    }
-    renderHud();
+  pnex.onUiThemeChanged((themeName) => {
+    _activeUiThemeName = themeName || defaultUiThemeName;
+    void renderHud();
+  });
+
+  onCommandStateChange(() => {
+    requestAnimationFrame(() => {
+      positionBadgeAboveCursor();
+    });
   });
 }
 
 function createBadge(container: HTMLElement): HTMLElement {
   const el = document.createElement("div");
-  el.id = "pnex-cwd-badge";
-  el.className = "pnex-cwd-badge";
+  el.id = "pnex-ui-theme-hud";
+  el.className = "pnex-ui-theme-hud pnex-hud-fade";
+  el.style.display = "none";
   container.appendChild(el);
   return el;
 }
 
-function renderHud(): void {
+async function renderHud(): Promise<void> {
   if (!_badge || !_terminal || !_container || !_badgeFollowLoop) return;
+  if (!_currentCwd) {
+    _badge.replaceChildren();
+    _badge.style.display = "none";
+    return;
+  }
 
-  const badgeElements = buildHudBadges(_hudState);
-  _badge.replaceChildren(...badgeElements);
-  _badge.style.display = "block";
+  const renderId = ++_uiThemeRenderId;
+  const themeCtor = findUiThemeByName(_activeUiThemeName);
+  const context = createThemeContext(_badge, _currentCwd, renderId);
+  const theme = new themeCtor(context);
+
+  _badge.dataset.uiTheme = theme.name;
+  _badge.style.display = "flex";
   _badgeFollowLoop.start();
+
+  try {
+    context.clearUi();
+    await Promise.resolve(theme.render(context));
+  } catch (error) {
+    if (!(error instanceof StaleUiThemeRenderError)) {
+      console.error("Failed to render UI theme", error);
+    }
+    return;
+  }
+
+  if (renderId !== _uiThemeRenderId) {
+    return;
+  }
 
   requestAnimationFrame(() => {
     positionBadgeAboveCursor();
   });
+}
+
+function createThemeContext(
+  elementContainer: HTMLElement,
+  directoryPath: string,
+  renderId: number,
+): ThemeContext {
+  const ensureActiveRender = (): void => {
+    if (renderId !== _uiThemeRenderId) {
+      throw new StaleUiThemeRenderError();
+    }
+  };
+
+  const guard = async <T>(promise: Promise<T>): Promise<T> => {
+    const result = await promise;
+    ensureActiveRender();
+    return result;
+  };
+
+  return {
+    elementContainer,
+    directoryPath,
+    clearUi(): void {
+      ensureActiveRender();
+      elementContainer.replaceChildren();
+    },
+    readFile(filePath: string): Promise<string> {
+      return guard(pnex.uiThemeReadFile(filePath));
+    },
+    readDir(dirPath: string): Promise<string[]> {
+      return guard(pnex.uiThemeReadDir(dirPath));
+    },
+    writeFile(filePath: string, content: string): Promise<void> {
+      return guard(pnex.uiThemeWriteFile(filePath, content));
+    },
+    execCommand(
+      command: string,
+      args: string[],
+      options?: { cwd?: string },
+    ): Promise<string> {
+      return guard(
+        pnex.uiThemeExecCommand({
+          command,
+          args,
+          options,
+        }),
+      );
+    },
+    isFile(filePath: string): Promise<boolean> {
+      return guard(pnex.uiThemeIsFile(filePath));
+    },
+    resolvePath(...segments: string[]): string {
+      ensureActiveRender();
+      return pnex.uiThemeResolvePath(...segments);
+    },
+  };
 }
 
 function positionBadgeAboveCursor(): void {
@@ -125,97 +203,6 @@ function positionBadgeAboveCursor(): void {
 
   _badge.style.left = `${left}px`;
   _badge.style.top = `${Math.max(0, top)}px`;
-}
-
-function buildHudBadges(state: HudState): HTMLElement[] {
-  const badges: HTMLElement[] = [createStatusDot(state.lastExitCode)];
-
-  if (state.cwd) {
-    badges.push(createBadgeItem(state.cwd, "cwd"));
-  }
-
-  if (state.isGitBranchLoading) {
-    badges.push(createBadgeItem("", "skeleton"));
-  } else if (state.gitBranch) {
-    badges.push(createBadgeItem(`branch: ${state.gitBranch}`, "git"));
-  }
-
-  if (state.isPendingCommitsLoading) {
-    badges.push(createBadgeItem("", "skeleton skeleton--short"));
-  } else if (state.pendingCommits) {
-    badges.push(createBadgeItem(`pending: ${state.pendingCommits}`, "pending"));
-  }
-
-  return badges;
-}
-
-function getStatusDotModifier(lastExitCode: string): string {
-  if (lastExitCode === "") return "pnex-status-dot--running";
-  return lastExitCode === "0"
-    ? "pnex-status-dot--success"
-    : "pnex-status-dot--error";
-}
-
-function createStatusDot(lastExitCode: string): HTMLElement {
-  const dot = document.createElement("span");
-  dot.className = `pnex-status-dot ${getStatusDotModifier(lastExitCode)}`;
-  return dot;
-}
-
-function createBadgeItem(label: string, variant?: string): HTMLElement {
-  const badge = document.createElement("span");
-  badge.className = "pnex-cwd-badge__content";
-
-  if (variant) {
-    const tokens = variant.split(" ");
-    const [dataVariant] = tokens;
-    badge.dataset.variant = dataVariant;
-
-    tokens.slice(1).forEach((token) => {
-      badge.classList.add(token);
-    });
-  }
-
-  badge.textContent = label;
-  return badge;
-}
-
-async function refreshHudMetadata(cwd: string): Promise<void> {
-  const requestId = ++_hudRequestId;
-
-  _hudState.isGitBranchLoading = true;
-  _hudState.isPendingCommitsLoading = true;
-  _hudState.gitBranch = "";
-  _hudState.pendingCommits = "";
-  renderHud();
-
-  try {
-    const hud = await pnex.getTerminalHud(cwd);
-    if (requestId !== _hudRequestId) {
-      return;
-    }
-
-    _hudState.gitBranch = hud.gitBranch;
-    _hudState.pendingCommits =
-      hud.pendingCommits && hud.pendingCommits !== "0"
-        ? hud.pendingCommits
-        : "";
-  } catch {
-    if (requestId !== _hudRequestId) {
-      return;
-    }
-
-    _hudState.gitBranch = "";
-    _hudState.pendingCommits = "";
-  } finally {
-    if (requestId !== _hudRequestId) {
-      return;
-    }
-
-    _hudState.isGitBranchLoading = false;
-    _hudState.isPendingCommitsLoading = false;
-    renderHud();
-  }
 }
 
 function positionBadgeUsingBuffer(

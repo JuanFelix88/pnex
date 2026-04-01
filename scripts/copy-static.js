@@ -19,6 +19,11 @@ const filesToCopy = [
     label: "styles/terminal.css",
   },
   {
+    src: path.join(srcDir, "styles", "ui-themes.css"),
+    dest: path.join(distDir, "styles", "ui-themes.css"),
+    label: "styles/ui-themes.css",
+  },
+  {
     src: path.join(__dirname, "..", "assets", "icon.png"),
     dest: path.join(distDir, "assets", "icon.png"),
     label: "assets/icon.png",

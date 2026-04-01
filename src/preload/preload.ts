@@ -2,10 +2,25 @@ import { contextBridge, ipcRenderer } from "electron";
 import { IpcChannels } from "../shared/ipc-channels";
 import { PnexConfig, TerminalContext } from "../shared/types";
 import { PnexTheme } from "../shared/types";
+import { UiThemeContextRequest } from "../shared/types";
 
 interface TerminalHudInfo {
   gitBranch: string;
   pendingCommits: string;
+}
+
+interface UiThemeExecCommandPayload {
+  command: string;
+  args: string[];
+  options?: { cwd?: string };
+}
+
+function invokeUiThemeContext<T>(request: UiThemeContextRequest): Promise<T> {
+  return ipcRenderer.invoke(IpcChannels.UI_THEME_CONTEXT, request);
+}
+
+function sendUiThemeContextSync<T>(request: UiThemeContextRequest): T {
+  return ipcRenderer.sendSync(IpcChannels.UI_THEME_CONTEXT_SYNC, request) as T;
 }
 
 export type AppMenuAction =
@@ -72,6 +87,65 @@ const api = {
     ipcRenderer.on(IpcChannels.THEME_CHANGED, (_event, theme) =>
       callback(theme),
     );
+  },
+
+  uiThemeReadFile: (filePath: string): Promise<string> => {
+    return invokeUiThemeContext<string>({
+      type: "readFile",
+      filePath,
+    });
+  },
+
+  uiThemeReadDir: (directoryPath: string): Promise<string[]> => {
+    return invokeUiThemeContext<string[]>({
+      type: "readDir",
+      directoryPath,
+    });
+  },
+
+  uiThemeWriteFile: (filePath: string, content: string): Promise<void> => {
+    return invokeUiThemeContext<void>({
+      type: "writeFile",
+      filePath,
+      content,
+    });
+  },
+
+  uiThemeExecCommand: ({
+    command,
+    args,
+    options,
+  }: UiThemeExecCommandPayload): Promise<string> => {
+    return invokeUiThemeContext<string>({
+      type: "execCommand",
+      command,
+      args,
+      options,
+    });
+  },
+
+  uiThemeIsFile: (filePath: string): Promise<boolean> => {
+    return invokeUiThemeContext<boolean>({
+      type: "isFile",
+      filePath,
+    });
+  },
+
+  uiThemeResolvePath: (...segments: string[]): string => {
+    return sendUiThemeContextSync<string>({
+      type: "resolvePath",
+      segments,
+    });
+  },
+
+  setUiTheme: (themeName: string): Promise<string | null> => {
+    return ipcRenderer.invoke(IpcChannels.UI_THEME_SET, themeName);
+  },
+
+  onUiThemeChanged: (callback: (themeName: string) => void): void => {
+    ipcRenderer.on(IpcChannels.UI_THEME_CHANGED, (_event, themeName) => {
+      callback(themeName);
+    });
   },
 
   /** New chat - clear history */

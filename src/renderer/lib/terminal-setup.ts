@@ -32,7 +32,7 @@ export function initTerminal(
   terminal.loadAddon(webLinksAddon);
   terminal.open(container);
 
-  registerAgentHandlers(terminal, container);
+  registerAgentHandlers(terminal, container, config.uiThemeName);
   connectToPty(terminal, fitAddon);
   observeResize(container, fitAddon);
   enablePaste(terminal);

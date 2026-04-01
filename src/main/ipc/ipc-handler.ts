@@ -1,10 +1,13 @@
 import { BrowserWindow, ipcMain, shell } from "electron";
 import { readdirSync } from "fs";
+import { promises as fs } from "fs";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import path from "path";
 import { IpcChannels } from "../../shared/ipc-channels";
 import { ShellManager } from "../../lib/terminal";
 import { TerminalContext } from "../../shared/types";
+import { UiThemeContextRequest } from "../../shared/types";
 import {
   loadConfig,
   saveConfig,
@@ -19,6 +22,47 @@ import {
 } from "../../lib/ai";
 
 const execFileAsync = promisify(execFile);
+
+function isGitBashStyleWindowsPath(value: string): boolean {
+  return process.platform === "win32" && /^\/[a-zA-Z](?:\/|$)/.test(value);
+}
+
+function normalizeGitBashWindowsPath(value: string): string {
+  if (!isGitBashStyleWindowsPath(value)) {
+    return value;
+  }
+
+  const driveLetter = value[1].toUpperCase();
+  const rest = value.slice(2).replace(/\//g, "\\");
+  return `${driveLetter}:${rest || "\\"}`;
+}
+
+function normalizeUiThemePath(value: string): string {
+  return normalizeGitBashWindowsPath(value);
+}
+
+function normalizeUiThemeSegments(segments: string[]): string[] {
+  return segments.map((segment, index) => {
+    if (index === 0) {
+      return normalizeUiThemePath(segment);
+    }
+
+    return segment.replace(/\\/g, "/");
+  });
+}
+
+function normalizeUiThemeExecOptions(options?: {
+  cwd?: string;
+}): { cwd?: string } | undefined {
+  if (!options) {
+    return undefined;
+  }
+
+  return {
+    ...options,
+    cwd: options.cwd ? normalizeUiThemePath(options.cwd) : options.cwd,
+  };
+}
 
 /**
  * Register all IPC handlers between main and renderer.
@@ -205,6 +249,73 @@ function registerThemeHandlers(win: BrowserWindow): void {
 
     win.webContents.send(IpcChannels.THEME_CHANGED, theme);
     return theme;
+  });
+
+  ipcMain.handle(
+    IpcChannels.UI_THEME_CONTEXT,
+    async (_event, request: UiThemeContextRequest) => {
+      switch (request.type) {
+        case "readFile":
+          return fs.readFile(normalizeUiThemePath(request.filePath), "utf-8");
+        case "readDir":
+          return fs.readdir(normalizeUiThemePath(request.directoryPath));
+        case "writeFile":
+          await fs.writeFile(
+            normalizeUiThemePath(request.filePath),
+            request.content,
+            "utf-8",
+          );
+          return;
+        case "execCommand": {
+          const { stdout } = await execFileAsync(
+            request.command,
+            request.args,
+            {
+              cwd: normalizeUiThemeExecOptions(request.options)?.cwd,
+              windowsHide: true,
+              maxBuffer: 1024 * 1024,
+            },
+          );
+          return stdout;
+        }
+        case "isFile":
+          try {
+            const stats = await fs.stat(normalizeUiThemePath(request.filePath));
+            return stats.isFile() || stats.isDirectory();
+          } catch {
+            return false;
+          }
+        case "resolvePath":
+          return path.resolve(...normalizeUiThemeSegments(request.segments));
+      }
+    },
+  );
+
+  ipcMain.on(
+    IpcChannels.UI_THEME_CONTEXT_SYNC,
+    (event, request: UiThemeContextRequest) => {
+      if (request.type !== "resolvePath") {
+        event.returnValue = null;
+        return;
+      }
+
+      event.returnValue = path.resolve(
+        ...normalizeUiThemeSegments(request.segments),
+      );
+    },
+  );
+
+  ipcMain.handle(IpcChannels.UI_THEME_SET, (_event, themeName: string) => {
+    if (!themeName) {
+      return null;
+    }
+
+    const config = loadConfig();
+    config.uiThemeName = themeName;
+    saveConfig(config);
+
+    win.webContents.send(IpcChannels.UI_THEME_CHANGED, themeName);
+    return themeName;
   });
 
   const emitWindowState = (): void => {

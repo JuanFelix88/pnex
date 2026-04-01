@@ -156,6 +156,18 @@
   transition: opacity 160ms ease;
 }
 
+.pnex-ui-theme-hud {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
 .pnex-hud-fade {
   transition: opacity 160ms ease;
 }
