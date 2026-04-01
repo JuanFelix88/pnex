@@ -1,13 +1,40 @@
 /* Terminal container fills its parent */
 :root {
-  --pnex-titlebar-bg: #1e1e1e;
-  --pnex-titlebar-fg: #cccccc;
-  --pnex-titlebar-border: #3c3c3c;
-  --pnex-titlebar-hover: #264f78;
-  --pnex-titlebar-accent: #2472c8;
-  --pnex-titlebar-muted: #666666;
-  --pnex-titlebar-icon-fg: #ffffff;
-  --pnex-titlebar-close-hover: #cd3131;
+  /* Core theme palette: use these directly with var(...) anywhere in CSS. */
+  --pnex-theme-background: #1e1e1e;
+  --pnex-theme-foreground: #cccccc;
+  --pnex-theme-cursor: #aeafad;
+  --pnex-theme-cursor-accent: #1e1e1e;
+  --pnex-theme-selection: #264f78;
+  --pnex-theme-black: #000000;
+  --pnex-theme-red: #cd3131;
+  --pnex-theme-green: #0dbc79;
+  --pnex-theme-yellow: #e5e510;
+  --pnex-theme-blue: #2472c8;
+  --pnex-theme-magenta: #bc3fbc;
+  --pnex-theme-cyan: #11a8cd;
+  --pnex-theme-white: #e5e5e5;
+  --pnex-theme-bright-black: #666666;
+  --pnex-theme-bright-red: #f14c4c;
+  --pnex-theme-bright-green: #23d18b;
+  --pnex-theme-bright-yellow: #f5f543;
+  --pnex-theme-bright-blue: #3b8eea;
+  --pnex-theme-bright-magenta: #d670d6;
+  --pnex-theme-bright-cyan: #29b8db;
+  --pnex-theme-bright-white: #ffffff;
+
+  /* Semantic aliases for terminal UI pieces. */
+  --pnex-titlebar-bg: var(--pnex-theme-background);
+  --pnex-titlebar-fg: var(--pnex-theme-foreground);
+  --pnex-titlebar-border: var(--pnex-theme-bright-black);
+  --pnex-titlebar-hover: var(--pnex-theme-selection);
+  --pnex-titlebar-accent: var(--pnex-theme-blue);
+  --pnex-titlebar-muted: var(--pnex-theme-bright-black);
+  --pnex-titlebar-icon-fg: var(--pnex-theme-bright-white);
+  --pnex-titlebar-close-hover: var(--pnex-theme-red);
+  --pnex-hud-ok: var(--pnex-theme-bright-green);
+  --pnex-hud-error: var(--pnex-theme-bright-red);
+  --pnex-hud-running: var(--pnex-theme-yellow);
 }
 
 #titlebar {
@@ -157,23 +184,23 @@
 /* -- Badge variants ---------------------------------------------------------------- */
 
 .pnex-cwd-badge__content[data-variant="git"] {
-  border-color: #569cd6;
-  background: color-mix(in srgb, #569cd6 18%, transparent);
+  border-color: var(--pnex-theme-blue);
+  background: color-mix(in srgb, var(--pnex-theme-blue) 18%, transparent);
 }
 
 .pnex-cwd-badge__content[data-variant="pending"] {
-  border-color: #d7ba7d;
-  background: color-mix(in srgb, #d7ba7d 18%, transparent);
+  border-color: var(--pnex-theme-bright-yellow);
+  background: color-mix(in srgb, var(--pnex-theme-bright-yellow) 18%, transparent);
 }
 
 .pnex-cwd-badge__content[data-variant="success"] {
-  border-color: #4ec9b0;
-  background: color-mix(in srgb, #4ec9b0 18%, transparent);
+  border-color: var(--pnex-theme-bright-green);
+  background: color-mix(in srgb, var(--pnex-theme-bright-green) 18%, transparent);
 }
 
 .pnex-cwd-badge__content[data-variant="error"] {
-  border-color: #f44747;
-  background: color-mix(in srgb, #f44747 18%, transparent);
+  border-color: var(--pnex-theme-bright-red);
+  background: color-mix(in srgb, var(--pnex-theme-bright-red) 18%, transparent);
 }
 
 /* -- Status dot -------------------------------------------------------------------- */

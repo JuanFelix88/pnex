@@ -8,6 +8,17 @@ import type { PnexTheme } from "../shared/types";
 
 declare const pnex: import("../preload/preload").PnexApi;
 
+function applyConfigCssVariables(config: PnexConfig): void {
+  document.documentElement.style.setProperty(
+    "--pnex-font-family",
+    config.fontFamily || 'Consolas, "Courier New", monospace',
+  );
+  document.documentElement.style.setProperty(
+    "--pnex-font-size",
+    `${config.fontSize || 14}px`,
+  );
+}
+
 function setupTitlebar(): void {
   const menuPopup = document.getElementById("menu-popup");
   const fileButton =
@@ -216,6 +227,7 @@ function setupTitlebar(): void {
 async function main(): Promise<void> {
   const config: PnexConfig = await pnex.getConfig();
 
+  applyConfigCssVariables(config);
   applyTheme(config.theme);
   setupTitlebar();
 

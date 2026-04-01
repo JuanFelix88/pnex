@@ -5,9 +5,40 @@ import { PnexTheme } from "../../shared/types";
  * Updates CSS custom properties and inline styles to match.
  */
 export function applyTheme(theme: PnexTheme): void {
+  applyThemeVariables(theme);
   applyBodyTheme(theme);
   applyTitlebarTheme(theme);
   applyChatTheme(theme);
+}
+
+function applyThemeVariables(theme: PnexTheme): void {
+  const themeVariables: Record<string, string> = {
+    "--pnex-theme-background": theme.background,
+    "--pnex-theme-foreground": theme.foreground,
+    "--pnex-theme-cursor": theme.cursor,
+    "--pnex-theme-cursor-accent": theme.cursorAccent,
+    "--pnex-theme-selection": theme.selection,
+    "--pnex-theme-black": theme.black,
+    "--pnex-theme-red": theme.red,
+    "--pnex-theme-green": theme.green,
+    "--pnex-theme-yellow": theme.yellow,
+    "--pnex-theme-blue": theme.blue,
+    "--pnex-theme-magenta": theme.magenta,
+    "--pnex-theme-cyan": theme.cyan,
+    "--pnex-theme-white": theme.white,
+    "--pnex-theme-bright-black": theme.brightBlack,
+    "--pnex-theme-bright-red": theme.brightRed,
+    "--pnex-theme-bright-green": theme.brightGreen,
+    "--pnex-theme-bright-yellow": theme.brightYellow,
+    "--pnex-theme-bright-blue": theme.brightBlue,
+    "--pnex-theme-bright-magenta": theme.brightMagenta,
+    "--pnex-theme-bright-cyan": theme.brightCyan,
+    "--pnex-theme-bright-white": theme.brightWhite,
+  };
+
+  for (const [name, value] of Object.entries(themeVariables)) {
+    document.documentElement.style.setProperty(name, value);
+  }
 }
 
 function applyBodyTheme(theme: PnexTheme): void {
@@ -35,52 +66,6 @@ function applyTitlebarTheme(theme: PnexTheme): void {
     menuPopup.style.color = theme.foreground;
     menuPopup.style.borderColor = theme.brightBlack;
   }
-
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-bg",
-    theme.background,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-fg",
-    theme.foreground,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-border",
-    theme.brightBlack,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-hover",
-    theme.selection,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-accent",
-    theme.blue,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-muted",
-    theme.brightBlack,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-icon-fg",
-    theme.brightWhite,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-titlebar-close-hover",
-    theme.red,
-  );
-
-  document.documentElement.style.setProperty(
-    "--pnex-hud-ok",
-    theme.brightGreen,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-hud-error",
-    theme.brightRed,
-  );
-  document.documentElement.style.setProperty(
-    "--pnex-hud-running",
-    theme.yellow,
-  );
 }
 
 function applyChatTheme(theme: PnexTheme): void {

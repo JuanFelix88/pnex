@@ -1,0 +1,39 @@
+.default-theme-hud-dir {
+  color: var(--pnex-theme-yellow);
+  font-weight: 600;
+  font-family: var(--pnex-font-family);
+  font-size: var(--pnex-font-size, 14px);
+}
+
+.default-theme-git-status {
+  font-family: var(--pnex-font-family);
+  font-size: var(--pnex-font-size, 14px);
+  height: calc(var(--pnex-font-size, 14px) + 8px);
+}
+
+.default-theme-git-actual-user {
+  font-family: var(--pnex-font-family);
+  font-size: var(--pnex-font-size, 14px);
+  height: calc(var(--pnex-font-size, 14px) + 8px);
+}
+
+.default-theme-skeleton {
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--pnex-theme-white) 8%, transparent) 25%,
+      color-mix(in srgb, var(--pnex-theme-white) 20%, transparent) 50%,
+      color-mix(in srgb, var(--pnex-theme-white) 8%, transparent) 75%),
+      color-mix(in srgb, var(--pnex-theme-yellow) 18%, transparent);
+  background-size: 200% 100%;
+  animation: default-theme-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes default-theme-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
