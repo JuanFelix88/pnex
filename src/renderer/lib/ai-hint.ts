@@ -1,6 +1,8 @@
 import { Terminal } from "@xterm/xterm";
 import { getCursorElement } from "./cursor-visibility";
 import { createFrameLoop } from "./frame-loop";
+import { isCursorVisibleInContainer } from "./cursor-visibility";
+import { isCommandRunning } from "./terminal-command-state";
 
 const HINT_OFFSET_X = 8;
 const HINT_OFFSET_Y = -1;
@@ -20,6 +22,12 @@ export function initAiHint(terminal: Terminal): void {
   const updateHint = (): void => {
     const container = hint.parentElement;
     const cursorElement = getCursorElement(terminal);
+    const isHudVisible =
+      container instanceof HTMLElement &&
+      !isCommandRunning() &&
+      isCursorVisibleInContainer(terminal, container);
+
+    hint.classList.toggle("pnex-hud-hidden", !isHudVisible);
 
     if (!(container instanceof HTMLElement) || !cursorElement) {
       hint.style.display = "none";
