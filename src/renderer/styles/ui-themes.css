@@ -2,6 +2,16 @@
   UI THEME: default-theme
   =====================================================================
 */
+.default-theme-separator {
+  position: absolute;
+  width: 99vw;
+  border-bottom: 1px solid var(--pnex-titlebar-border);
+  opacity: 5%;
+  top: 0;
+  left: 0;
+  transform: translateY(-6px) translateX(-7px);
+}
+
 .default-theme-hud-dir {
   display: flex;
   color: var(--pnex-theme-yellow);
@@ -36,12 +46,12 @@
   margin-right: 2px;
   font-weight: 600;
   font-family: var(--pnex-font-family);
-  font-size: var(--pnex-font-size, 14px);
+  font-size: calc(var(--pnex-font-size, 14px) - 1px);
 }
 
-.default-theme-dir-icon > svg {
-  width: calc(var(--pnex-font-size, 14px) + 2px);
-  height: calc(var(--pnex-font-size, 14px) + 2px);
+.default-theme-dir-icon>svg {
+  width: calc(var(--pnex-font-size, 14px) + 1.5px);
+  height: calc(var(--pnex-font-size, 14px) + 1.5px);
   margin-right: 1px;
   animation: default-theme-pulse 1.2s ease-in-out infinite;
 }
@@ -67,10 +77,10 @@
   color: color-mix(in srgb, var(--pnex-theme-cyan) 78%, var(--pnex-hud-error));
 }
 
-.default-theme-git-status > svg {
-  width: calc(var(--pnex-font-size, 14px) - 2px);
-  height: calc(var(--pnex-font-size, 14px) - 2px);
-  margin-right: 4px;
+.default-theme-git-status>svg {
+  width: calc(var(--pnex-font-size, 14px) - 2.5px);
+  height: calc(var(--pnex-font-size, 14px) - 2.5px);
+  margin-right: 3px;
 }
 
 .default-theme-git-actual-user {
@@ -138,6 +148,7 @@
     opacity: 0%;
     transform: translateY(2%);
   }
+
   to {
     opacity: 100%;
     transform: translateY(0%);
@@ -145,10 +156,13 @@
 }
 
 @keyframes default-theme-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 100%;
     filter: brightness(1);
   }
+
   50% {
     opacity: 90%;
     filter: brightness(1.4);

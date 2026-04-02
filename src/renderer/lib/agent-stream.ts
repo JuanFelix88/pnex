@@ -41,7 +41,6 @@ let _pendingExitCode = 0;
 let _pendingPromptCwd: string | null = null;
 let _nextPromptHudId = 1;
 let _activePromptHudId: number | null = null;
-let _debugOverlay: HTMLElement | null = null;
 
 const _promptHudHistory = new Map<number, PromptHudEntry>();
 const _promptHudOrder: number[] = [];
@@ -55,15 +54,12 @@ export function resetCommandHudHistory(): void {
 
 export function registerAgentHandlers(
   terminal: Terminal,
-  container: HTMLElement,
   initialUiThemeName?: string,
 ): void {
   _terminal = terminal;
   _activeUiThemeName = initialUiThemeName || defaultUiThemeName;
-  _debugOverlay = getOrCreateDebugOverlay(container);
 
   terminal.onWriteParsed(() => {
-    updateDebugOverlay("onWriteParsed disparou");
     flushPendingPromptHud();
   });
 
@@ -85,7 +81,6 @@ function createPromptHud(cwd: string): void {
   }
 
   const marker = _terminal.registerMarker(0);
-  updateDebugOverlay(`marker criado: line=${marker.line}`);
   const decoration = _terminal.registerDecoration({
     marker,
     x: 0,
@@ -94,11 +89,8 @@ function createPromptHud(cwd: string): void {
   });
 
   if (!decoration) {
-    updateDebugOverlay("registerDecoration retornou undefined");
     return;
   }
-
-  updateDebugOverlay(`decoration criada para cwd: ${cwd}`);
 
   const entry: PromptHudEntry = {
     id: _nextPromptHudId++,
@@ -141,8 +133,6 @@ function bindDecoration(entry: PromptHudEntry): void {
     if (entry.isDisposed) {
       return;
     }
-
-    updateDebugOverlay(`decoration.onRender disparou: hud=${entry.id}`);
 
     entry.hostElement = element;
     element.classList.add("pnex-command-decoration");
@@ -385,13 +375,11 @@ export function extractPnexOscPayload(data: string): string {
 
   sanitized = extractPnexToken(sanitized, PNEX_STREAM_EXIT, (payload) => {
     _pendingExitCode = parseExitCode(payload);
-    updateDebugOverlay(`EXIT recebido: ${payload}`);
   });
 
   sanitized = extractPnexToken(sanitized, PNEX_STREAM_CWD, (payload) => {
     _currentCwd = payload;
     _pendingPromptCwd = payload;
-    updateDebugOverlay(`CWD recebido: ${payload}`);
     markPromptReady();
   });
 
@@ -421,28 +409,4 @@ function extractPnexToken(
   }
 
   return sanitized;
-}
-
-function getOrCreateDebugOverlay(container: HTMLElement): HTMLElement {
-  const existing = container.querySelector<HTMLElement>(
-    "#pnex-decoration-debug",
-  );
-  if (existing) {
-    return existing;
-  }
-
-  const overlay = document.createElement("div");
-  overlay.id = "pnex-decoration-debug";
-  overlay.className = "pnex-decoration-debug-overlay";
-  overlay.textContent = "debug: aguardando OSC";
-  container.appendChild(overlay);
-  return overlay;
-}
-
-function updateDebugOverlay(message: string): void {
-  if (_debugOverlay) {
-    _debugOverlay.textContent = `debug: ${message}`;
-  }
-
-  console.debug("[pnex decoration debug]", message);
 }

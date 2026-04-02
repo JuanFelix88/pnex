@@ -50,6 +50,11 @@ export class DefaultCommandTheme extends ThemeCommandBase {
   public override async render(ctx: ThemeContext) {
     ctx.clearUi();
 
+    const separatorEl = document.createElement("hr");
+
+    separatorEl.classList.add("default-theme-separator");
+    ctx.elementContainer.appendChild(separatorEl);
+
     const statusDotEl = document.createElement("span");
     const statusDotClasses = [
       "pnex-status-dot",

@@ -173,21 +173,6 @@
   pointer-events: none;
 }
 
-.pnex-decoration-debug-overlay {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 40;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.82);
-  color: #ff7b72;
-  font-family: var(--pnex-font-family);
-  font-size: 11px;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
 .pnex-command-hud-frame {
   position: absolute;
   left: 0px;
