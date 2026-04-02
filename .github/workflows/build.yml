@@ -54,4 +54,5 @@ jobs:
             release/*.blockmap
             release/*.AppImage
             release/*.yml
+            release/*-portable.*
           if-no-files-found: warn
