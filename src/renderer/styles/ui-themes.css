@@ -21,7 +21,6 @@
   white-space: nowrap;
   border-radius: 4px;
   background: transparent;
-  animation: default-theme-fade-in 0.13s ease-in-out;
 }
 
 .default-theme-status-dot {
@@ -85,7 +84,6 @@
   white-space: nowrap;
   border-radius: 4px;
   background: transparent;
-  animation: default-theme-fade-in 0.22s ease-in-out;
 }
 
 .default-theme-git-status[data-status="success"] {
@@ -112,7 +110,6 @@
   border-radius: 4px;
   white-space: nowrap;
   background: transparent;
-  animation: default-theme-fade-in 0.22s ease-in-out;
 }
 
 .default-theme-git-actual-user[data-status="success"] {
