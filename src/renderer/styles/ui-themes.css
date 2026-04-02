@@ -59,6 +59,18 @@
   color: color-mix(in srgb, var(--pnex-theme-yellow) 88%, white);
 }
 
+.default-theme-command-time {
+  color: var(--pnex-theme-foreground);
+  transform: translateY(5%) translateX(-3%);
+  margin-top: auto;
+  opacity: 30%;
+  font-family: var(--pnex-font-family);
+  font-size: calc(var(--pnex-font-size, 14px) - 3px);
+  height: calc(var(--pnex-font-size, 14px) + 4px);
+  white-space: nowrap;
+  font-style: italic;
+}
+
 .default-theme-dir-icon {
   display: flex;
   color: var(--pnex-theme-blue);

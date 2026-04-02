@@ -138,6 +138,10 @@ const api = {
     });
   },
 
+  getUsername: (): string => {
+    return ipcRenderer.sendSync(IpcChannels.GET_USERNAME) as string;
+  },
+
   setUiTheme: (themeName: string): Promise<string | null> => {
     return ipcRenderer.invoke(IpcChannels.UI_THEME_SET, themeName);
   },

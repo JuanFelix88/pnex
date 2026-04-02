@@ -300,6 +300,7 @@ function createThemeContext(entry: PromptHudEntry): ThemeContext {
       ensureActive(entry);
       return pnex.uiThemeResolvePath(...segments);
     },
+    username: pnex.getUsername(),
   };
 }
 

@@ -21,6 +21,7 @@ export const IpcChannels = {
   THEME_CHANGED: "theme:changed",
   UI_THEME_CONTEXT: "ui-theme:context",
   UI_THEME_CONTEXT_SYNC: "ui-theme:context-sync",
+  GET_USERNAME: "system:get-username",
   UI_THEME_SET: "ui-theme:set",
   UI_THEME_CHANGED: "ui-theme:changed",
   DEVTOOLS_TOGGLE: "devtools:toggle",

@@ -23,4 +23,5 @@ export interface ThemeContext {
    * Equivalent for path.resolve
    */
   resolvePath(...segments: string[]): string;
+  username: string;
 }

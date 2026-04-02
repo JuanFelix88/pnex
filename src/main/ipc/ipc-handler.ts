@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
+import os from "os";
 import { IpcChannels } from "../../shared/ipc-channels";
 import { ShellManager } from "../../lib/terminal";
 import { TerminalContext } from "../../shared/types";
@@ -77,6 +78,13 @@ export function registerIpcHandlers(
   registerAiHandlers();
   registerAppHandlers();
   registerThemeHandlers(win);
+  registerSystemHandlers();
+}
+
+function registerSystemHandlers(): void {
+  ipcMain.on(IpcChannels.GET_USERNAME, (event) => {
+    event.returnValue = os.userInfo().username;
+  });
 }
 
 function registerTerminalHandlers(
