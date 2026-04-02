@@ -177,7 +177,7 @@
   position: absolute;
   left: 0px;
   top: 0;
-  transform: translateY(-100%);
+  transform: translateY(-90%);
   pointer-events: none;
 }
 

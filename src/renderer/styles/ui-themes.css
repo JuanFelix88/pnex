@@ -6,10 +6,11 @@
   position: absolute;
   width: 99vw;
   border-bottom: 1px solid var(--pnex-titlebar-border);
-  opacity: 5%;
+  /* opacity: 5%; */
+  opacity: 0;
   top: 0;
   left: 0;
-  transform: translateY(-6px) translateX(-7px);
+  transform: translateY(-2px) translateX(-7px);
 }
 
 .default-theme-hud-dir {
