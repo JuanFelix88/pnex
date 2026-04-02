@@ -9,17 +9,16 @@ import {
   markPromptReady,
   onCommandStateChange,
 } from "./terminal-command-state";
+import {
+  StaleOperationError,
+  createStaleGuard,
+  ensureActive,
+} from "../../shared/utils";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
 const PNEX_STREAM_CWD = "__PNEX_CWD__";
 const PNEX_STREAM_EXIT = "__PNEX_EXIT__";
-
-class StaleUiThemeRenderError extends Error {
-  public constructor() {
-    super("Stale UI theme render");
-  }
-}
 
 interface PromptHudEntry {
   id: number;
@@ -233,7 +232,7 @@ function createOrRefreshTheme(
   }
 
   void Promise.resolve(theme.onInitialLoad()).catch((error) => {
-    if (!(error instanceof StaleUiThemeRenderError)) {
+    if (!(error instanceof StaleOperationError)) {
       console.error("Failed to initialize UI theme", error);
     }
   });
@@ -260,41 +259,26 @@ function renderPromptHud(entry: PromptHudEntry): void {
   try {
     void Promise.resolve(entry.theme.render(entry.theme.context)).catch(
       (error) => {
-        if (!(error instanceof StaleUiThemeRenderError)) {
+        if (!(error instanceof StaleOperationError)) {
           console.error("Failed to render command HUD", error);
         }
       },
     );
   } catch (error) {
-    if (!(error instanceof StaleUiThemeRenderError)) {
+    if (!(error instanceof StaleOperationError)) {
       console.error("Failed to render command HUD", error);
     }
   }
 }
 
 function createThemeContext(entry: PromptHudEntry): ThemeContext {
-  const guard = async <T>(promise: Promise<T>): Promise<T> => {
-    const renderVersion = entry.renderVersion;
-    const result = await promise;
-
-    if (entry.isDisposed || renderVersion !== entry.renderVersion) {
-      throw new StaleUiThemeRenderError();
-    }
-
-    return result;
-  };
-
-  const ensureActive = (): void => {
-    if (entry.isDisposed) {
-      throw new StaleUiThemeRenderError();
-    }
-  };
+  const guard = createStaleGuard(entry);
 
   return {
     elementContainer: entry.contentElement,
     directoryPath: entry.cwd,
     clearUi(): void {
-      ensureActive();
+      ensureActive(entry);
       entry.contentElement.replaceChildren();
     },
     readFile(filePath: string): Promise<string> {
@@ -323,7 +307,7 @@ function createThemeContext(entry: PromptHudEntry): ThemeContext {
       return guard(pnex.uiThemeIsFile(filePath));
     },
     resolvePath(...segments: string[]): string {
-      ensureActive();
+      ensureActive(entry);
       return pnex.uiThemeResolvePath(...segments);
     },
   };

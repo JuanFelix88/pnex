@@ -84,7 +84,12 @@ function registerTerminalHandlers(
   shellManager: ShellManager,
 ): void {
   const config = loadConfig();
-  const ptyProcess = shellManager.spawn(config.shell);
+  const ptyProcess = shellManager.spawn(
+    config.shell,
+    80,
+    24,
+    config.startDirectory,
+  );
 
   ptyProcess.onData((data: string) => {
     if (win.isDestroyed() || win.webContents.isDestroyed()) {

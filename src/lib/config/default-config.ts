@@ -11,6 +11,7 @@ export const defaultConfig: PnexConfig = {
   theme: defaultTheme,
   uiThemeName: "Default Theme",
   shell: "",
+  startDirectory: "~/",
   fontSize: 14,
   fontFamily: 'Consolas, "Courier New", monospace',
 };

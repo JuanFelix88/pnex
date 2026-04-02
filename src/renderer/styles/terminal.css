@@ -268,28 +268,6 @@
   background: color-mix(in srgb, var(--pnex-theme-bright-red) 18%, transparent);
 }
 
-/* -- Status dot -------------------------------------------------------------------- */
-
-.pnex-status-dot {
-  display: inline-block;
-  width: 8px;
-  min-width: 8px;
-  min-height: 8px;
-  height: 8px;
-  max-height: 8px;
-  border-radius: 999px;
-  border-width: 2px;
-  border-style: solid;
-  border-color: var(--pnex-hud-running);
-  background: transparent;
-  /* flex-shrink: 0; */
-  transform: translateY(2px);
-  margin-right: 3px;
-}
-
-.pnex-status-dot--running { border-color: var(--pnex-hud-running); }
-.pnex-status-dot--success { border-color: var(--pnex-hud-ok); }
-.pnex-status-dot--error   { border-color: var(--pnex-hud-error); }
 
 /* -- Skeleton loading -------------------------------------------------------------- */
 

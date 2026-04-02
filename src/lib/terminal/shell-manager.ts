@@ -1,5 +1,7 @@
+import * as fs from "fs";
 import * as os from "os";
 import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
+import { PS1_PROMPT_BASH, PS1_PROMPT_PSW } from "./ps1";
 
 /**
  * Manages a pseudo-terminal process via node-pty.
@@ -10,55 +12,81 @@ export class ShellManager {
   private _spawnedCommand: string = "";
 
   /** Spawn a new shell process */
-  spawn(shell?: string, cols = 80, rows = 24): pty.IPty {
+  public spawn(
+    shell?: string,
+    cols = 80,
+    rows = 24,
+    startDirectory?: string,
+  ): pty.IPty {
     const { command, args } = this.parseShell(shell);
     this._spawnedCommand = command;
     this.process = pty.spawn(command, args, {
       name: "xterm-256color",
       cols,
       rows,
-      cwd: os.homedir(),
+      cwd: this.resolveStartDirectory(startDirectory),
       env: process.env as Record<string, string>,
     });
     return this.process;
   }
 
+  private resolveStartDirectory(startDirectory?: string): string {
+    const home = os.homedir();
+    if (!startDirectory || startDirectory.trim() === "") {
+      return home;
+    }
+    const dir = startDirectory.trim();
+    const resolved =
+      dir === "~" || dir.startsWith("~/") || dir.startsWith("~\\")
+        ? dir.replace(/^~/, home)
+        : dir;
+
+    try {
+      const stat = fs.statSync(resolved);
+      if (stat.isDirectory()) {
+        return resolved;
+      }
+    } catch {
+      // path does not exist or is not accessible
+    }
+
+    return home;
+  }
+
   /** Write data to the shell */
-  write(data: string): void {
+  public write(data: string): void {
     this.process?.write(data);
   }
 
   /** Resize the terminal */
-  resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number): void {
     this.process?.resize(cols, rows);
   }
 
   /** Kill the shell process */
-  kill(): void {
+  public kill(): void {
     this.process?.kill();
     this.process = null;
   }
 
   /** Get the underlying pty process */
-  getProcess(): pty.IPty | null {
+  public getProcess(): pty.IPty | null {
     return this.process;
   }
 
   /** Inject the pnex custom prompt into the spawned shell */
-  initPrompt(): void {
+  public initPrompt(): void {
     if (!this.process) return;
 
-    const lower = this._spawnedCommand.toLowerCase();
-    const isPowerShell = lower.includes("powershell") || lower.includes("pwsh");
+    const spawnedCommandLowercase = this._spawnedCommand.toLowerCase();
+    const isPowerShell =
+      spawnedCommandLowercase.includes("powershell") ||
+      spawnedCommandLowercase.includes("pwsh");
 
     if (isPowerShell) {
-      this.process.write(
-        'function prompt { $code = if ($?) { 0 } else { 1 }; $d=(Get-Location).Path; Write-Host -NoNewline "`n__PNEX_EXIT__${code}__PNEX_EXIT____PNEX_CWD__${d}__PNEX_CWD__"; "$ "; }; cls\r',
-      );
+      this.process.write(PS1_PROMPT_PSW);
     } else {
-      this.process.write(
-        ' __pnex_prompt(){ local exit_code="$?"; local d="$(pwd)"; printf "\n__PNEX_EXIT__%s__PNEX_EXIT____PNEX_CWD__%s__PNEX_CWD__" "$exit_code" "$d"; }; PROMPT_COMMAND=__pnex_prompt; PS1="\\$ "; clear\r',
-      );
+      this.process.write(PS1_PROMPT_BASH);
     }
   }
 

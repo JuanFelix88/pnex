@@ -19,6 +19,7 @@ export interface PnexConfig {
   theme: PnexTheme;
   uiThemeName?: string;
   shell?: string;
+  startDirectory?: string;
   fontSize?: number;
   fontFamily?: string;
 }

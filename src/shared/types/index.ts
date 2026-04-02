@@ -4,3 +4,4 @@ export {
   UiThemeContextRequest,
   UiThemeCommandOptions,
 } from "./ui-theme-context";
+export { ThemeContext, PromptHudStatus } from "./theme-context";
