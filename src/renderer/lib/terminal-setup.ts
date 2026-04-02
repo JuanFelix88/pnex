@@ -5,6 +5,8 @@ import { PnexConfig } from "../../shared/types";
 import { toXtermTheme } from "./theme-applier";
 import { extractPnexOscPayload, registerAgentHandlers } from "./agent-stream";
 import { markCommandRunning } from "./terminal-command-state";
+import { trackInput, onCommandSubmit } from "./input-tracker";
+import { registerTerminalKeyHandler } from "./terminal-key-handlers";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -35,7 +37,8 @@ export function initTerminal(
   registerAgentHandlers(terminal, config.uiThemeName);
   connectToPty(terminal, fitAddon);
   observeResize(container, fitAddon);
-  enablePaste(terminal);
+  registerPasteHandler();
+  registerCommandHistory();
 
   // Fit after resize handlers are attached so the initial size is sent to the PTY.
   fitAddon.fit();
@@ -52,6 +55,8 @@ function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
   });
 
   terminal.onData((data: string) => {
+    trackInput(data);
+
     if (containsCommandSubmission(data)) {
       markCommandRunning();
     }
@@ -75,14 +80,21 @@ function observeResize(container: HTMLElement, fitAddon: FitAddon): void {
   observer.observe(container);
 }
 
-function enablePaste(terminal: Terminal): void {
-  terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+function registerPasteHandler(): void {
+  registerTerminalKeyHandler((event) => {
     if (event.type === "keydown" && event.ctrlKey && event.key === "v") {
       navigator.clipboard.readText().then((text) => {
+        trackInput(text);
         pnex.sendTerminalInput(text);
       });
       return false;
     }
     return true;
+  });
+}
+
+function registerCommandHistory(): void {
+  onCommandSubmit((command) => {
+    pnex.appendCommandHistory(command);
   });
 }

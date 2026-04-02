@@ -79,6 +79,7 @@ export function registerIpcHandlers(
   registerAppHandlers();
   registerThemeHandlers(win);
   registerSystemHandlers();
+  registerCommandHistoryHandler();
 }
 
 function registerSystemHandlers(): void {
@@ -244,6 +245,29 @@ function registerAppHandlers(): void {
 
   ipcMain.handle(IpcChannels.DEVTOOLS_TOGGLE, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.webContents.toggleDevTools();
+  });
+}
+
+const HISTORY_PATH = path.join(os.homedir(), ".pnex-command-history.txt");
+
+function registerCommandHistoryHandler(): void {
+  ipcMain.on(IpcChannels.COMMAND_HISTORY_APPEND, (_event, command: string) => {
+    if (typeof command !== "string" || command.trim().length === 0) return;
+    const line = `${command.trim()}\n`;
+    fs.appendFile(HISTORY_PATH, line, "utf-8").catch(() => {});
+  });
+
+  ipcMain.handle(IpcChannels.COMMAND_HISTORY_GET, async () => {
+    try {
+      const content = await fs.readFile(HISTORY_PATH, "utf-8");
+      const lines = content
+        .split("\n")
+        .filter((line) => line.trim().length > 0)
+        .reverse();
+      return [...new Set(lines)];
+    } catch {
+      return [];
+    }
   });
 }
 

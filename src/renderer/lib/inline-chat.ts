@@ -5,6 +5,7 @@ import { createFrameLoop, FrameLoop } from "./frame-loop";
 import { isCommandRunning } from "./terminal-command-state";
 import { markCommandRunning } from "./terminal-command-state";
 import { TerminalContext } from "../../shared/types";
+import { registerTerminalKeyHandler } from "./terminal-key-handlers";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -90,7 +91,7 @@ function interceptTerminalKeys(
   setMode: (m: ChatMode) => void,
   overlayFollowLoop: FrameLoop,
 ): void {
-  terminal.attachCustomKeyEventHandler((e) => {
+  registerTerminalKeyHandler((e) => {
     if (e.type !== "keydown") return true;
 
     const key = e.key.toLowerCase();

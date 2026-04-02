@@ -32,6 +32,9 @@
   --pnex-titlebar-muted: var(--pnex-theme-bright-black);
   --pnex-titlebar-icon-fg: var(--pnex-theme-bright-white);
   --pnex-titlebar-close-hover: var(--pnex-theme-red);
+  --pnex-inline-panel-bg: var(--pnex-theme-background);
+  --pnex-inline-panel-fg: var(--pnex-theme-foreground);
+  --pnex-inline-panel-border: var(--pnex-theme-bright-black);
   --pnex-hud-ok: var(--pnex-theme-bright-green);
   --pnex-hud-error: var(--pnex-theme-bright-red);
   --pnex-hud-running: var(--pnex-theme-yellow);
@@ -213,6 +216,76 @@
 .pnex-hud-hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+.pnex-inline-panel {
+  position: fixed;
+  min-width: 320px;
+  max-width: min(560px, calc(100vw - 32px));
+  background: var(--pnex-inline-panel-bg);
+  border-color: var(--pnex-inline-panel-border);
+}
+
+.pnex-inline-panel-body {
+  background: var(--pnex-inline-panel-bg);
+  color: var(--pnex-inline-panel-fg);
+}
+
+.pnex-inline-panel-bar {
+  background: var(--pnex-inline-panel-bg);
+}
+
+.pnex-inline-panel-input {
+  color: var(--pnex-inline-panel-fg);
+}
+
+/* -- Command History Picker -------------------------------------------------------- */
+
+#history-suggestions {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--pnex-inline-panel-fg) 22%, transparent)
+    transparent;
+}
+
+#history-suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+#history-suggestions::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#history-suggestions::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--pnex-inline-panel-fg) 22%, transparent);
+  border-radius: 999px;
+}
+
+#history-suggestions::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--pnex-titlebar-accent) 42%, transparent);
+}
+
+.pnex-history-item {
+  background: transparent;
+  padding: 2px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--pnex-theme-foreground);
+  border-radius: 3px;
+}
+
+.pnex-history-item:hover {
+  background: var(--pnex-theme-selection);
+}
+
+.pnex-history-item--selected {
+  background: var(--pnex-theme-selection);
+}
+
+.pnex-history-box--above {
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 /* -- Badge base -------------------------------------------------------------------- */

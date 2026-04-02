@@ -199,6 +199,14 @@ const api = {
       (_event, isMaximized: boolean) => callback(isMaximized),
     );
   },
+
+  appendCommandHistory: (command: string): void => {
+    ipcRenderer.send(IpcChannels.COMMAND_HISTORY_APPEND, command);
+  },
+
+  getCommandHistory: (): Promise<string[]> => {
+    return ipcRenderer.invoke(IpcChannels.COMMAND_HISTORY_GET);
+  },
 };
 
 contextBridge.exposeInMainWorld("pnex", api);

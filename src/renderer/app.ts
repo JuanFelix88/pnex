@@ -1,6 +1,8 @@
 import { PnexConfig } from "../shared/types";
 import { initTerminal } from "./lib/terminal-setup";
 import { initInlineChat } from "./lib/inline-chat";
+import { initCommandHistoryPicker } from "./lib/command-history-picker";
+import { bindTerminalKeyHandlers } from "./lib/terminal-key-handlers";
 import { initAiHint } from "./lib/ai-hint";
 import { applyTheme, toXtermTheme } from "./lib/theme-applier";
 import { resetCommandHudHistory } from "./lib/agent-stream";
@@ -272,6 +274,8 @@ async function main(): Promise<void> {
   const { terminal } = initTerminal(container, config);
 
   initInlineChat(terminal);
+  initCommandHistoryPicker(terminal);
+  bindTerminalKeyHandlers(terminal);
   initAiHint(terminal);
 
   pnex.onNewChat(() => {

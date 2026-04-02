@@ -25,6 +25,8 @@ export const IpcChannels = {
   UI_THEME_SET: "ui-theme:set",
   UI_THEME_CHANGED: "ui-theme:changed",
   DEVTOOLS_TOGGLE: "devtools:toggle",
+  COMMAND_HISTORY_APPEND: "command-history:append",
+  COMMAND_HISTORY_GET: "command-history:get",
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
