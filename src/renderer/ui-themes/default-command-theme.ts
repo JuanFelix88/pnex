@@ -50,19 +50,17 @@ export class DefaultCommandTheme extends ThemeCommandBase {
   public override async render(ctx: ThemeContext) {
     ctx.clearUi();
 
+    // hr:
     const separatorEl = document.createElement("hr");
-
     separatorEl.classList.add("default-theme-separator");
     ctx.elementContainer.appendChild(separatorEl);
 
-    const statusDotEl = document.createElement("span");
-    const statusDotClasses = [
-      "pnex-status-dot",
-      `pnex-status-dot--${mapStatusToDotVariant(this.status)}`,
-      "default-theme-status-dot",
-    ];
-    statusDotEl.classList.add(...statusDotClasses);
-    // ctx.elementContainer.appendChild(statusDotEl);
+    // status:
+    const statusEl = document.createElement("span");
+    statusEl.classList.add("default-theme-status-dot");
+    statusEl.innerHTML = "•";
+    statusEl.dataset.status = this.status;
+    ctx.elementContainer.appendChild(statusEl);
 
     // dir:
     const textDirectoryEl = document.createElement("div");
@@ -71,6 +69,7 @@ export class DefaultCommandTheme extends ThemeCommandBase {
     textDirectoryEl.innerText = ctx.directoryPath;
     ctx.elementContainer.appendChild(textDirectoryEl);
 
+    // icons dir:
     if (
       textDirectoryEl.innerText.startsWith("/c/www") ||
       textDirectoryEl.innerText.startsWith("/var/www")

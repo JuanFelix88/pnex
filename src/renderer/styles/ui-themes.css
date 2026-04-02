@@ -24,6 +24,29 @@
   animation: default-theme-fade-in 0.13s ease-in-out;
 }
 
+.default-theme-status-dot {
+  position: absolute;
+  transform: translateY( calc(var(--pnex-font-size, 14px) + 2px)) translateX(1.5px);
+  font-weight: bold;
+  font-size: calc(var(--pnex-font-size, 14px) + 3px);
+}
+
+.default-theme-status-dot[data-status="success"] {
+  color: var(--pnex-theme-green);
+}
+
+.default-theme-status-dot[data-status="running"] {
+  color: var(--pnex-theme-yellow);
+}
+
+.default-theme-status-dot[data-status="ready"] {
+  color: var(--pnex-titlebar-border);
+}
+
+.default-theme-status-dot[data-status="error"] {
+  color: var(--pnex-theme-red);
+}
+
 .default-theme-hud-dir[data-status="success"] {
   color: color-mix(in srgb, var(--pnex-theme-yellow) 84%, var(--pnex-hud-ok));
 }
@@ -34,10 +57,6 @@
 
 .default-theme-hud-dir[data-status="running"] {
   color: color-mix(in srgb, var(--pnex-theme-yellow) 88%, white);
-}
-
-.default-theme-status-dot {
-  margin-right: 1px;
 }
 
 .default-theme-dir-icon {
