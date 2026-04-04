@@ -47,6 +47,32 @@
   color: var(--pnex-theme-red);
 }
 
+.default-theme-status-ai {
+  position: absolute;
+  transform: translateY( calc(var(--pnex-font-size, 14px) + 2px)) translateX(-0.5px);
+}
+
+.default-theme-status-ai > svg {
+  width: var(--pnex-font-size, 14px);
+  height: var(--pnex-font-size, 14px);
+}
+
+.default-theme-status-ai[data-status="success"] {
+  color: var(--pnex-theme-green);
+}
+
+.default-theme-status-ai[data-status="running"] {
+  color: var(--pnex-theme-yellow);
+}
+
+.default-theme-status-ai[data-status="ready"] {
+  color: var(--pnex-titlebar-border);
+}
+
+.default-theme-status-ai[data-status="error"] {
+  color: var(--pnex-theme-red);
+}
+
 .default-theme-hud-dir[data-status="success"] {
   color: color-mix(in srgb, var(--pnex-theme-yellow) 84%, var(--pnex-hud-ok));
 }

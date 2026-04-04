@@ -226,7 +226,8 @@
   min-width: 320px;
   max-width: min(560px, calc(100vw - 32px));
   background: var(--pnex-inline-panel-bg);
-  border-color: var(--pnex-inline-panel-border);
+  border: none;
+  padding: 0;
 }
 
 .pnex-inline-panel-body {
@@ -240,6 +241,11 @@
 
 .pnex-inline-panel-input {
   color: var(--pnex-inline-panel-fg);
+}
+
+.pnex-inline-panel-actions {
+  background: var(--pnex-inline-panel-bg);
+  padding: 2px 0 0;
 }
 
 /* -- Command History Picker -------------------------------------------------------- */

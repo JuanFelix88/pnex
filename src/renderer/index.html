@@ -60,18 +60,18 @@
 
   <!-- Inline Chat Bar -->
   <div id="chat-overlay" class="fixed inset-0 z-50 pointer-events-none" style="display: none;">
-    <div id="chat-box" class="pnex-inline-panel rounded-md border overflow-hidden pointer-events-auto">
+    <div id="chat-box" class="pnex-inline-panel overflow-hidden pointer-events-auto">
       <div id="chat-response" class="pnex-inline-panel-body px-2 py-1 whitespace-pre-wrap max-h-40 overflow-y-auto"
         style="display: none;"></div>
-      <div class="pnex-inline-panel-bar flex items-center px-2 py-[1.5px]">
+      <div class="pnex-inline-panel-bar flex items-center">
         <span id="chat-mode-label" class="text-xs uppercase tracking-wide mr-2 shrink-0" style="color: #569cd6;">AI
           Command</span>
         <input id="chat-input" type="text" class="pnex-inline-panel-input flex-1 bg-transparent outline-none"
           placeholder="Ask about commands" autocomplete="off" spellcheck="false" />
-        <button id="chat-close" class="ml-2 opacity-50 hover:opacity-100 text-xs cursor-pointer"
+      </div>
+      <div class="pnex-inline-panel-actions flex items-center gap-1 mt-1">
+        <button id="chat-close" class="py-0.5 rounded text-xs cursor-pointer opacity-50 hover:opacity-100"
           style="color: #cccccc;">Esc</button>
-        <button id="chat-send" class="ml-2 px-2 py-0.5 rounded text-xs cursor-pointer"
-          style="background: #0e639c; color: #ffffff;">Send</button>
       </div>
     </div>
   </div>
@@ -85,7 +85,7 @@
         <span class="text-xs uppercase tracking-wide mr-2 shrink-0" style="color: #569cd6;">History</span>
         <input id="history-input" type="text" class="pnex-inline-panel-input flex-1 bg-transparent outline-none"
           placeholder="Search commands..." autocomplete="off" spellcheck="false" />
-        <button id="history-close" class="ml-2 opacity-50 hover:opacity-100 text-xs cursor-pointer"
+        <button id="history-close" class="opacity-40 hover:opacity-100 text-xs"
           style="color: #cccccc;">Esc</button>
       </div>
     </div>

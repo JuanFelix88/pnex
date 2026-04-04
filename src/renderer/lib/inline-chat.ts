@@ -6,6 +6,7 @@ import { isCommandRunning } from "./terminal-command-state";
 import { markCommandRunning } from "./terminal-command-state";
 import { TerminalContext } from "../../shared/types";
 import { registerTerminalKeyHandler } from "./terminal-key-handlers";
+import { setChatMode } from "./chat-mode-state";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -18,7 +19,7 @@ interface ChatElements {
   response: HTMLElement;
   modeLabel: HTMLElement;
   closeBtn: HTMLElement;
-  sendBtn: HTMLElement;
+  sendBtn: HTMLElement | null;
 }
 
 interface ChatPosition {
@@ -62,15 +63,7 @@ function getElements(): ChatElements | null {
   const closeBtn = document.getElementById("chat-close");
   const sendBtn = document.getElementById("chat-send");
 
-  if (
-    !overlay ||
-    !box ||
-    !input ||
-    !response ||
-    !modeLabel ||
-    !closeBtn ||
-    !sendBtn
-  ) {
+  if (!overlay || !box || !input || !response || !modeLabel || !closeBtn) {
     return null;
   }
 
@@ -130,7 +123,7 @@ function registerChatActions(
     closeChat(elements, terminal, overlayFollowLoop);
   });
 
-  elements.sendBtn.addEventListener("click", () => {
+  elements.sendBtn?.addEventListener("click", () => {
     submitChat(elements, terminal, getMode(), overlayFollowLoop);
   });
 
@@ -164,11 +157,12 @@ function openChat(
   elements.modeLabel.textContent = mode === "command" ? "" : "AI Chat";
   elements.modeLabel.style.display = mode === "command" ? "none" : "inline";
   elements.input.placeholder =
-    mode === "command" ? "Ai command..." : "Ask anything...";
+    mode === "command" ? "AI command..." : "Ask anything...";
   elements.response.style.display = "none";
   elements.response.textContent = "";
   elements.overlay.style.display = "block";
   elements.input.value = "";
+  setChatMode(true);
   applyTerminalFont(elements, terminal);
   positionChatOverlay(elements, terminal);
   overlayFollowLoop.start();
@@ -184,6 +178,7 @@ function closeChat(
   elements.overlay.style.display = "none";
   elements.input.value = "";
   elements.response.style.display = "none";
+  setChatMode(false);
   terminal.focus();
 }
 
@@ -278,8 +273,7 @@ function positionChatOverlay(elements: ChatElements, terminal: Terminal): void {
   let top = clamp(anchor.top - CHAT_OFFSET_Y, CHAT_EDGE_PADDING, maxTop);
   let left = clamp(anchor.left, CHAT_EDGE_PADDING, maxLeft);
 
-  top -= 2;
-  left -= 1;
+  top += 1.5;
 
   box.style.left = `${left}px`;
   box.style.top = `${top}px`;

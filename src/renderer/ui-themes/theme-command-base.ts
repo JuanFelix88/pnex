@@ -8,6 +8,7 @@ export type { ThemeContext, PromptHudStatus };
 export class ThemeCommandBase {
   public name: string = "Base Theme";
   public status: PromptHudStatus = "ready";
+  public isChatMode: boolean = false;
   public doRender: () => void = () => {};
 
   /**

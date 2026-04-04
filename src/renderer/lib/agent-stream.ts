@@ -9,6 +9,7 @@ import {
   markPromptReady,
   onCommandStateChange,
 } from "./terminal-command-state";
+import { isChatMode, onChatModeChange } from "./chat-mode-state";
 import {
   StaleOperationError,
   createStaleGuard,
@@ -83,6 +84,10 @@ export function registerAgentHandlers(
     if (isRunning) {
       markActivePromptHudRunning();
     }
+  });
+
+  onChatModeChange(() => {
+    syncChatModeToActiveTheme();
   });
 }
 
@@ -224,6 +229,7 @@ function createOrRefreshTheme(
   const context = createThemeContext(entry);
   const theme = new ThemeCtor(context);
   theme.status = entry.status;
+  theme.isChatMode = isChatMode();
   theme.doRender = () => {
     renderPromptHudById(entry.id);
   };
@@ -369,6 +375,23 @@ function createHudContentElement(): HTMLElement {
   const content = document.createElement("div");
   content.className = "pnex-command-hud-content pnex-hud-fade";
   return content;
+}
+
+function syncChatModeToActiveTheme(): void {
+  if (_activePromptHudId === null) {
+    return;
+  }
+
+  const entry = _promptHudHistory.get(_activePromptHudId);
+  if (!entry || entry.isDisposed || !entry.theme) {
+    return;
+  }
+
+  const active = isChatMode();
+  if (entry.theme.isChatMode !== active) {
+    entry.theme.isChatMode = active;
+    renderPromptHud(entry);
+  }
 }
 
 function syncPromptHudDataset(entry: PromptHudEntry): void {
