@@ -28,6 +28,7 @@ export function initTerminal(
     cursorBlink: true,
     cursorStyle: "block",
     allowProposedApi: true,
+    scrollback: 1000,
   });
 
   terminal.loadAddon(fitAddon);
@@ -39,11 +40,25 @@ export function initTerminal(
   observeResize(container, fitAddon);
   registerPasteHandler();
   registerCommandHistory();
+  addTerminalBottomPadding(terminal);
 
   // Fit after resize handlers are attached so the initial size is sent to the PTY.
   fitAddon.fit();
 
   return { terminal, fitAddon };
+}
+
+/**
+ * Add bottom padding to terminal by adding blank lines.
+ * This prevents content from sticking to the bottom, similar to VS Code.
+ */
+function addTerminalBottomPadding(terminal: Terminal): void {
+  // Write blank lines to create visual padding at the bottom
+  // Number of lines is roughly 1/3 of terminal height for a nice balance
+  const paddingLines = 8;
+  for (let i = 0; i < paddingLines; i++) {
+    terminal.write("\n");
+  }
 }
 
 function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
