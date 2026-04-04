@@ -3,7 +3,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { PnexConfig } from "../../shared/types";
 import { toXtermTheme } from "./theme-applier";
-import { extractPnexOscPayload, registerAgentHandlers } from "./agent-stream";
+import {
+  extractPnexOscPayload,
+  registerAgentHandlers,
+  drainPendingPromptHud,
+} from "./agent-stream";
 import { markCommandRunning } from "./terminal-command-state";
 import { trackInput, onCommandSubmit } from "./input-tracker";
 import { registerTerminalKeyHandler } from "./terminal-key-handlers";
@@ -51,6 +55,8 @@ function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
     const sanitized = extractPnexOscPayload(data);
     if (sanitized.length > 0) {
       terminal.write(sanitized);
+    } else {
+      drainPendingPromptHud();
     }
   });
 
