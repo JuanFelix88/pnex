@@ -20,6 +20,7 @@ function buildSystemPrompt(shell?: string): string {
 - If the shell is Git Bash or bash, prefer POSIX shell syntax and avoid PowerShell cmdlets
 - If the shell is PowerShell, prefer PowerShell-native commands and syntax
 - If the shell is cmd.exe, prefer cmd-compatible syntax
+- If command output is required, in the output with echo or equivalent used, always try to style starting with two new lines, auxiliary texts that indicate the result required with the command and the like for styling
 - If you cannot determine a command, respond with: echo "Unable to determine command"`;
 }
 

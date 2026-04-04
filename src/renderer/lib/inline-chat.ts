@@ -17,6 +17,7 @@ interface ChatElements {
   box: HTMLElement;
   input: HTMLInputElement;
   response: HTMLElement;
+  responseText: HTMLElement;
   modeLabel: HTMLElement;
   closeBtn: HTMLElement;
   sendBtn: HTMLElement | null;
@@ -59,11 +60,20 @@ function getElements(): ChatElements | null {
   const box = document.getElementById("chat-box");
   const input = document.getElementById("chat-input");
   const response = document.getElementById("chat-response");
+  const responseText = document.getElementById("chat-response-text");
   const modeLabel = document.getElementById("chat-mode-label");
   const closeBtn = document.getElementById("chat-close");
   const sendBtn = document.getElementById("chat-send");
 
-  if (!overlay || !box || !input || !response || !modeLabel || !closeBtn) {
+  if (
+    !overlay ||
+    !box ||
+    !input ||
+    !response ||
+    !responseText ||
+    !modeLabel ||
+    !closeBtn
+  ) {
     return null;
   }
 
@@ -72,6 +82,7 @@ function getElements(): ChatElements | null {
     box,
     input: input as HTMLInputElement,
     response,
+    responseText,
     modeLabel,
     closeBtn,
     sendBtn,
@@ -158,8 +169,9 @@ function openChat(
   elements.modeLabel.style.display = mode === "command" ? "none" : "inline";
   elements.input.placeholder =
     mode === "command" ? "AI command..." : "Ask anything...";
+  elements.responseText.classList.remove("pnex-ai-hint-shimmer");
   elements.response.style.display = "none";
-  elements.response.textContent = "";
+  elements.responseText.textContent = "";
   elements.overlay.style.display = "block";
   elements.input.value = "";
   setChatMode(true);
@@ -177,7 +189,9 @@ function closeChat(
   overlayFollowLoop?.stop();
   elements.overlay.style.display = "none";
   elements.input.value = "";
+  elements.responseText.classList.remove("pnex-ai-hint-shimmer");
   elements.response.style.display = "none";
+  elements.responseText.textContent = "";
   setChatMode(false);
   terminal.focus();
 }
@@ -218,7 +232,8 @@ async function submitChat(
   if (!prompt) return;
 
   elements.input.disabled = true;
-  elements.response.textContent = "Thinking...";
+  elements.responseText.textContent = "Thinking...";
+  elements.responseText.classList.add("pnex-ai-hint-shimmer");
   elements.response.style.display = "block";
 
   try {
@@ -231,11 +246,13 @@ async function submitChat(
       pnex.sendTerminalInput(command + "\n");
     } else {
       const reply = await pnex.aiChat(prompt, context);
-      elements.response.textContent = reply;
+      elements.responseText.classList.remove("pnex-ai-hint-shimmer");
+      elements.responseText.textContent = reply;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    elements.response.textContent = `Error: ${message}`;
+    elements.responseText.classList.remove("pnex-ai-hint-shimmer");
+    elements.responseText.textContent = `Error: ${message}`;
   } finally {
     elements.input.disabled = false;
     elements.input.focus();

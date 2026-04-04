@@ -61,14 +61,15 @@
   <!-- Inline Chat Bar -->
   <div id="chat-overlay" class="fixed inset-0 z-50 pointer-events-none" style="display: none;">
     <div id="chat-box" class="pnex-inline-panel overflow-hidden pointer-events-auto">
-      <div id="chat-response" class="pnex-inline-panel-body px-2 py-1 whitespace-pre-wrap max-h-40 overflow-y-auto"
-        style="display: none;"></div>
       <div class="pnex-inline-panel-bar flex items-center">
         <span id="chat-mode-label" class="text-xs uppercase tracking-wide mr-2 shrink-0" style="color: #569cd6;">AI
           Command</span>
         <input id="chat-input" type="text" class="pnex-inline-panel-input flex-1 bg-transparent outline-none"
           placeholder="Ask about commands" autocomplete="off" spellcheck="false" />
       </div>
+      <div id="chat-response"
+        class="pnex-inline-panel-body pnex-inline-panel-response px-0.5 py-1 whitespace-pre-wrap max-h-40 overflow-y-auto"
+        style="display: none;"><span id="chat-response-text"></span></div>
       <div class="pnex-inline-panel-actions flex items-center gap-1 mt-1">
         <button id="chat-close" class="py-0.5 rounded text-xs cursor-pointer opacity-50 hover:opacity-100"
           style="color: #cccccc;">Esc</button>

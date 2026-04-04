@@ -239,6 +239,10 @@
   background: var(--pnex-inline-panel-bg);
 }
 
+.pnex-inline-panel-response {
+  padding-top: 4px;
+}
+
 .pnex-inline-panel-input {
   color: var(--pnex-inline-panel-fg);
 }
