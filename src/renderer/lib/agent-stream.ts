@@ -17,11 +17,7 @@ import {
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
-const OSC_PREFIX = "\x1b]7777;";
-const OSC_BEL = "\x07";
-const OSC_ST = "\x1b\\";
-
-let _oscBuffer = "";
+const PNEX_OSC_ID = 7777;
 
 interface PromptHudEntry {
   id: number;
@@ -62,7 +58,19 @@ export function registerAgentHandlers(
   _terminal = terminal;
   _activeUiThemeName = initialUiThemeName || defaultUiThemeName;
 
+  terminal.parser.registerOscHandler(PNEX_OSC_ID, (data) => {
+    handleOscPayload(data);
+    // Flush immediately during parsing — the cursor is at the exact
+    // position where the OSC was emitted.  Deferring to onWriteParsed
+    // is unreliable because xterm may batch writes or the cursor may
+    // have moved by the time onWriteParsed fires.
+    flushPendingPromptHud();
+    return true;
+  });
+
   terminal.onWriteParsed(() => {
+    // Safety-net: catches any pending HUD that was not flushed inside
+    // the OSC handler (e.g. exit and cwd arriving in separate writes).
     flushPendingPromptHud();
   });
 
@@ -165,15 +173,6 @@ function flushPendingPromptHud(): void {
   _pendingPromptCwd = null;
   finalizeActivePromptHud(_pendingExitCode);
   createPromptHud(cwd);
-}
-
-/**
- * Force-flush any pending prompt HUD that was detected via OSC but
- * could not be flushed through onWriteParsed (e.g. the sanitized
- * output was empty so no terminal.write occurred).
- */
-export function drainPendingPromptHud(): void {
-  flushPendingPromptHud();
 }
 
 function finalizeActivePromptHud(exitCode: number): void {
@@ -384,74 +383,6 @@ function syncPromptHudDataset(entry: PromptHudEntry): void {
 function parseExitCode(data: string): number {
   const parsed = Number.parseInt(data, 10);
   return Number.isFinite(parsed) ? parsed : 1;
-}
-
-export function extractPnexOscPayload(data: string): string {
-  let input = _oscBuffer + data;
-  _oscBuffer = "";
-
-  let output = "";
-  let cursor = 0;
-
-  while (cursor < input.length) {
-    const oscStart = input.indexOf(OSC_PREFIX, cursor);
-
-    if (oscStart < 0) {
-      output += input.slice(cursor);
-      break;
-    }
-
-    output += input.slice(cursor, oscStart);
-
-    const payloadStart = oscStart + OSC_PREFIX.length;
-
-    const belIndex = input.indexOf(OSC_BEL, payloadStart);
-    const stIndex = input.indexOf(OSC_ST, payloadStart);
-    let termIndex: number;
-    let termLength: number;
-
-    if (belIndex >= 0 && (stIndex < 0 || belIndex <= stIndex)) {
-      termIndex = belIndex;
-      termLength = OSC_BEL.length;
-    } else if (stIndex >= 0) {
-      termIndex = stIndex;
-      termLength = OSC_ST.length;
-    } else {
-      // Incomplete OSC — buffer for next chunk
-      _oscBuffer = input.slice(oscStart);
-      break;
-    }
-
-    const payload = input.slice(payloadStart, termIndex);
-    handleOscPayload(payload);
-    cursor = termIndex + termLength;
-  }
-
-  // Guard against a split OSC_PREFIX at the tail of the output.
-  // If the output ends with a partial match of "\x1b]7777;" we must
-  // hold it back so the next chunk can complete the sequence.
-  const trailingLen = findTrailingOscPrefix(output);
-  if (trailingLen > 0) {
-    _oscBuffer = output.slice(output.length - trailingLen) + _oscBuffer;
-    output = output.slice(0, output.length - trailingLen);
-  }
-
-  return output;
-}
-
-/**
- * Returns how many characters at the end of `data` form a partial
- * prefix of OSC_PREFIX ("\x1b]7777;"). Returns 0 when there is no
- * trailing partial match.
- */
-function findTrailingOscPrefix(data: string): number {
-  const maxCheck = Math.min(data.length, OSC_PREFIX.length - 1);
-  for (let len = maxCheck; len >= 1; len--) {
-    if (data.endsWith(OSC_PREFIX.slice(0, len))) {
-      return len;
-    }
-  }
-  return 0;
 }
 
 function handleOscPayload(payload: string): void {

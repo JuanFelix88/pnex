@@ -3,11 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { PnexConfig } from "../../shared/types";
 import { toXtermTheme } from "./theme-applier";
-import {
-  extractPnexOscPayload,
-  registerAgentHandlers,
-  drainPendingPromptHud,
-} from "./agent-stream";
+import { registerAgentHandlers } from "./agent-stream";
 import { markCommandRunning } from "./terminal-command-state";
 import { trackInput, onCommandSubmit } from "./input-tracker";
 import { registerTerminalKeyHandler } from "./terminal-key-handlers";
@@ -30,7 +26,7 @@ export function initTerminal(
     fontSize: config.fontSize || 14,
     fontFamily: config.fontFamily || 'Consolas, "Courier New", monospace',
     cursorBlink: true,
-    cursorStyle: "bar",
+    cursorStyle: "block",
     allowProposedApi: true,
   });
 
@@ -52,12 +48,7 @@ export function initTerminal(
 
 function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
   pnex.onTerminalData((data: string) => {
-    const sanitized = extractPnexOscPayload(data);
-    if (sanitized.length > 0) {
-      terminal.write(sanitized);
-    } else {
-      drainPendingPromptHud();
-    }
+    terminal.write(data);
   });
 
   terminal.onData((data: string) => {
