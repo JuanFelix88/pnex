@@ -7,7 +7,7 @@ import { registerAgentHandlers } from "./agent-stream";
 import { markCommandRunning } from "./terminal-command-state";
 import { trackInput, onCommandSubmit } from "./input-tracker";
 import { registerTerminalKeyHandler } from "./terminal-key-handlers";
-import { PtyFlowControl } from "./pty-flow-control";
+import { OscHandler } from "../../lib/terminal/osc";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -63,12 +63,16 @@ function addTerminalBottomPadding(terminal: Terminal): void {
 }
 
 function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
-  const flowControl = new PtyFlowControl((data: string) => {
-    terminal.write(data);
-  });
-
   pnex.onTerminalData((data: string) => {
-    flowControl.feed(data);
+    if (OscHandler.hasOscCommands(data)) {
+      const { remainingData } = OscHandler.splitData(data);
+
+      if (!remainingData.startsWith("\n") && remainingData.startsWith("\r")) {
+        data += "\n";
+      }
+    }
+
+    terminal.write(data);
   });
 
   terminal.onData((data: string) => {

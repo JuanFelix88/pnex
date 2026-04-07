@@ -15,10 +15,9 @@ import {
   createStaleGuard,
   ensureActive,
 } from "../../shared/utils";
+import { PNEX_OSC_ID } from "../../lib/terminal/osc";
 
 declare const pnex: import("../../preload/preload").PnexApi;
-
-const PNEX_OSC_ID = 7777;
 
 interface PromptHudEntry {
   id: number;
