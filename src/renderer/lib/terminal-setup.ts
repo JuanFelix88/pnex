@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { PnexConfig } from "../../shared/types";
 import { toXtermTheme } from "./theme-applier";
-import { registerAgentHandlers } from "./agent-stream";
+import { focusPreviousPromptHud, registerAgentHandlers } from "./agent-stream";
 import { markCommandRunning } from "./terminal-command-state";
 import { trackInput, onCommandSubmit } from "./input-tracker";
 import { registerTerminalKeyHandler } from "./terminal-key-handlers";
@@ -41,6 +41,7 @@ export function initTerminal(
   observeResize(container, fitAddon);
   registerPasteHandler();
   registerCommandHistory();
+  registerPromptHudNavigation();
   addTerminalBottomPadding(terminal);
 
   // Fit after resize handlers are attached so the initial size is sent to the PTY.
@@ -117,5 +118,29 @@ function registerPasteHandler(): void {
 function registerCommandHistory(): void {
   onCommandSubmit((command) => {
     pnex.appendCommandHistory(command);
+  });
+}
+
+function registerPromptHudNavigation(): void {
+  registerTerminalKeyHandler((event) => {
+    if (event.type !== "keydown") {
+      return true;
+    }
+
+    if (
+      event.key === "ArrowUp" &&
+      event.altKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.metaKey
+    ) {
+      const navigated = focusPreviousPromptHud();
+      if (navigated) {
+        event.preventDefault();
+        return false;
+      }
+    }
+
+    return true;
   });
 }

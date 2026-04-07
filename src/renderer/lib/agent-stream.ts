@@ -40,6 +40,7 @@ let _pendingExitCode = 0;
 let _pendingPromptCwd: string | null = null;
 let _nextPromptHudId = 1;
 let _activePromptHudId: number | null = null;
+let _focusedPromptHudId: number | null = null;
 
 const _promptHudHistory = new Map<number, PromptHudEntry>();
 const _promptHudOrder: number[] = [];
@@ -49,6 +50,21 @@ export function getCurrentCwd(): string {
 
 export function resetCommandHudHistory(): void {
   clearPromptHudHistory();
+}
+
+export function focusPreviousPromptHud(): boolean {
+  if (!_terminal) {
+    return false;
+  }
+
+  const viewportLine = _terminal.buffer.active.viewportY;
+  const targetEntry = findPreviousPromptHud(viewportLine);
+  if (!targetEntry) {
+    return false;
+  }
+
+  focusPromptHud(targetEntry);
+  return true;
 }
 
 export function registerAgentHandlers(
@@ -330,6 +346,7 @@ function clearPromptHudHistory(): void {
 
   _currentCwd = "";
   _activePromptHudId = null;
+  _focusedPromptHudId = null;
   _pendingExitCode = 0;
   _pendingPromptCwd = null;
 }
@@ -358,9 +375,73 @@ function disposePromptHudEntry(
     _activePromptHudId = null;
   }
 
+  if (_focusedPromptHudId === promptHudId) {
+    _focusedPromptHudId = null;
+  }
+
   if (disposeDecoration) {
     entry.decoration.dispose();
     entry.marker.dispose();
+  }
+}
+
+function findPreviousPromptHud(referenceLine: number): PromptHudEntry | null {
+  let targetEntry: PromptHudEntry | null = null;
+
+  for (const promptHudId of _promptHudOrder) {
+    const entry = _promptHudHistory.get(promptHudId);
+    if (!entry || entry.isDisposed) {
+      continue;
+    }
+
+    const markerLine = entry.marker.line;
+    if (markerLine < 0 || markerLine >= referenceLine) {
+      continue;
+    }
+
+    if (!targetEntry || markerLine > targetEntry.marker.line) {
+      targetEntry = entry;
+    }
+  }
+
+  return targetEntry;
+}
+
+function focusPromptHud(entry: PromptHudEntry): void {
+  if (!_terminal || entry.isDisposed) {
+    return;
+  }
+
+  const markerLine = entry.marker.line;
+  if (markerLine < 0) {
+    return;
+  }
+
+  setFocusedPromptHud(entry.id);
+  _terminal.scrollToLine(markerLine - 2);
+  _terminal.focus();
+}
+
+function setFocusedPromptHud(promptHudId: number | null): void {
+  if (_focusedPromptHudId === promptHudId) {
+    return;
+  }
+
+  const previousId = _focusedPromptHudId;
+  _focusedPromptHudId = promptHudId;
+
+  if (previousId !== null) {
+    const previousEntry = _promptHudHistory.get(previousId);
+    if (previousEntry && !previousEntry.isDisposed) {
+      syncPromptHudDataset(previousEntry);
+    }
+  }
+
+  if (promptHudId !== null) {
+    const nextEntry = _promptHudHistory.get(promptHudId);
+    if (nextEntry && !nextEntry.isDisposed) {
+      syncPromptHudDataset(nextEntry);
+    }
   }
 }
 
@@ -396,9 +477,14 @@ function syncChatModeToActiveTheme(): void {
 function syncPromptHudDataset(entry: PromptHudEntry): void {
   entry.frameElement.dataset.status = entry.status;
   entry.contentElement.dataset.status = entry.status;
+  const isFocused = entry.id === _focusedPromptHudId;
+
+  entry.frameElement.dataset.focused = isFocused ? "true" : "false";
+  entry.contentElement.dataset.focused = isFocused ? "true" : "false";
 
   if (entry.hostElement) {
     entry.hostElement.dataset.status = entry.status;
+    entry.hostElement.dataset.focused = isFocused ? "true" : "false";
   }
 }
 
