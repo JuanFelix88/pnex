@@ -14,7 +14,7 @@ function buildSystemPrompt(shell?: string): string {
 - Return ONLY the command, nothing else
 - No markdown, no backticks, no explanation
 - No newlines before or after the command
-- If multiple commands are needed, chain them with && or ;
+- If multiple commands are needed, chain them with && ; \\ (for new lines)
 - The current terminal shell is: ${activeShell}
 - The command must be valid for that shell syntax and conventions
 - If the shell is Git Bash or bash, prefer POSIX shell syntax and avoid PowerShell cmdlets
@@ -74,7 +74,7 @@ export async function executeCommandAgent(
         { role: "user", content: userPrompt },
       ],
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: 50_000,
     });
 
     const content = response.choices[0]?.message?.content;

@@ -63,14 +63,11 @@ function addTerminalBottomPadding(terminal: Terminal): void {
 }
 
 function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
-  let dataId = 0;
-
   const flowControl = new PtyFlowControl((data: string) => {
     terminal.write(data);
   });
 
   pnex.onTerminalData((data: string) => {
-    console.log(dataId++, "Received data from PTY:", data);
     flowControl.feed(data);
   });
 

@@ -87,7 +87,7 @@ export async function executeChatAgent(
       model: config.model,
       messages,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 50_000,
     });
 
     const content =
