@@ -7,6 +7,7 @@ import { registerAgentHandlers } from "./agent-stream";
 import { markCommandRunning } from "./terminal-command-state";
 import { trackInput, onCommandSubmit } from "./input-tracker";
 import { registerTerminalKeyHandler } from "./terminal-key-handlers";
+import { PtyFlowControl } from "./pty-flow-control";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -62,8 +63,15 @@ function addTerminalBottomPadding(terminal: Terminal): void {
 }
 
 function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
-  pnex.onTerminalData((data: string) => {
+  let dataId = 0;
+
+  const flowControl = new PtyFlowControl((data: string) => {
     terminal.write(data);
+  });
+
+  pnex.onTerminalData((data: string) => {
+    console.log(dataId++, "Received data from PTY:", data);
+    flowControl.feed(data);
   });
 
   terminal.onData((data: string) => {
