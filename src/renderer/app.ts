@@ -5,12 +5,33 @@ import { initCommandHistoryPicker } from "./lib/command-history-picker";
 import { bindTerminalKeyHandlers } from "./lib/terminal-key-handlers";
 import { initAiHint } from "./lib/ai-hint";
 import { applyTheme, toXtermTheme } from "./lib/theme-applier";
-import { resetCommandHudHistory } from "./lib/agent-stream";
+import { resetCommandHudHistory, onFirstHudRender } from "./lib/agent-stream";
 import type { AppMenuAction } from "../preload/preload";
 import type { PnexTheme } from "../shared/types";
 import { listUiThemes, defaultUiThemeName } from "./ui-themes";
 
 declare const pnex: import("../preload/preload").PnexApi;
+
+// ─── Loading screen helpers ───────────────────────────────────────────────────
+
+function dismissLoadingScreen(): void {
+  const screen = document.getElementById("loading-screen");
+  if (!screen) return;
+  screen.classList.add("loading--dismissed");
+  screen.addEventListener("transitionend", () => screen.remove(), {
+    once: true,
+  });
+}
+
+let _terminalRevealed = false;
+function revealTerminal(): void {
+  if (_terminalRevealed) return;
+  _terminalRevealed = true;
+  const el = document.getElementById("terminal-container");
+  if (el) el.style.opacity = "1";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function applyConfigCssVariables(config: PnexConfig): void {
   document.documentElement.style.setProperty(
@@ -288,6 +309,18 @@ async function main(): Promise<void> {
     terminal.options.theme = toXtermTheme(theme);
   });
 
+  // Enforce a minimum 2 s display so the loading screen never flickers past.
+  const minLoadingDelay = new Promise<void>((resolve) =>
+    setTimeout(resolve, 2000),
+  );
+
+  // Reveal terminal when first prompt HUD is rendered (shell is ready).
+  // Fallback: reveal after 3 s in case the OSC handshake is delayed.
+  onFirstHudRender(revealTerminal);
+  setTimeout(revealTerminal, 3000);
+
+  await minLoadingDelay;
+  dismissLoadingScreen();
   terminal.focus();
 }
 

@@ -14,6 +14,32 @@
 </head>
 
 <body class="bg-[#1e1e1e] text-[#cccccc] h-screen w-screen overflow-hidden flex flex-col m-0 p-0">
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" aria-hidden="true">
+    <div class="loading-corner loading-corner--tl"></div>
+    <div class="loading-corner loading-corner--tr"></div>
+    <div class="loading-corner loading-corner--bl"></div>
+    <div class="loading-corner loading-corner--br"></div>
+    <div class="loading-content">
+      <div class="loading-logo-wrap">
+        <svg viewBox="0 0 170 213" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M73.9804 36.4176C106.182 36.4178 97.0992 36.4173 108.989 36.4176C128.144 38.3992 130.126 48.9679 130.126 48.9679C130.126 48.9679 132.768 60.8574 122.2 72.0867C89.8333 72.0867 52.8433 72.0867 52.8433 72.0867C52.8433 72.0867 57.467 56.8941 73.9804 36.4176Z" fill="currentColor" fill-opacity="0.8"/>
+          <path d="M43.5955 103.792H85.8699L42.2744 143.425C42.2744 143.425 45.6347 145.026 39.6323 143.425C40.2927 127.572 43.5955 103.792 43.5955 103.792Z" fill="currentColor" fill-opacity="0.8"/>
+          <path d="M111.631 0.0878906C143.337 0.748428 156.547 20.5645 156.547 20.5645C156.547 20.5645 189.574 56.2335 150.603 98.5079C113.612 128.232 93.7963 144.085 72.6592 160.598C71.3381 181.736 77.9435 212.781 67.3749 212.781H43.5955L39.6323 179.093V144.085L121.539 72.0864C121.539 72.0864 147.96 41.7017 108.989 36.4174C98.4201 36.4174 88.5121 36.4174 73.9802 36.4174C79.2645 29.8121 89.8331 17.9224 89.8331 17.9224C89.8331 17.9224 101.062 8.01433 111.631 0.0878906Z" fill="currentColor" fill-opacity="0.95"/>
+          <path d="M21.0073 0.10017C21.0073 0.10017 1.97607 -1.41655 0.660537 7.35372C1.98176 39.7198 0 212.12 0 212.12C0 212.12 23.1188 212.781 43.5954 212.781C31.7058 99.1694 48.8797 48.9681 111.631 0.10017C64.0721 0.100231 41.6138 0.747823 21.0073 0.10017Z" fill="currentColor" fill-opacity="1"/>
+        </svg>
+      </div>
+      <div class="loading-brand">
+        <span class="loading-brand-name">PNEX</span>
+        <span class="loading-brand-sub">terminal · ai · workspace</span>
+      </div>
+      <div class="loading-spinner">
+        <div class="loading-spinner-ring"></div>
+      </div>
+    </div>
+  </div>
+
   <header id="titlebar"
     class="flex items-center h-9 shrink-0 select-none border-b border-[#2a2d2e] bg-[#181818] text-[#cccccc]">
     <div class="flex items-center px-3 gap-3 min-w-0 flex-1" style="-webkit-app-region: drag;">

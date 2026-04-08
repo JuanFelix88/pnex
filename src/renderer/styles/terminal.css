@@ -410,3 +410,106 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* ============================================================
+   Terminal container: hidden until loading screen dismisses
+   ============================================================ */
+#terminal-container {
+  opacity: 0;
+  transition: opacity 0.55s ease;
+}
+
+/* ============================================================
+   Loading Screen
+   ============================================================ */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--pnex-theme-background);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: opacity 0.45s ease;
+}
+
+#loading-screen.loading--dismissed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* HUD corner brackets */
+.loading-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  opacity: 0.35;
+}
+
+.loading-corner--tl { top: 16px; left: 16px;  border-top: 1px solid var(--pnex-theme-bright-cyan); border-left: 1px solid var(--pnex-theme-bright-cyan); }
+.loading-corner--tr { top: 16px; right: 16px; border-top: 1px solid var(--pnex-theme-bright-cyan); border-right: 1px solid var(--pnex-theme-bright-cyan); }
+.loading-corner--bl { bottom: 16px; left: 16px;  border-bottom: 1px solid var(--pnex-theme-bright-cyan); border-left: 1px solid var(--pnex-theme-bright-cyan); }
+.loading-corner--br { bottom: 16px; right: 16px; border-bottom: 1px solid var(--pnex-theme-bright-cyan); border-right: 1px solid var(--pnex-theme-bright-cyan); }
+
+/* Center content */
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+/* PNEX logo */
+.loading-logo-wrap {
+  width: 40px;
+  height: 50px;
+  color: var(--pnex-theme-foreground);
+}
+
+/* Brand text */
+.loading-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.loading-brand-name {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  color: var(--pnex-theme-foreground);
+  text-transform: uppercase;
+}
+
+.loading-brand-sub {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--pnex-theme-bright-black);
+  text-transform: uppercase;
+}
+
+/* Spinner */
+.loading-spinner {
+  margin-top: 8px;
+}
+
+.loading-spinner-ring {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--pnex-theme-bright-black);
+  border-top-color: var(--pnex-theme-bright-cyan);
+  border-radius: 50%;
+  animation: pnex-spin 0.8s linear infinite;
+}
+
+@keyframes pnex-spin {
+  to { transform: rotate(360deg); }
+}
+

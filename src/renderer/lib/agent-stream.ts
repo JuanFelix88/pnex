@@ -41,11 +41,21 @@ let _pendingPromptCwd: string | null = null;
 let _nextPromptHudId = 1;
 let _activePromptHudId: number | null = null;
 let _focusedPromptHudId: number | null = null;
+let _firstHudHasRendered = false;
+const _onFirstHudRenderCallbacks: Array<() => void> = [];
 
 const _promptHudHistory = new Map<number, PromptHudEntry>();
 const _promptHudOrder: number[] = [];
 export function getCurrentCwd(): string {
   return _currentCwd;
+}
+
+export function onFirstHudRender(callback: () => void): void {
+  if (_firstHudHasRendered) {
+    callback();
+    return;
+  }
+  _onFirstHudRenderCallbacks.push(callback);
 }
 
 export function resetCommandHudHistory(): void {
@@ -166,6 +176,12 @@ function bindDecoration(entry: PromptHudEntry): void {
   entry.decoration.onRender((element) => {
     if (entry.isDisposed) {
       return;
+    }
+
+    if (!_firstHudHasRendered) {
+      _firstHudHasRendered = true;
+      for (const cb of _onFirstHudRenderCallbacks) cb();
+      _onFirstHudRenderCallbacks.length = 0;
     }
 
     entry.hostElement = element;
