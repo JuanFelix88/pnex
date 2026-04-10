@@ -246,6 +246,12 @@ function registerAppHandlers(): void {
   ipcMain.handle(IpcChannels.DEVTOOLS_TOGGLE, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.webContents.toggleDevTools();
   });
+
+  ipcMain.on(IpcChannels.WINDOW_SET_TITLE, (event, title: string) => {
+    if (typeof title === "string" && title.trim().length > 0) {
+      BrowserWindow.fromWebContents(event.sender)?.setTitle(title.trim());
+    }
+  });
 }
 
 const HISTORY_PATH = path.join(os.homedir(), ".pnex-command-history.txt");

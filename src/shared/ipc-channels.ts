@@ -27,6 +27,7 @@ export const IpcChannels = {
   DEVTOOLS_TOGGLE: "devtools:toggle",
   COMMAND_HISTORY_APPEND: "command-history:append",
   COMMAND_HISTORY_GET: "command-history:get",
+  WINDOW_SET_TITLE: "window:set-title",
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];

@@ -16,6 +16,7 @@ import {
   ensureActive,
 } from "../../shared/utils";
 import { PNEX_OSC_ID } from "../../lib/terminal/osc";
+import { onCommandSubmit } from "./input-tracker";
 
 declare const pnex: import("../../preload/preload").PnexApi;
 
@@ -42,6 +43,7 @@ let _nextPromptHudId = 1;
 let _activePromptHudId: number | null = null;
 let _focusedPromptHudId: number | null = null;
 let _firstHudHasRendered = false;
+let _lastCommand = "";
 const _onFirstHudRenderCallbacks: Array<() => void> = [];
 
 const _promptHudHistory = new Map<number, PromptHudEntry>();
@@ -109,6 +111,11 @@ export function registerAgentHandlers(
     if (isRunning) {
       markActivePromptHudRunning();
     }
+    updateWindowTitle(isRunning);
+  });
+
+  onCommandSubmit((command) => {
+    _lastCommand = command;
   });
 
   onChatModeChange(() => {
@@ -509,6 +516,25 @@ function parseExitCode(data: string): number {
   return Number.isFinite(parsed) ? parsed : 1;
 }
 
+function cwdBasename(cwd: string): string {
+  if (!cwd) return "";
+  const normalized = cwd.replace(/\\/g, "/").replace(/\/$/, "");
+  return normalized.slice(normalized.lastIndexOf("/") + 1) || normalized;
+}
+
+function updateWindowTitle(isRunning?: boolean): void {
+  const folder = cwdBasename(_currentCwd);
+  const base = folder ? `${folder} — pnex` : "pnex";
+
+  if (isRunning && _lastCommand) {
+    pnex.setWindowTitle(`● ${_lastCommand} [${folder || "~"}] — pnex`);
+  } else if (isRunning) {
+    pnex.setWindowTitle(`● ${base}`);
+  } else {
+    pnex.setWindowTitle(base);
+  }
+}
+
 function handleOscPayload(payload: string): void {
   const eqIndex = payload.indexOf("=");
   if (eqIndex < 0) return;
@@ -521,6 +547,8 @@ function handleOscPayload(payload: string): void {
   } else if (key === "cwd") {
     _currentCwd = value;
     _pendingPromptCwd = value;
+    _lastCommand = "";
+    updateWindowTitle(false);
     markPromptReady();
   }
 }

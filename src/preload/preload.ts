@@ -207,6 +207,10 @@ const api = {
   getCommandHistory: (): Promise<string[]> => {
     return ipcRenderer.invoke(IpcChannels.COMMAND_HISTORY_GET);
   },
+
+  setWindowTitle: (title: string): void => {
+    ipcRenderer.send(IpcChannels.WINDOW_SET_TITLE, title);
+  },
 };
 
 contextBridge.exposeInMainWorld("pnex", api);
