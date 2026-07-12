@@ -9,7 +9,7 @@ import {
 import { shell } from "electron";
 import { defaultUiThemeName, listUiThemes } from "../../renderer/ui-themes";
 
-type AppMenuAction = "config" | "new-chat" | "copy" | "paste" | "select-all";
+type AppMenuAction = "config" | "copy" | "paste" | "select-all";
 
 function triggerRendererMenuAction(
   win: BrowserWindow,
@@ -20,7 +20,7 @@ function triggerRendererMenuAction(
 
 /**
  * Build the native application menu.
- * Includes "Options JSON", "New Chat", and "Themes" actions.
+ * Includes configuration and theme actions.
  */
 export function buildAppMenu(win: BrowserWindow): void {
   const config = loadConfig();
@@ -61,14 +61,6 @@ export function buildAppMenu(win: BrowserWindow): void {
           label: "Options JSON",
           click: () => {
             triggerRendererMenuAction(win, "config");
-          },
-        },
-        {
-          label: "New Chat",
-          accelerator: "CmdOrCtrl+N",
-          click: () => {
-            win.webContents.send(IpcChannels.NEW_CHAT);
-            triggerRendererMenuAction(win, "new-chat");
           },
         },
         { type: "separator" },

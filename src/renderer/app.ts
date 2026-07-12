@@ -1,11 +1,9 @@
 import { PnexConfig } from "../shared/types";
 import { initTerminal } from "./lib/terminal-setup";
-import { initInlineChat } from "./lib/inline-chat";
 import { initCommandHistoryPicker } from "./lib/command-history-picker";
 import { bindTerminalKeyHandlers } from "./lib/terminal-key-handlers";
-import { initAiHint } from "./lib/ai-hint";
 import { applyTheme, toXtermTheme } from "./lib/theme-applier";
-import { resetCommandHudHistory, onFirstHudRender } from "./lib/agent-stream";
+import { onFirstHudRender } from "./lib/agent-stream";
 import type { AppMenuAction } from "../preload/preload";
 import type { PnexTheme } from "../shared/types";
 import { listUiThemes, defaultUiThemeName } from "./ui-themes";
@@ -102,7 +100,6 @@ function setupTitlebar(): void {
 
       return [
         { type: "action", label: "Options JSON", action: "config" },
-        { type: "action", label: "New Chat", action: "new-chat" },
         { type: "separator" },
         { type: "label", label: "Themes" },
         ...themeItems,
@@ -134,10 +131,6 @@ function setupTitlebar(): void {
     switch (action) {
       case "config":
         await pnex.openConfig();
-        break;
-      case "new-chat":
-        resetCommandHudHistory();
-        await pnex.newChat();
         break;
       case "copy":
         document.execCommand("copy");
@@ -294,15 +287,8 @@ async function main(): Promise<void> {
 
   const { terminal } = initTerminal(container, config);
 
-  initInlineChat(terminal);
   initCommandHistoryPicker(terminal);
   bindTerminalKeyHandlers(terminal);
-  initAiHint(terminal);
-
-  pnex.onNewChat(() => {
-    resetCommandHudHistory();
-    pnex.newChat();
-  });
 
   pnex.onThemeChanged((theme) => {
     applyTheme(theme);

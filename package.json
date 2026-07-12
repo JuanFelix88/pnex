@@ -21,6 +21,15 @@
   ],
   "author": "",
   "license": "ISC",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@homebridge/node-pty-prebuilt-multiarch",
+      "@parcel/watcher",
+      "electron",
+      "electron-winstaller",
+      "esbuild"
+    ]
+  },
   "build": {
     "appId": "com.pnex.app",
     "productName": "Pnex",

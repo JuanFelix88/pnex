@@ -42,25 +42,12 @@ export function initTerminal(
   registerPasteHandler();
   registerCommandHistory();
   registerPromptHudNavigation();
-  addTerminalBottomPadding(terminal);
+  registerMultilineInput();
 
   // Fit after resize handlers are attached so the initial size is sent to the PTY.
   fitAddon.fit();
 
   return { terminal, fitAddon };
-}
-
-/**
- * Add bottom padding to terminal by adding blank lines.
- * This prevents content from sticking to the bottom, similar to VS Code.
- */
-function addTerminalBottomPadding(terminal: Terminal): void {
-  // Write blank lines to create visual padding at the bottom
-  // Number of lines is roughly 1/3 of terminal height for a nice balance
-  const paddingLines = 8;
-  for (let i = 0; i < paddingLines; i++) {
-    terminal.write("\n");
-  }
 }
 
 function connectToPty(terminal: Terminal, fitAddon: FitAddon): void {
@@ -118,6 +105,26 @@ function registerPasteHandler(): void {
 function registerCommandHistory(): void {
   onCommandSubmit((command) => {
     pnex.appendCommandHistory(command);
+  });
+}
+
+function registerMultilineInput(): void {
+  registerTerminalKeyHandler((event) => {
+    if (
+      event.type === "keydown" &&
+      event.key === "Enter" &&
+      event.shiftKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.metaKey
+    ) {
+      event.preventDefault();
+      // Pi, Codex, and Claude Code all treat Ctrl+J (LF) as a newline.
+      pnex.sendTerminalInput("\n");
+      return false;
+    }
+
+    return true;
   });
 }
 

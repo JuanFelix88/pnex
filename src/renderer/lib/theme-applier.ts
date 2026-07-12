@@ -8,7 +8,6 @@ export function applyTheme(theme: PnexTheme): void {
   applyThemeVariables(theme);
   applyBodyTheme(theme);
   applyTitlebarTheme(theme);
-  applyChatTheme(theme);
 }
 
 function applyThemeVariables(theme: PnexTheme): void {
@@ -65,32 +64,6 @@ function applyTitlebarTheme(theme: PnexTheme): void {
     menuPopup.style.backgroundColor = theme.background;
     menuPopup.style.color = theme.foreground;
     menuPopup.style.borderColor = theme.brightBlack;
-  }
-}
-
-function applyChatTheme(theme: PnexTheme): void {
-  const chatBox = document.getElementById("chat-box");
-  const chatInput = document.getElementById("chat-input");
-  const chatSend = document.getElementById("chat-send");
-  const chatResponse = document.getElementById("chat-response");
-  const chatModeLabel = document.getElementById("chat-mode-label");
-
-  if (chatBox) {
-    chatBox.style.backgroundColor = theme.background;
-    chatBox.style.borderColor = theme.brightBlack;
-  }
-  if (chatModeLabel) {
-    chatModeLabel.style.color = theme.blue;
-  }
-  if (chatInput) {
-    (chatInput as HTMLInputElement).style.color = theme.foreground;
-  }
-  if (chatSend) {
-    chatSend.style.backgroundColor = theme.blue;
-    chatSend.style.color = theme.brightWhite;
-  }
-  if (chatResponse) {
-    chatResponse.style.color = theme.foreground;
   }
 }
 

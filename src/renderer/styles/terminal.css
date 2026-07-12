@@ -137,7 +137,6 @@
 
 #terminal-container {
   padding: 8px;
-  padding-bottom: 10vh;
   box-sizing: border-box;
   overflow: auto;
 }
@@ -239,17 +238,8 @@
   background: var(--pnex-inline-panel-bg);
 }
 
-.pnex-inline-panel-response {
-  padding-top: 4px;
-}
-
 .pnex-inline-panel-input {
   color: var(--pnex-inline-panel-fg);
-}
-
-.pnex-inline-panel-actions {
-  background: var(--pnex-inline-panel-bg);
-  padding: 2px 0 0;
 }
 
 /* -- Command History Picker -------------------------------------------------------- */
@@ -365,34 +355,6 @@
 @keyframes pnex-skeleton-shimmer {
   from { background-position: 200% 0; }
   to   { background-position: -200% 0; }
-}
-
-/* -- AI Hint text shimmer ---------------------------------------------------------- */
-
-.pnex-ai-hint-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 255, 255, 1) 15%,
-    rgba(255, 255, 255, 0.4) 30%
-  );
-  background-size: 300% auto;
-  color: transparent;
-  -webkit-background-clip: text;
-  background-clip: text;
-  animation: pnex-hint-shimmer 3s ease-in-out infinite;
-}
-
-@keyframes pnex-hint-shimmer {
-  0% {
-    background-position: 100% center;
-  }
-  80% {
-    background-position: -50% center;
-  }
-  100% {
-    background-position: -50% center;
-  }
 }
 
 /* xterm viewport scrollbar styling (VSCode-like) */
@@ -511,5 +473,10 @@
 
 @keyframes pnex-spin {
   to { transform: rotate(360deg); }
+}
+
+/* xterm.js generates a 1s cursor animation; use 150ms for each state. */
+.xterm-cursor.xterm-cursor-blink {
+  animation-duration: 300ms !important;
 }
 

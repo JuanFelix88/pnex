@@ -25,7 +25,6 @@ function sendUiThemeContextSync<T>(request: UiThemeContextRequest): T {
 
 export type AppMenuAction =
   | "config"
-  | "new-chat"
   | "copy"
   | "paste"
   | "select-all"
