@@ -1,11 +1,10 @@
 packages: []
 
 allowBuilds:
-  '@homebridge/node-pty-prebuilt-multiarch': true
-  '@parcel/watcher': true
-  electron: true
-  electron-winstaller: true
   esbuild: true
+
 onlyBuiltDependencies:
-  - "@homebridge/node-pty-prebuilt-multiarch"
-  - "electron"
+  - esbuild
+
+patchedDependencies:
+  '@xterm/addon-webgl@0.19.0': patches/@xterm__addon-webgl@0.19.0.patch
