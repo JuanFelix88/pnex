@@ -45,7 +45,7 @@ export function initTerminal(
   registerMultilineInput();
 
   // Fit after resize handlers are attached so the initial size is sent to the PTY.
-  fitAddon.fit();
+  fitTerminalToContainer(container, fitAddon);
 
   return { terminal, fitAddon };
 }
@@ -83,10 +83,30 @@ function containsCommandSubmission(data: string): boolean {
 }
 
 function observeResize(container: HTMLElement, fitAddon: FitAddon): void {
-  const observer = new ResizeObserver(() => {
-    fitAddon.fit();
-  });
+  let animationFrameId: number | null = null;
+
+  const scheduleFit = (): void => {
+    if (animationFrameId !== null) return;
+
+    animationFrameId = window.requestAnimationFrame(() => {
+      animationFrameId = null;
+      fitTerminalToContainer(container, fitAddon);
+    });
+  };
+
+  const observer = new ResizeObserver(scheduleFit);
   observer.observe(container);
+}
+
+function fitTerminalToContainer(
+  container: HTMLElement,
+  fitAddon: FitAddon,
+): void {
+  // A fully collapsed container cannot be measured reliably by xterm.
+  // Skip fitting until it has usable dimensions again.
+  if (container.clientWidth === 0 || container.clientHeight === 0) return;
+
+  fitAddon.fit();
 }
 
 function registerPasteHandler(): void {

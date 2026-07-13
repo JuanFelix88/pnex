@@ -8,8 +8,8 @@ export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 900,
     height: 600,
-    minWidth: 480,
-    minHeight: 320,
+    minWidth: 260,
+    minHeight: 120,
     title: "pnex",
     icon: iconPath,
     backgroundColor: "#1e1e1e",

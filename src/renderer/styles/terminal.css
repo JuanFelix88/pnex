@@ -41,6 +41,7 @@
 }
 
 #titlebar {
+  min-width: 0;
   user-select: none;
   background: var(--pnex-titlebar-bg);
   color: var(--pnex-titlebar-fg);
@@ -136,6 +137,8 @@
 }
 
 #terminal-container {
+  min-width: 0;
+  min-height: 0;
   padding: 8px;
   box-sizing: border-box;
   overflow: auto;
@@ -143,8 +146,9 @@
 
 #terminal {
   width: 100%;
-  height: auto;
-  min-height: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* -- HUD container ---------------------------------------------------------------- */
@@ -222,8 +226,9 @@
 
 .pnex-inline-panel {
   position: fixed;
-  min-width: 320px;
-  max-width: min(560px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
+  min-width: 0;
+  max-width: 100%;
   background: var(--pnex-inline-panel-bg);
   border: none;
   padding: 0;
@@ -239,7 +244,28 @@
 }
 
 .pnex-inline-panel-input {
+  min-width: 0;
   color: var(--pnex-inline-panel-fg);
+}
+
+@media (max-width: 320px) {
+  #titlebar > div:first-child {
+    gap: 8px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  #titlebar-icon {
+    display: none;
+  }
+
+  #titlebar nav {
+    gap: 8px;
+  }
+
+  .window-control {
+    width: 40px;
+  }
 }
 
 /* -- Command History Picker -------------------------------------------------------- */
