@@ -6,6 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type IMarker } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { LiquidCursor, type CursorAnimation } from "./liquid-cursor";
 import { builtinThemes, type TerminalTheme } from "./themes";
 import "./styles.css";
 
@@ -16,6 +17,7 @@ interface AppConfig {
   fontFamily: string;
   theme: unknown;
   uiThemeName?: string;
+  cursorAnimation?: CursorAnimation;
 }
 
 interface TerminalSize {
@@ -51,6 +53,7 @@ type MenuAction =
   | "select-all"
   | "set-theme"
   | "set-ui-theme"
+  | "set-cursor-animation"
   | "toggle-devtools"
   | "about";
 
@@ -62,6 +65,7 @@ interface MenuItem {
   disabled?: boolean;
   theme?: TerminalTheme;
   uiThemeName?: string;
+  cursorAnimation?: CursorAnimation;
   checked?: boolean;
 }
 
@@ -74,7 +78,6 @@ const windowHoverOverlay = requiredElement("#window-hover-overlay");
 const windowHoverTitle = requiredElement("#window-hover-title");
 
 let activeSessionId: number | null = null;
-let resizeFrame: number | null = null;
 let currentCwd = "";
 let pendingExitCode = 0;
 let inputBuffer = "";
@@ -84,20 +87,11 @@ let currentWindowTitle = "pnex";
 let isWindowFocused = true;
 let isPointerInsideWindow = false;
 let isWindowHoverArmed = false;
-let followsTerminalOutput = true;
-let scrollIntentVersion = 0;
-let pendingTerminalOutputBytes: number[] = [];
 let inEscapeSequence = false;
 let activeHud: PromptHud | null = null;
 let focusedHud: PromptHud | null = null;
 let terminalRevealed = false;
 const promptHuds: PromptHud[] = [];
-
-interface TerminalScrollSnapshot {
-  followsOutput: boolean;
-  marker: IMarker;
-  version: number;
-}
 
 interface PromptHud {
   cwd: string;
@@ -211,27 +205,36 @@ async function setupWindowHoverOverlay(): Promise<void> {
   updateWindowHoverOverlay();
 }
 
-function createTerminal(config: AppConfig): { terminal: Terminal; fitAddon: FitAddon } {
+function createTerminal(config: AppConfig): {
+  terminal: Terminal;
+  fitAddon: FitAddon;
+  liquidCursor: LiquidCursor;
+} {
   const theme = configuredTheme(config.theme);
+  const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
+  config.cursorAnimation = cursorAnimation;
   applyTheme(theme);
   document.documentElement.style.setProperty("--terminal-font-family", config.fontFamily);
   document.documentElement.style.setProperty("--terminal-font-size", `${config.fontSize}px`);
   const terminal = new Terminal({
     allowProposedApi: true,
-    cursorBlink: true,
+    allowTransparency: true,
+    cursorBlink: cursorAnimation === "disabled",
+    cursorInactiveStyle: cursorAnimation === "disabled" ? "outline" : "none",
     cursorStyle: "block",
     fontFamily: config.fontFamily,
     fontSize: config.fontSize,
     scrollback: 2_000,
-    theme: toXtermTheme(theme),
+    theme: toXtermTheme(theme, cursorAnimation),
   });
   const fitAddon = new FitAddon();
 
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(new WebLinksAddon());
   terminal.open(terminalElement);
+  const liquidCursor = new LiquidCursor(terminal, cursorAnimation, theme.cursor);
   loadWebglRenderer(terminal);
-  return { terminal, fitAddon };
+  return { terminal, fitAddon, liquidCursor };
 }
 
 function loadWebglRenderer(terminal: Terminal): void {
@@ -257,12 +260,17 @@ function configuredTheme(value: unknown): TerminalTheme {
   return { ...builtinThemes[0], ...Object.fromEntries(stringEntries) };
 }
 
-function toXtermTheme(theme: TerminalTheme) {
+function configuredCursorAnimation(value?: CursorAnimation): CursorAnimation {
+  return value === "disabled" ? "disabled" : "liquid";
+}
+
+function toXtermTheme(theme: TerminalTheme, cursorAnimation: CursorAnimation) {
+  const liquid = cursorAnimation === "liquid";
   return {
     background: theme.background,
     foreground: theme.foreground,
-    cursor: theme.cursor,
-    cursorAccent: theme.cursorAccent,
+    cursor: liquid ? "rgba(0, 0, 0, 0)" : theme.cursor,
+    cursorAccent: liquid ? "rgba(0, 0, 0, 0)" : theme.cursorAccent,
     selectionBackground: theme.selection,
     black: theme.black,
     red: theme.red,
@@ -295,6 +303,7 @@ function applyTheme(theme: TerminalTheme): void {
   root.setProperty("--terminal-cyan", theme.cyan);
   root.setProperty("--terminal-blue", theme.blue);
   root.setProperty("--terminal-white", theme.white);
+  root.setProperty("--terminal-cursor", theme.cursor);
 }
 
 function currentSize(terminal: Terminal): TerminalSize {
@@ -319,82 +328,8 @@ function binaryStringToBytes(data: string): Uint8Array {
   return Uint8Array.from(data, (character) => character.charCodeAt(0));
 }
 
-function captureTerminalScroll(terminal: Terminal): TerminalScrollSnapshot | null {
-  const buffer = terminal.buffer.active;
-  if (buffer.type !== "normal") return null;
-
-  const viewportY = buffer.viewportY;
-  const cursorY = buffer.baseY + buffer.cursorY;
-  return {
-    followsOutput: followsTerminalOutput,
-    marker: terminal.registerMarker(viewportY - cursorY),
-    version: scrollIntentVersion,
-  };
-}
-
-function restoreTerminalScroll(terminal: Terminal, snapshot: TerminalScrollSnapshot | null): void {
-  if (!snapshot) return;
-
-  try {
-    if (snapshot.version !== scrollIntentVersion || terminal.buffer.active.type !== "normal") return;
-    if (snapshot.followsOutput) return;
-
-    // A marker follows the actual buffer line when a TUI inserts or removes rows.
-    // If Pi cleared that history, the marker is disposed and there is no honest
-    // coordinate to restore; forcing the old y would show unrelated content.
-    const viewportY = snapshot.marker.line;
-    if (viewportY >= 0 && terminal.buffer.active.viewportY !== viewportY) {
-      terminal.scrollToLine(viewportY);
-    }
-  } finally {
-    snapshot.marker.dispose();
-  }
-}
-
-function pinTerminalScroll(terminal: Terminal): void {
-  if (terminal.buffer.active.type !== "normal") return;
-
-  followsTerminalOutput = false;
-  scrollIntentVersion += 1;
-}
-
-function syncTerminalScrollIntent(terminal: Terminal): void {
-  if (terminal.buffer.active.type !== "normal") return;
-
-  const followsOutput = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY;
-  if (followsTerminalOutput === followsOutput) return;
-
-  followsTerminalOutput = followsOutput;
-  scrollIntentVersion += 1;
-}
-
-const clearScrollbackSequence = [0x1b, 0x5b, 0x33, 0x4a] as const; // CSI 3 J
-
-function filterTerminalOutput(data: Uint8Array): Uint8Array {
-  const output: number[] = [];
-
-  for (const byte of data) {
-    pendingTerminalOutputBytes.push(byte);
-    while (pendingTerminalOutputBytes.some((value, index) => value !== clearScrollbackSequence[index])) {
-      output.push(pendingTerminalOutputBytes.shift()!);
-    }
-    if (pendingTerminalOutputBytes.length === clearScrollbackSequence.length) {
-      if (followsTerminalOutput) output.push(...pendingTerminalOutputBytes);
-      pendingTerminalOutputBytes = [];
-    }
-  }
-
-  return Uint8Array.from(output);
-}
-
 function writeTerminalOutput(terminal: Terminal, data: Uint8Array): void {
-  const snapshot = captureTerminalScroll(terminal);
-  const output = filterTerminalOutput(data);
-  if (output.length === 0) {
-    restoreTerminalScroll(terminal, snapshot);
-    return;
-  }
-  terminal.write(output, () => restoreTerminalScroll(terminal, snapshot));
+  terminal.write(data);
 }
 
 async function connectTerminal(terminal: Terminal): Promise<void> {
@@ -423,31 +358,38 @@ async function connectTerminal(terminal: Terminal): Promise<void> {
   terminal.focus();
 }
 
-function setupTerminal(terminal: Terminal, fitAddon: FitAddon): void {
-  setupPromptHud(terminal);
-  // Capture the native event before xterm (or a mouse-reporting TUI) handles it.
-  // This makes the user's intent win over any queued terminal output.
-  terminalElement.addEventListener("wheel", (event) => {
-    if (event.deltaY < 0) {
-      pinTerminalScroll(terminal);
-    } else if (event.deltaY > 0) {
-      scrollIntentVersion += 1;
-      const versionBeforeScroll = scrollIntentVersion;
-      requestAnimationFrame(() => {
-        if (versionBeforeScroll === scrollIntentVersion) syncTerminalScrollIntent(terminal);
-      });
-    }
-  }, { capture: true, passive: true });
+function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: LiquidCursor): void {
+  let queuedPtyResize: TerminalSize | null = null;
+  let ptyResizeInFlight = false;
+  let resizeTimer: number | null = null;
 
-  const viewport = terminalElement.querySelector<HTMLElement>(".xterm-viewport");
-  viewport?.addEventListener("pointerdown", (event) => {
-    if (event.pointerType === "mouse" && event.target === viewport) pinTerminalScroll(terminal);
-  });
+  const flushPtyResize = async (): Promise<void> => {
+    if (ptyResizeInFlight) return;
+    ptyResizeInFlight = true;
+
+    try {
+      while (queuedPtyResize && activeSessionId !== null) {
+        const size = queuedPtyResize;
+        queuedPtyResize = null;
+        try {
+          await invoke("resize_terminal", { size });
+        } catch (error: unknown) {
+          showError(`Não foi possível redimensionar o terminal: ${String(error)}`);
+        }
+      }
+    } finally {
+      ptyResizeInFlight = false;
+      if (queuedPtyResize && activeSessionId !== null) void flushPtyResize();
+    }
+  };
+
+  setupPromptHud(terminal);
   terminal.onTitleChange((title) => {
     shellTitle = title.trim() || null;
     updateWindowTitle();
   });
   terminal.onData((data) => {
+    liquidCursor.wake();
     if (/\r|\n/.test(data) && activeHud) {
       trackCommand(data);
       activeHud.status = "running";
@@ -465,30 +407,25 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon): void {
   terminal.onResize(({ cols, rows }) => {
     if (activeSessionId === null) return;
 
-    void invoke("resize_terminal", { size: { cols, rows } }).catch(
-      (error: unknown) => {
-        showError(`Não foi possível redimensionar o terminal: ${String(error)}`);
-      },
-    );
+    // Keep ConPTY resize requests ordered and discard intermediate dimensions.
+    queuedPtyResize = { cols, rows };
+    void flushPtyResize();
   });
 
   const resizeObserver = new ResizeObserver(() => {
-    if (resizeFrame !== null) return;
+    if (resizeTimer !== null) window.clearTimeout(resizeTimer);
 
-    resizeFrame = window.requestAnimationFrame(() => {
-      resizeFrame = null;
+    // xterm recommends debouncing resize so the PTY can finish its previous redraw.
+    resizeTimer = window.setTimeout(() => {
+      resizeTimer = null;
       if (terminalContainer.clientWidth > 0 && terminalContainer.clientHeight > 0) {
-        const snapshot = captureTerminalScroll(terminal);
         fitAddon.fit();
-        restoreTerminalScroll(terminal, snapshot);
       }
-    });
+    }, 200);
   });
 
   resizeObserver.observe(terminalContainer);
-  const initialScroll = captureTerminalScroll(terminal);
   fitAddon.fit();
-  restoreTerminalScroll(terminal, initialScroll);
 }
 
 function setupPromptHud(terminal: Terminal): void {
@@ -513,7 +450,8 @@ function setupPromptHud(terminal: Terminal): void {
 }
 
 function createPromptHud(terminal: Terminal, cwd: string): PromptHud | null {
-  const marker = terminal.registerMarker(1);
+  // The shell emits this OSC on the reserved HUD row itself.
+  const marker = terminal.registerMarker(0);
   const decoration = terminal.registerDecoration({ marker, x: 0, width: 1, height: 1 });
   if (!decoration) return null;
 
@@ -545,7 +483,6 @@ function createPromptHud(terminal: Terminal, cwd: string): PromptHud | null {
   renderPromptHud(hud);
   void loadGitContext(hud);
   revealTerminal();
-  requestAnimationFrame(() => terminal.refresh(0, terminal.rows - 1));
   return hud;
 }
 
@@ -697,7 +634,6 @@ function focusPreviousPromptHud(terminal: Terminal): boolean {
   }
   focusedHud = target;
   target.element.dataset.focused = "true";
-  pinTerminalScroll(terminal);
   terminal.scrollToLine(Math.max(target.marker.line - 2, 0));
   terminal.focus();
   return true;
@@ -795,6 +731,20 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
           checked: theme.name === selectedTheme.name,
         })),
         { separator: true },
+        { label: "Cursor Animation", disabled: true },
+        {
+          label: "Liquid",
+          action: "set-cursor-animation",
+          cursorAnimation: "liquid",
+          checked: configuredCursorAnimation(config.cursorAnimation) === "liquid",
+        },
+        {
+          label: "Disabled",
+          action: "set-cursor-animation",
+          cursorAnimation: "disabled",
+          checked: configuredCursorAnimation(config.cursorAnimation) === "disabled",
+        },
+        { separator: true },
         { label: "UI Themes", disabled: true },
         {
           label: "Default Theme",
@@ -824,8 +774,10 @@ async function runMenuAction(
   action: MenuAction,
   terminal: Terminal,
   config: AppConfig,
+  liquidCursor: LiquidCursor,
   theme?: TerminalTheme,
   uiThemeName?: string,
+  cursorAnimation?: CursorAnimation,
 ): Promise<void> {
   switch (action) {
     case "new-window":
@@ -852,7 +804,8 @@ async function runMenuAction(
     case "set-theme":
       if (!theme) return;
       config.theme = theme;
-      terminal.options.theme = toXtermTheme(theme);
+      terminal.options.theme = toXtermTheme(theme, configuredCursorAnimation(config.cursorAnimation));
+      liquidCursor.setColor(theme.cursor);
       applyTheme(theme);
       await invoke("save_config", { config });
       return;
@@ -861,6 +814,16 @@ async function runMenuAction(
       applyUiTheme(config.uiThemeName);
       await invoke("save_config", { config });
       return;
+    case "set-cursor-animation": {
+      const nextAnimation = configuredCursorAnimation(cursorAnimation);
+      config.cursorAnimation = nextAnimation;
+      liquidCursor.setMode(nextAnimation);
+      terminal.options.cursorBlink = nextAnimation === "disabled";
+      terminal.options.cursorInactiveStyle = nextAnimation === "disabled" ? "outline" : "none";
+      terminal.options.theme = toXtermTheme(configuredTheme(config.theme), nextAnimation);
+      await invoke("save_config", { config });
+      return;
+    }
     case "toggle-devtools":
       await invoke("toggle_devtools");
       return;
@@ -869,7 +832,12 @@ async function runMenuAction(
   }
 }
 
-function openMenu(trigger: HTMLButtonElement, terminal: Terminal, config: AppConfig): void {
+function openMenu(
+  trigger: HTMLButtonElement,
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+): void {
   const menuName = trigger.dataset.menu;
   if (!menuName) return;
 
@@ -908,7 +876,15 @@ function openMenu(trigger: HTMLButtonElement, terminal: Terminal, config: AppCon
     }
     button.addEventListener("click", () => {
       closeMenu();
-      void runMenuAction(action, terminal, config, item.theme, item.uiThemeName).catch((error: unknown) => {
+      void runMenuAction(
+        action,
+        terminal,
+        config,
+        liquidCursor,
+        item.theme,
+        item.uiThemeName,
+        item.cursorAnimation,
+      ).catch((error: unknown) => {
         showError(`Não foi possível executar a ação: ${String(error)}`);
       });
     });
@@ -921,7 +897,7 @@ function openMenu(trigger: HTMLButtonElement, terminal: Terminal, config: AppCon
   menuPopup.hidden = false;
 }
 
-function setupTitlebar(terminal: Terminal, config: AppConfig): void {
+function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: LiquidCursor): void {
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
   const minimize = requiredElement("#window-minimize");
@@ -948,7 +924,7 @@ function setupTitlebar(terminal: Terminal, config: AppConfig): void {
       if (!menuPopup.hidden) {
         closeMenu();
       } else {
-        openMenu(trigger, terminal, config);
+        openMenu(trigger, terminal, config, liquidCursor);
       }
     });
   });
@@ -982,10 +958,10 @@ async function bootstrap(): Promise<void> {
   setupLoadingScreenDragging();
   const config = await invoke<AppConfig>("get_config");
   applyUiTheme(config.uiThemeName);
-  const { terminal, fitAddon } = createTerminal(config);
+  const { terminal, fitAddon, liquidCursor } = createTerminal(config);
 
-  setupTerminal(terminal, fitAddon);
-  setupTitlebar(terminal, config);
+  setupTerminal(terminal, fitAddon, liquidCursor);
+  setupTitlebar(terminal, config, liquidCursor);
   await setupWindowHoverOverlay();
 
   // The shell prompt is customized at startup and can redraw several times.

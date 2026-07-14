@@ -129,6 +129,18 @@ nav,
   height: 100%;
 }
 
+.liquid-cursor {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+
+.liquid-cursor[hidden] {
+  display: none;
+}
+
 #window-hover-overlay {
   position: absolute;
   z-index: 30;
@@ -246,7 +258,6 @@ nav,
   position: absolute;
   top: 0;
   left: 0;
-  transform: translateY(-90%);
   pointer-events: none;
 }
 

@@ -73,6 +73,7 @@ impl PtyState {
         let reader = pair.master.try_clone_reader().map_err(display_error)?;
         let mut command = shell_command(shell);
         command.env("TERM", "xterm-256color");
+        command.env("PNEX", "1");
         command.cwd(resolve_start_directory(start_directory, home_directory));
         let mut child = pair.slave.spawn_command(command).map_err(display_error)?;
         let mut writer = pair.master.take_writer().map_err(display_error)?;
@@ -326,5 +327,16 @@ mod tests {
         assert!(prompt.contains("exit=${code}"));
         assert!(prompt.contains("cwd=${cwd}"));
         assert!(!prompt.contains("git "));
+    }
+
+    #[test]
+    fn prompt_initializer_reserves_the_line_after_the_hud() {
+        let powershell = prompt_initializer("powershell.exe");
+        assert!(powershell.contains("Write-Host -NoNewline (\"$([char]27)]7777;"));
+        assert!(powershell.contains("; \"`n  \" };"));
+
+        let bash = prompt_initializer("/bin/bash");
+        assert!(bash.contains("printf '\\033]7777;"));
+        assert!(bash.contains("PS1=\"\\n  \""));
     }
 }

@@ -10,6 +10,14 @@ use std::{
 const CONFIG_FILE_NAME: &str = "pnex-config.json";
 const DEFAULT_FONT_FAMILY: &str = "Consolas, \"Courier New\", monospace";
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CursorAnimation {
+    Disabled,
+    #[default]
+    Liquid,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
@@ -18,6 +26,7 @@ pub struct AppConfig {
     pub font_size: u16,
     pub font_family: String,
     pub theme: Value,
+    pub cursor_animation: CursorAnimation,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -30,6 +39,7 @@ impl Default for AppConfig {
             font_size: 14,
             font_family: DEFAULT_FONT_FAMILY.to_owned(),
             theme: default_theme(),
+            cursor_animation: CursorAnimation::Liquid,
             extra: BTreeMap::new(),
         }
     }
@@ -147,7 +157,7 @@ fn lock_error<T>(_: std::sync::PoisonError<T>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppConfig, ConfigStore};
+    use super::{AppConfig, ConfigStore, CursorAnimation};
     use std::{
         fs,
         time::{SystemTime, UNIX_EPOCH},
@@ -172,6 +182,7 @@ mod tests {
         assert_eq!(config.start_directory, "~/");
         assert_eq!(config.font_size, 14);
         assert_eq!(config.theme["name"], "pnex-dark");
+        assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -182,14 +193,18 @@ mod tests {
         let directory = test_directory();
         fs::create_dir_all(&directory).expect("test directory");
         let path = directory.join("pnex-config.json");
-        fs::write(&path, r##"{"theme":{"name":"Dracula","background":"#282a36"}}"##)
-            .expect("legacy config");
+        fs::write(
+            &path,
+            r##"{"theme":{"name":"Dracula","background":"#282a36"}}"##,
+        )
+        .expect("legacy config");
 
         let store = ConfigStore::load(directory.clone()).expect("config store");
         let config = store.get().expect("config");
 
         assert_eq!(config.theme["name"], "Dracula");
         assert_eq!(config.theme["background"], "#282a36");
+        assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }
