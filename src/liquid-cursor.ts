@@ -15,12 +15,12 @@ interface AnimatedPoint extends Point {
 const BLINK_DELAY_MS = 170;
 const BLINK_INTERVAL_MS = 140;
 const CORNER_COUNT = 4;
-const SPRING_STIFFNESS = 2_400;
+const SPRING_STIFFNESS = 2_500;
 const SPRING_DAMPING_RATIO = 1;
 const DIRECTIONAL_STRETCH = 0.3;
 const MAXIMUM_TRAIL_CELLS = 6;
 const TYPING_PULSE_SCALE = 0.08;
-const TYPING_PULSE_DECAY = 175;
+const TYPING_PULSE_DECAY = 220;
 const CURSOR_OPACITY = 0.88;
 
 export class LiquidCursor {

@@ -85,6 +85,8 @@ let inputBuffer = "";
 let lastCommand = "";
 let shellTitle: string | null = null;
 let currentWindowTitle = "pnex";
+let commandRunning = false;
+let progressRunning = false;
 let isWindowFocused = true;
 let isPointerInsideWindow = false;
 let isWindowHoverArmed = false;
@@ -157,10 +159,22 @@ function applyUiTheme(name?: string): void {
   document.documentElement.dataset.uiTheme = name === "Default Theme" ? name : "Default Theme";
 }
 
+function updateTerminalRunningState(): void {
+  document.documentElement.dataset.terminalRunning = String(commandRunning || progressRunning);
+}
+
+function animateTitlebarTitle(): void {
+  titlebarTitle.classList.remove("titlebar-title-enter");
+  void titlebarTitle.offsetWidth;
+  titlebarTitle.classList.add("titlebar-title-enter");
+}
+
 function setWindowTitle(title: string): void {
+  const changed = titlebarTitle.textContent !== title;
   currentWindowTitle = title;
   windowHoverTitle.textContent = title;
   titlebarTitle.textContent = title;
+  if (changed) animateTitlebarTitle();
   void appWindow.setTitle(title);
 }
 
@@ -342,11 +356,17 @@ async function connectTerminal(terminal: Terminal): Promise<void> {
     listen<TerminalExit>("terminal:exit", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
         activeSessionId = null;
+        commandRunning = false;
+        progressRunning = false;
+        updateTerminalRunningState();
         showError("A sessão do terminal foi encerrada.");
       }
     }),
     listen<TerminalError>("terminal:error", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
+        commandRunning = false;
+        progressRunning = false;
+        updateTerminalRunningState();
         showError(`Erro do terminal: ${payload.message}`);
       }
     }),
@@ -390,16 +410,30 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: Liq
     shellTitle = title.trim() || null;
     updateWindowTitle();
   });
+  terminal.parser.registerOscHandler(9, (payload) => {
+    const [command, state] = payload.split(";", 3);
+    if (command !== "4") return false;
+
+    // OSC 9;4 is the Windows Terminal/ConEmu progress protocol.
+    progressRunning = state === "1" || state === "3";
+    updateTerminalRunningState();
+    return true;
+  });
   terminal.onData((data) => {
     liquidCursor.wake();
-    if (/\r|\n/.test(data) && activeHud) {
-      trackCommand(data);
-      activeHud.status = "running";
-      activeHud.commandStartedAt ??= new Date();
-      updatePromptHudState(activeHud);
+    const submitted = /\r|\n/.test(data);
+    trackCommand(data);
+
+    if (submitted) {
+      commandRunning = true;
+      updateTerminalRunningState();
       updateWindowTitle(true);
-    } else {
-      trackCommand(data);
+
+      if (activeHud) {
+        activeHud.status = "running";
+        activeHud.commandStartedAt ??= new Date();
+        updatePromptHudState(activeHud);
+      }
     }
     sendTerminalInput(data);
   });
@@ -442,6 +476,8 @@ function setupPromptHud(terminal: Terminal): void {
       pendingExitCode = Number.isFinite(exitCode) ? exitCode : 1;
     } else if (key === "cwd") {
       finalizePromptHud();
+      commandRunning = false;
+      updateTerminalRunningState();
       currentCwd = value;
       activeHud = createPromptHud(terminal, value);
       lastCommand = "";
@@ -923,8 +959,10 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
   });
 
   const closeTitlebarMenu = (): void => {
+    const titleWasHidden = titlebarTitle.hidden;
     titlebarMenu.hidden = true;
     titlebarTitle.hidden = false;
+    if (titleWasHidden) animateTitlebarTitle();
     titlebarToggle.setAttribute("aria-expanded", "false");
     titlebarToggle.setAttribute("aria-label", "Mostrar menus");
   };

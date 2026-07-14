@@ -32,14 +32,44 @@ body {
 }
 
 #titlebar {
+  position: relative;
   display: flex;
   height: 34px;
   flex: 0 0 34px;
   align-items: stretch;
-  border-bottom: 1px solid var(--terminal-border);
+  overflow: hidden;
   background: var(--terminal-background);
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   user-select: none;
+}
+
+#titlebar::before,
+#titlebar::after {
+  position: absolute;
+  bottom: 0;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+}
+
+#titlebar::before {
+  right: 0;
+  left: 0;
+  background: var(--terminal-border);
+}
+
+#titlebar::after {
+  left: 0;
+  width: 40%;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--terminal-cursor), transparent);
+  filter: drop-shadow(0 0 2px var(--terminal-cursor));
+  transform: translateX(-100%);
+}
+
+:root[data-terminal-running="true"] #titlebar::after {
+  opacity: 1;
+  animation: titlebar-running 900ms linear infinite;
 }
 
 #titlebar-toggle {
@@ -89,6 +119,21 @@ body {
 #titlebar-title[hidden],
 #titlebar-menu[hidden] {
   display: none;
+}
+
+.titlebar-title-enter {
+  animation: titlebar-title-enter 180ms ease-out both;
+  will-change: opacity, transform;
+}
+
+@keyframes titlebar-running {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+
+@keyframes titlebar-title-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .titlebar-start,
