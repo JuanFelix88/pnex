@@ -20,7 +20,7 @@ const SPRING_DAMPING_RATIO = 1;
 const DIRECTIONAL_STRETCH = 0.3;
 const MAXIMUM_TRAIL_CELLS = 6;
 const TYPING_PULSE_SCALE = 0.08;
-const TYPING_PULSE_DECAY = 140;
+const TYPING_PULSE_DECAY = 175;
 const CURSOR_OPACITY = 0.88;
 
 export class LiquidCursor {

@@ -76,6 +76,7 @@ const errorElement = requiredElement("#terminal-error");
 const menuPopup = requiredElement("#menu-popup");
 const windowHoverOverlay = requiredElement("#window-hover-overlay");
 const windowHoverTitle = requiredElement("#window-hover-title");
+const titlebarTitle = requiredElement("#titlebar-title");
 
 let activeSessionId: number | null = null;
 let currentCwd = "";
@@ -159,6 +160,7 @@ function applyUiTheme(name?: string): void {
 function setWindowTitle(title: string): void {
   currentWindowTitle = title;
   windowHoverTitle.textContent = title;
+  titlebarTitle.textContent = title;
   void appWindow.setTitle(title);
 }
 
@@ -900,6 +902,8 @@ function openMenu(
 function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: LiquidCursor): void {
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
+  const titlebarToggle = requiredElement("#titlebar-toggle") as HTMLButtonElement;
+  const titlebarMenu = requiredElement("#titlebar-menu");
   const minimize = requiredElement("#window-minimize");
   const maximize = requiredElement("#window-maximize");
   const close = requiredElement("#window-close");
@@ -918,6 +922,23 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
     });
   });
 
+  const closeTitlebarMenu = (): void => {
+    titlebarMenu.hidden = true;
+    titlebarTitle.hidden = false;
+    titlebarToggle.setAttribute("aria-expanded", "false");
+    titlebarToggle.setAttribute("aria-label", "Mostrar menus");
+  };
+
+  titlebarToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const willExpand = titlebarMenu.hidden;
+    titlebarMenu.hidden = !willExpand;
+    titlebarTitle.hidden = willExpand;
+    titlebarToggle.setAttribute("aria-expanded", String(willExpand));
+    titlebarToggle.setAttribute("aria-label", willExpand ? "Ocultar menus" : "Mostrar menus");
+    if (!willExpand) closeMenu();
+  });
+
   triggers.forEach((trigger) => {
     trigger.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -929,9 +950,14 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
     });
   });
 
-  document.addEventListener("click", closeMenu);
+  document.addEventListener("click", (event) => {
+    closeMenu();
+    if (event.target instanceof Node && !titlebar.contains(event.target)) closeTitlebarMenu();
+  });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeMenu();
+    if (event.key !== "Escape") return;
+    closeMenu();
+    closeTitlebarMenu();
   });
 
   minimize.addEventListener("click", () => {

@@ -36,11 +36,59 @@ body {
   height: 34px;
   flex: 0 0 34px;
   align-items: stretch;
-  justify-content: space-between;
   border-bottom: 1px solid var(--terminal-border);
   background: var(--terminal-background);
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   user-select: none;
+}
+
+#titlebar-toggle {
+  display: grid;
+  width: 28px;
+  height: 34px;
+  flex: 0 0 28px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--terminal-foreground);
+  cursor: default;
+}
+
+#titlebar-toggle:hover {
+  background: color-mix(in srgb, var(--terminal-foreground) 14%, transparent);
+}
+
+#titlebar-toggle:focus-visible {
+  outline: 1px solid var(--terminal-foreground);
+  outline-offset: -3px;
+}
+
+#titlebar-toggle svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+
+#titlebar-title {
+  display: block;
+  min-width: 0;
+  max-width: min(60vw, 720px);
+  overflow: hidden;
+  padding: 0 8px;
+  color: var(--terminal-foreground);
+  font-size: 12px;
+  line-height: 33px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#titlebar-title[hidden],
+#titlebar-menu[hidden] {
+  display: none;
 }
 
 .titlebar-start,
@@ -148,7 +196,7 @@ nav,
   display: grid;
   place-items: center;
   pointer-events: none;
-  background: color-mix(in srgb, var(--terminal-background) 86%, transparent);
+  background: color-mix(in srgb, var(--terminal-background) 58%, transparent);
   color: var(--terminal-foreground);
   font-family: var(--terminal-font-family);
 }
@@ -158,13 +206,13 @@ nav,
 }
 
 #window-hover-title {
-  max-width: min(80%, 720px);
+  max-width: min(94%, 1100px);
   overflow: hidden;
   border: 1px solid var(--terminal-border);
-  background: var(--terminal-background);
-  box-shadow: 0 12px 36px rgb(0 0 0 / 32%);
-  padding: 12px 18px;
-  font-size: clamp(16px, 3vw, 30px);
+  background: color-mix(in srgb, var(--terminal-background) 88%, transparent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  padding: 8px 12px;
+  font-size: clamp(13px, 2vw, 22px);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
