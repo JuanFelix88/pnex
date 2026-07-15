@@ -7,6 +7,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type IMarker } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { LiquidCursor, type CursorAnimation } from "./liquid-cursor";
+import { notify as sendSystemNotification } from "./notifications";
 import { builtinThemes, type TerminalTheme } from "./themes";
 import "./styles.css";
 
@@ -87,6 +88,8 @@ let shellTitle: string | null = null;
 let currentWindowTitle = "pnex";
 let oscProgressRunning = false;
 let titleProgressRunning = false;
+let terminalRunning = false;
+let terminalRunningStateVersion = 0;
 let lastTitleProgressFrame: string | null = null;
 let lastTitleProgressFrameAt = 0;
 let titleProgressTimer: number | null = null;
@@ -163,7 +166,25 @@ function applyUiTheme(name?: string): void {
 }
 
 function updateTerminalRunningState(): void {
-  document.documentElement.dataset.terminalRunning = String(oscProgressRunning || titleProgressRunning);
+  const running = oscProgressRunning || titleProgressRunning;
+  document.documentElement.dataset.terminalRunning = String(running);
+  if (running === terminalRunning) return;
+
+  terminalRunning = running;
+  const stateVersion = ++terminalRunningStateVersion;
+  if (running) return;
+
+  queueMicrotask(() => {
+    if (terminalRunning || stateVersion !== terminalRunningStateVersion || isWindowFocused) return;
+
+    const title = currentWindowTitle;
+    void sendSystemNotification({
+      title,
+      body: `Terminal processing has stopped\nYour terminal: ${title}`,
+    }).catch((error: unknown) => {
+      console.warn("Could not show terminal completion notification.", error);
+    });
+  });
 }
 
 function clearTitleProgress(): void {

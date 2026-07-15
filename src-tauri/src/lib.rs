@@ -1,7 +1,9 @@
 mod config;
+pub mod notification;
 mod pty;
 
 use config::{AppConfig, ConfigStore};
+use notification::{Notification, NotificationSystem};
 use pty::{PtyState, TerminalSize, TerminalStarted};
 use serde::Serialize;
 use std::{
@@ -63,6 +65,21 @@ fn open_config(app: AppHandle, state: State<'_, ConfigStore>) -> Result<(), Stri
     app.opener()
         .open_path(state.path().to_string_lossy().into_owned(), None::<&str>)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn show_notification(
+    state: State<'_, NotificationSystem>,
+    notification: Notification,
+) -> Result<(), String> {
+    let system = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        system
+            .notify(notification)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -198,9 +215,7 @@ fn normalize_directory(directory: &str) -> String {
             char::from(*drive),
             std::str::from_utf8(suffix).unwrap_or_default(),
         ),
-        [b'/', b'm', b'n', b't', b'/', drive, b'/', suffix @ ..]
-            if drive.is_ascii_alphabetic() =>
-        {
+        [b'/', b'm', b'n', b't', b'/', drive, b'/', suffix @ ..] if drive.is_ascii_alphabetic() => {
             (
                 char::from(*drive),
                 std::str::from_utf8(suffix).unwrap_or_default(),
@@ -353,7 +368,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let home_directory = app.path().home_dir().map_err(|error| error.to_string())?;
+            let app_name = app
+                .config()
+                .product_name
+                .clone()
+                .unwrap_or_else(|| env!("CARGO_PKG_NAME").to_owned());
+            let notification_system =
+                NotificationSystem::new(app_name, app.config().identifier.clone(), tauri::is_dev());
             app.manage(ConfigStore::load(home_directory)?);
+            app.manage(notification_system);
             Ok(())
         })
         .manage(PtyState::default())
@@ -362,6 +385,7 @@ pub fn run() {
             get_config,
             save_config,
             open_config,
+            show_notification,
             start_terminal,
             write_terminal,
             resize_terminal,
