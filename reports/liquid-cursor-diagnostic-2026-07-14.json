@@ -1,0 +1,549 @@
+{
+  "schemaVersion": "1.0.0",
+  "reportType": "pnex-liquid-cursor-diagnostic-snapshot",
+  "generatedAt": "2026-07-14T22:30:00-03:00",
+  "language": "pt-BR",
+  "purpose": "Entregar a outro agente um snapshot da máquina, do runtime gráfico, do repositório e da implementação do Liquid Cursor para investigar o defeito em que o cursor cresce até preencher toda a área visível.",
+  "privacy": {
+    "policyChosenByUser": "Incluir nomes e modelos de componentes, mas omitir seriais, UUID, MAC e IP.",
+    "omitted": [
+      "nome de usuário",
+      "nome do computador",
+      "números de série",
+      "UUIDs",
+      "endereços MAC",
+      "endereços IP",
+      "IDs PnP completos",
+      "caminhos do perfil do usuário"
+    ]
+  },
+  "executiveSummary": {
+    "primaryFinding": "A causa mais provável é instabilidade numérica determinística no integrador de mola do próprio LiquidCursor, não falta de GPU ou CPU e não um defeito primário do driver.",
+    "confidence": "muito alta",
+    "whyItFillsTheScreen": "As quatro coordenadas do polígono podem divergir exponencialmente. Como o cursor é desenhado em um canvas que cobre toda a tela do terminal, um polígono com vértices enormes atravessa o canvas e visualmente o preenche.",
+    "cpuGpuRelationship": "A física roda em JavaScript na thread principal e depende do intervalo entre frames. CPU/APU mais lenta, GPU integrada, carga elevada ou qualquer queda de frames aumentam a chance e a velocidade da divergência. A GPU rasteriza e compõe Canvas/WebGL, mas atua principalmente como gatilho indireto por alterar a cadência de frames; não é a origem matemática do defeito.",
+    "driverConclusion": "Há evidência histórica de um reset do driver NVIDIA em 2026-06-17, mas ele ocorreu antes da implementação do Liquid Cursor em 2026-07-14. O driver atual está ativo, assinado, com Direct3D e HAGS habilitados. O histórico merece um teste A/B, porém não explica melhor o sintoma do que o integrador instável.",
+    "machineTopology": "Esta máquina usa uma NVIDIA GeForce GTX 1050 dedicada de 2 GB. O Windows não enumera uma GPU Intel ativa. O i5-2500K possui gráficos integrados no modelo do processador, mas eles não estão ativos como adaptador nesta instalação.",
+    "currentUserConfiguration": "cursorAnimation está atualmente como disabled; o problema relatado ocorre ao habilitar liquid."
+  },
+  "repository": {
+    "workingDirectory": "C:/www/oss/pnex",
+    "branch": "main",
+    "headBeforePull": "1a432ff4df63f20b87d208780e70eb8827930bda",
+    "headAfterPull": "ea86e185f339d01d29c224e5e130eba4e9a8643e",
+    "originMain": "ea86e185f339d01d29c224e5e130eba4e9a8643e",
+    "alignment": {
+      "ahead": 0,
+      "behind": 0,
+      "pullMode": "fast-forward-only",
+      "result": "success"
+    },
+    "pullSafety": {
+      "action": "Um pnex.exe local não rastreado e diferente do binário remoto foi movido para um backup temporário antes do pull para não ser sobrescrito.",
+      "backupFileName": "pnex-local-before-pull-20260714-222407.exe",
+      "backupLocationCategory": "diretório temporário do sistema, fora do repositório"
+    },
+    "workingTreeAfterCollection": {
+      "preExistingUntracked": [
+        "release/"
+      ],
+      "reportAdded": "reports/liquid-cursor-diagnostic-2026-07-14.json",
+      "trackedSourceChangesMadeByThisSession": false
+    },
+    "architecture": {
+      "application": "Tauri 2",
+      "frontend": "TypeScript + Vite",
+      "windowsWebRuntime": "Microsoft Edge WebView2",
+      "terminal": "xterm.js",
+      "ptyBackend": "portable-pty via Rust",
+      "importantNote": "O checkout anterior ao pull era a implementação Electron. O Liquid Cursor existe somente nos quatro commits remotos que foram trazidos pelo pull, após a migração para Tauri."
+    },
+    "versionsFromLockfiles": {
+      "app": "0.1.0",
+      "tauriApi": "2.11.1",
+      "tauriCli": "2.11.4",
+      "xterm": "6.0.0",
+      "xtermAddonWebgl": "0.19.0 com patch local",
+      "xtermAddonFit": "0.11.0",
+      "xtermAddonWebLinks": "0.12.0",
+      "typescript": "5.9.3",
+      "vite": "6.4.3",
+      "rustEdition": "2021"
+    },
+    "relevantHistory": [
+      {
+        "commit": "e61ba0bb075e25f60f4f2fc6d638417863f68a16",
+        "date": "2026-07-13T18:08:18-03:00",
+        "subject": "feat: add new port to tauri"
+      },
+      {
+        "commit": "d71958a10d4fe447677ab51ce158fd16620988cc",
+        "date": "2026-07-14T16:25:02-03:00",
+        "subject": "feat: add liquid cursor animation"
+      },
+      {
+        "commit": "f7078acea2775ea0fc31cc0d780e653389d8244e",
+        "date": "2026-07-14T17:28:23-03:00",
+        "subject": "feat: refine title bar and cursor pulse",
+        "relevantChange": "SPRING_STIFFNESS aumentou de 2400 para 2500; isso reduziu ligeiramente a margem de estabilidade."
+      },
+      {
+        "commit": "ea86e185f339d01d29c224e5e130eba4e9a8643e",
+        "date": "2026-07-14T18:01:48-03:00",
+        "subject": "feat: animate terminal title and running indicator"
+      }
+    ],
+    "buildAndTestStatus": {
+      "rustCompilation": "não executada por solicitação do usuário",
+      "cargoTests": "não executados por solicitação do usuário",
+      "frontendBuild": "não executado",
+      "dependencyInstall": "pnpm install --frozen-lockfile foi abortado pelo pnpm antes de remover ou recriar node_modules porque não havia TTY; nenhuma compilação ocorreu",
+      "staticInspection": "completed"
+    }
+  },
+  "applicationConfiguration": {
+    "configLocationCategory": "arquivo pnex-config.json na home do usuário; caminho absoluto omitido",
+    "cursorAnimation": "disabled",
+    "fontFamily": "JetBrainsMono NF",
+    "fontSizePx": 13,
+    "theme": "Fleet Dark",
+    "shellFamily": "Git Bash",
+    "startDirectoryIsConfigured": true,
+    "codeDefaultWhenMissing": "liquid",
+    "defaultRisk": "Configurações antigas sem cursorAnimation ativam liquid automaticamente porque tanto o Rust quanto o TypeScript tratam liquid como padrão."
+  },
+  "machine": {
+    "operatingSystem": {
+      "name": "Microsoft Windows 11 Pro",
+      "version": "10.0.22621",
+      "build": "22621",
+      "architecture": "64-bit",
+      "powerShell": "5.1.22621.4249",
+      "directX": "12",
+      "lastBoot": "2026-07-14T20:09:36.5000000-03:00",
+      "session": "console local",
+      "remoteDesktop": false,
+      "metadataDiscrepancy": "Get-ComputerInfo identifica WindowsProductName como Windows 10 Pro/2009, enquanto Win32_OperatingSystem identifica corretamente Windows 11 Pro build 22621; usar Win32_OperatingSystem como fonte principal."
+    },
+    "system": {
+      "manufacturer": "INTEL",
+      "model": "B75",
+      "systemType": "x64-based PC",
+      "motherboard": {
+        "manufacturer": "INTEL",
+        "product": "B75",
+        "version": "To be filled by O.E.M."
+      },
+      "bios": {
+        "manufacturer": "American Megatrends Inc.",
+        "version": "4.6.5",
+        "releaseDate": "2023-10-10T21:00:00-03:00",
+        "firmwareType": "UEFI"
+      },
+      "hypervisorPresent": true,
+      "virtualizationEnabledInFirmwareReportedByWmi": false,
+      "activePowerPlan": "High performance"
+    },
+    "cpu": {
+      "name": "Intel(R) Core(TM) i5-2500K CPU @ 3.30GHz",
+      "manufacturer": "GenuineIntel",
+      "cores": 4,
+      "logicalProcessors": 4,
+      "maxClockMHz": 3301,
+      "currentClockMHzAtSnapshot": 3301,
+      "l2CacheKiB": 1024,
+      "l3CacheKiB": 6144,
+      "loadPercentAtSnapshot": 8,
+      "sampledTotalProcessorAveragePercent": 39.51,
+      "integratedGraphicsCapability": "Intel HD Graphics 3000 faz parte deste modelo de CPU, mas não aparece como adaptador ativo no Windows.",
+      "relevance": "A thread principal do WebView executa o integrador e o desenho Canvas 2D. Quatro núcleos/threads antigos tornam frame drops mais prováveis sob carga, mas a matemática também pode ficar instável a 60 Hz."
+    },
+    "memory": {
+      "physicalBytes": 17131487232,
+      "physicalApproxGiB": 15.96,
+      "availableMiBAtSnapshot": 10385,
+      "committedPercentAtSnapshot": 42.15,
+      "modules": [
+        {
+          "manufacturer": "Kingston",
+          "partNumber": "HX318C10F/8",
+          "capacityBytes": 8589934592,
+          "configuredClockMHz": 1333,
+          "slot": "ChannelA-DIMM0"
+        },
+        {
+          "manufacturer": "Kingston",
+          "partNumber": "HX318C10F/8",
+          "capacityBytes": 8589934592,
+          "configuredClockMHz": 1333,
+          "slot": "ChannelB-DIMM0"
+        }
+      ],
+      "pageFile": {
+        "allocatedMiB": 1024,
+        "currentUsageMiB": 27,
+        "peakUsageMiB": 34
+      },
+      "relevance": "Não há pressão de memória suficiente no snapshot para explicar o cursor preenchendo a tela."
+    },
+    "storage": {
+      "model": "SanDisk SSD PLUS 240GB",
+      "reportedSizeBytes": 240063022080,
+      "interfaceReportedByWmi": "IDE",
+      "status": "OK",
+      "systemVolume": {
+        "fileSystem": "NTFS",
+        "sizeBytes": 239939350528,
+        "freeBytes": 40984965120,
+        "volumeDirty": false
+      },
+      "relevance": "Sem relação provável com o sintoma gráfico."
+    },
+    "display": {
+      "resolution": "2560x1080",
+      "refreshRateHz": 60,
+      "bitsPerPixel": 32,
+      "appliedDpi": 96,
+      "estimatedDevicePixelRatio": 1,
+      "physicalSizeCm": "67x28",
+      "inputTypeCode": 1,
+      "hdr": "not supported",
+      "colorSpace": "DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709",
+      "topology": "internal",
+      "relevance": "A tela opera a 60 Hz. O passo típico de 16,67 ms já excede o limite estável calculado para os cantos mais rígidos do cursor."
+    }
+  },
+  "graphics": {
+    "primaryAdapter": {
+      "name": "NVIDIA GeForce GTX 1050",
+      "type": "dedicated/discrete",
+      "status": "OK",
+      "configManagerErrorCode": 0,
+      "dedicatedMemoryReportedByNvidiaMiB": 2048,
+      "dedicatedMemoryReportedByDxDiagMiB": 1962,
+      "sharedMemoryReportedByDxDiagMiB": 8168,
+      "totalDisplayMemoryReportedByDxDiagMiB": 10131,
+      "driverVersionWindows": "32.0.15.8266",
+      "driverVersionNvidia": "582.66",
+      "driverDate": "2026-06-08T21:00:00-03:00",
+      "driverSigned": true,
+      "driverStatus": "running/OK",
+      "wddm": "3.1",
+      "featureLevels": [
+        "12_1",
+        "12_0",
+        "11_1",
+        "11_0",
+        "10_1",
+        "10_0",
+        "9_3",
+        "9_2",
+        "9_1"
+      ],
+      "directDraw": "enabled",
+      "direct3D": "enabled",
+      "agpTextureAcceleration": "enabled",
+      "hardwareAcceleratedGpuScheduling": "enabled",
+      "snapshot": {
+        "gpuUtilizationPercent": 7,
+        "memoryUtilizationPercent": 4,
+        "memoryUsedMiB": 852,
+        "memoryFreeMiB": 1111,
+        "temperatureC": 23,
+        "performanceState": "P0",
+        "powerLimitW": 75,
+        "displayActive": true
+      }
+    },
+    "secondaryOrVirtualAdapter": {
+      "name": "IddSampleDriver Device HDR",
+      "type": "indirect/virtual display driver",
+      "status": "Error",
+      "configManagerErrorCode": 22,
+      "interpretation": "Código 22 significa dispositivo desabilitado, não uma falha ativa de inicialização.",
+      "driverVersion": "23.34.25.279",
+      "driverDate": "2023-11-21T21:00:00-03:00",
+      "signed": false,
+      "manufacturerMetadata": "placeholder ('<Your manufacturer name>')",
+      "relevance": "Baixa para o defeito atual porque está desabilitado; ainda vale remover ou atualizar se não for necessário para evitar variáveis em testes gráficos."
+    },
+    "integratedGpuEnumeratedByWindows": false,
+    "graphicsDriverRegistry": {
+      "tdrLevel": "Windows default",
+      "tdrDelaySeconds": "Windows default",
+      "tdrDdiDelaySeconds": "Windows default",
+      "hardwareSchedulingRegistryOverride": "none; DxDiag informa HAGS efetivamente habilitado"
+    },
+    "webRuntime": {
+      "name": "Microsoft Edge WebView2 Runtime",
+      "version": "150.0.4078.65",
+      "activePnexVersion": "0.1.0",
+      "activePnexWorkingSetMiB": 26.1,
+      "activeWebView2ProcessCountAtSnapshot": 8,
+      "activeWebView2AggregateWorkingSetMiB": 682.9,
+      "gpuProcessPresent": true,
+      "gpuDisablingFlagsDetected": false,
+      "swiftShaderFlagDetected": false,
+      "interpretation": "O WebView2 está criando processo GPU e não foi iniciado com --disable-gpu; a aceleração por hardware está ativa."
+    },
+    "eventLogLast30Days": {
+      "displayEvents": [
+        {
+          "provider": "nvlddmkm",
+          "eventId": 153,
+          "level": "Error",
+          "count": 6,
+          "latest": "2026-06-17T22:26:56.7825973-03:00"
+        },
+        {
+          "provider": "Display",
+          "eventId": 4101,
+          "level": "Warning",
+          "count": 1,
+          "latest": "2026-06-17T22:26:57.4576514-03:00",
+          "interpretation": "Evento 4101 normalmente indica que o driver de vídeo parou de responder e se recuperou."
+        }
+      ],
+      "temporalAssessment": "O cluster ocorreu cerca de 27 dias antes do commit que introduziu o Liquid Cursor, portanto é evidência de um incidente prévio do driver, não de causalidade direta do novo cursor.",
+      "applicationCrash": {
+        "time": "2026-07-12T01:51:34.2755370-03:00",
+        "app": "pnex.exe",
+        "appVersion": "1.1.1.0",
+        "module": "pnex.exe",
+        "exceptionCode": "c0000409",
+        "assessment": "Esse crash pertence à versão Electron 1.1.1 e antecede a migração/implementação atual; não é evidência do bug do Liquid Cursor em Tauri."
+      }
+    }
+  },
+  "liquidCursorImplementation": {
+    "files": [
+      {
+        "path": "src/liquid-cursor.ts",
+        "role": "Física, rastreamento da posição, blink e desenho Canvas 2D."
+      },
+      {
+        "path": "src/main.ts",
+        "role": "Cria xterm, ativa transparência, instancia LiquidCursor e carrega o renderer WebGL do xterm."
+      },
+      {
+        "path": "src/styles.css",
+        "role": "Faz o canvas cobrir a tela do terminal e usa mix-blend-mode: difference."
+      },
+      {
+        "path": "src-tauri/src/config.rs",
+        "role": "Persiste cursorAnimation e define liquid como padrão."
+      },
+      {
+        "path": "patches/@xterm__addon-webgl@0.19.0.patch",
+        "role": "Altera o blink nativo do xterm de 600 ms para intervalo de 140 ms e atraso de 170 ms; não corrige a física do LiquidCursor."
+      }
+    ],
+    "renderingPipeline": [
+      "xterm.js abre o terminal com allowTransparency=true.",
+      "O cursor nativo recebe cor totalmente transparente quando liquid está ativo.",
+      "LiquidCursor adiciona um canvas HTML dentro de .xterm-screen.",
+      "O canvas é redimensionado por devicePixelRatio e desenhado em coordenadas CSS.",
+      "A animação usa requestAnimationFrame e integração explícita/semi-implícita por frame.",
+      "O xterm usa separadamente @xterm/addon-webgl; em perda de contexto ele cai para o renderer DOM.",
+      "O canvas do cursor usa CanvasRenderingContext2D e CSS mix-blend-mode:difference, podendo ser promovido/combinado pela GPU."
+    ],
+    "keyCodeLocations": {
+      "stiffness": "src/liquid-cursor.ts:18",
+      "directionalStretch": "src/liquid-cursor.ts:20",
+      "trailLimit": "src/liquid-cursor.ts:288-295",
+      "deltaTimeCap": "src/liquid-cursor.ts:314",
+      "springAndDamping": "src/liquid-cursor.ts:327-328",
+      "velocityIntegration": "src/liquid-cursor.ts:330-333",
+      "canvasClearAndDraw": "src/liquid-cursor.ts:354-368",
+      "fullCanvasCss": "src/styles.css:225-230",
+      "webglInitialization": "src/main.ts:256-264"
+    },
+    "constants": {
+      "springStiffness": 2500,
+      "springDampingRatio": 1,
+      "directionalStretch": 0.3,
+      "effectiveStiffnessRange": "aproximadamente 1750 a 3250 conforme a projeção direcional",
+      "maxTrailCells": 6,
+      "deltaTimeMaximumSeconds": 0.03333333333333333,
+      "blinkDelayMs": 170,
+      "blinkIntervalMs": 140,
+      "typingPulseScale": 0.08,
+      "typingPulseDecay": 220,
+      "cursorOpacity": 0.88
+    },
+    "missingSafetyGuards": [
+      "Não há Number.isFinite para posição, velocidade, deltaTime ou pontos desenhados.",
+      "Não há clamp de velocidade.",
+      "Não há snap/recovery quando um vértice sai muito além do canvas.",
+      "limitTrail limita apenas a distância do centro antes da animação; não limita velocidades nem é reaplicado em cada subpasso.",
+      "Não há substeps de física para frames longos.",
+      "Não há telemetria de frame time, coordenadas ou perda de contexto para correlacionar o defeito."
+    ]
+  },
+  "numericalAnalysis": {
+    "method": "Análise linear do mesmo passo semi-implícito usado em animate(), com amortecimento crítico c=2*sqrt(k), mais simulação unidimensional representativa. Não é uma captura do runtime.",
+    "stabilityRule": "Raio espectral <= 1 é necessário para o erro não crescer a cada frame.",
+    "results": [
+      {
+        "case": "canto traseiro",
+        "stiffness": 1750,
+        "criticalDamping": 83.666,
+        "maximumStableFrameMs": 19.803,
+        "spectralRadiusAt60Hz": 0.6906,
+        "spectralRadiusAt50Hz": 1.0282,
+        "spectralRadiusAt30Hz": 3.2789
+      },
+      {
+        "case": "neutro",
+        "stiffness": 2500,
+        "criticalDamping": 100,
+        "maximumStableFrameMs": 16.568,
+        "spectralRadiusAt60Hz": 1.0168,
+        "spectralRadiusAt50Hz": 1.618,
+        "spectralRadiusAt30Hz": 4.6165
+      },
+      {
+        "case": "canto dianteiro esticado",
+        "stiffness": 3250,
+        "criticalDamping": 114.0175,
+        "maximumStableFrameMs": 14.531,
+        "spectralRadiusAt60Hz": 1.4318,
+        "spectralRadiusAt50Hz": 2.1703,
+        "spectralRadiusAt30Hz": 5.8874
+      }
+    ],
+    "criticalObservation": "Em monitor de 60 Hz, um frame ideal dura 16,667 ms. Isso já é maior que o limite neutro de 16,568 ms e maior que o limite de 14,531 ms do canto mais rígido. O cap atual permite até 33,333 ms, mais que o dobro do pior limite seguro.",
+    "representative30FpsSimulation": {
+      "initialErrorPx": -100,
+      "neutralErrorAfter8FramesPx": -9196894.82,
+      "frontCornerErrorAfter8FramesPx": -70020124.04,
+      "interpretation": "Em poucos frames, vértices podem chegar a milhões de pixels. Um path que atravessa toda a área do canvas explica diretamente o preenchimento visual da tela."
+    },
+    "conclusion": "O comportamento relatado é uma assinatura esperada deste integrador quando o frame time cruza seu limite, e não exige corrupção de memória nem falha do driver para ocorrer."
+  },
+  "rankedHypotheses": [
+    {
+      "rank": 1,
+      "hypothesis": "Instabilidade numérica no passo de mola do LiquidCursor.",
+      "confidence": 0.98,
+      "role": "causa raiz",
+      "evidence": [
+        "Limites calculados são menores ou praticamente iguais ao frame de 60 Hz.",
+        "O código aceita 33,33 ms sem substeps.",
+        "Não existem guards de finitude/bounds.",
+        "A simulação reproduz crescimento explosivo compatível com o canvas preenchido."
+      ]
+    },
+    {
+      "rank": 2,
+      "hypothesis": "Diferença de cadência entre máquina com GPU dedicada e máquina com APU expõe o defeito mais frequentemente.",
+      "confidence": 0.85,
+      "role": "gatilho/amplificador",
+      "evidence": [
+        "requestAnimationFrame depende da carga da thread principal e da composição gráfica.",
+        "Uma APU compartilha memória e costuma ter menor margem de renderização.",
+        "Quedas para 50/30 Hz tornam a integração fortemente instável."
+      ]
+    },
+    {
+      "rank": 3,
+      "hypothesis": "Problema atual do driver NVIDIA/WebView2 é a causa principal.",
+      "confidence": 0.12,
+      "role": "possível fator secundário, não causa principal",
+      "evidenceFor": [
+        "Existe um cluster histórico de reset nvlddmkm/Display 4101."
+      ],
+      "evidenceAgainst": [
+        "O reset antecede a feature em aproximadamente 27 dias.",
+        "Driver, Direct3D, WDDM 3.1, HAGS e processo GPU do WebView2 estão ativos.",
+        "A física já é matematicamente instável sem qualquer falha de driver."
+      ]
+    },
+    {
+      "rank": 4,
+      "hypothesis": "IddSampleDriver desabilitado causa o cursor gigante.",
+      "confidence": 0.03,
+      "role": "improvável",
+      "evidenceAgainst": [
+        "ConfigManagerErrorCode 22 indica que o dispositivo está desabilitado.",
+        "O adaptador NVIDIA é o adaptador discreto ativo."
+      ]
+    },
+    {
+      "rank": 5,
+      "hypothesis": "Pressão de RAM, VRAM ou disco causa diretamente o sintoma.",
+      "confidence": 0.02,
+      "role": "improvável no snapshot",
+      "evidenceAgainst": [
+        "Mais de 10 GB de RAM estavam disponíveis.",
+        "Mais de 1 GB de VRAM estava livre.",
+        "SSD e volume estavam OK."
+      ]
+    }
+  ],
+  "recommendedActionsForNextAgent": {
+    "priority0Fix": [
+      "Substituir o integrador por uma solução de mola estável independente do frame rate, preferencialmente solução analítica para mola criticamente amortecida.",
+      "Alternativa mínima: dividir deltaTime em substeps pequenos e fixos, por exemplo <= 1/120 s ou mais conservador <= 1/240 s; não usar um único passo de 1/30 s.",
+      "Adicionar Number.isFinite em deltaTime, posições, velocidades e pontos; ao detectar valor inválido ou fora de um limite razoável, executar snapToTarget().",
+      "Limitar deslocamento e velocidade por canto, não apenas a distância média do centro.",
+      "Garantir recovery após background/resume, resize, troca de buffer, context loss e long task."
+    ],
+    "priority1Tests": [
+      "Criar teste unitário do integrador para frame times de 8,33; 14; 16,67; 20; 33,33; 100 e 1000 ms.",
+      "Verificar que todos os valores permanecem finitos e dentro do trail máximo após centenas de frames.",
+      "Testar movimentos horizontal, vertical, diagonal, salto de linha, scroll, resize e retorno de janela minimizada.",
+      "Simular sequência irregular de frames, não apenas FPS fixo.",
+      "Adicionar teste de regressão: nenhum vértice pode exceder o retângulo alvo por mais que o trail configurado."
+    ],
+    "priority2Instrumentation": [
+      "Registrar somente em modo diagnóstico: deltaTime máximo, FPS, devicePixelRatio, renderer xterm ativo, context loss, posição/velocidade máxima e número de recoveries.",
+      "Expor um overlay temporário com dt, maxVelocity e maxDistance para capturar exatamente o frame que inicia a divergência.",
+      "Registrar navigator.userAgent e informações sanitizadas do WebView2/GPU na outra máquina."
+    ],
+    "priority3ABMatrix": [
+      "Liquid ligado + xterm WebGL ligado.",
+      "Liquid ligado + xterm WebGL desabilitado/renderer DOM, mantendo aceleração do WebView2.",
+      "Liquid ligado + WebView2 iniciado temporariamente com --disable-gpu apenas para diagnóstico.",
+      "Liquid desligado como controle.",
+      "Repetir com HAGS ligado/desligado somente depois de corrigir a estabilidade matemática.",
+      "Comparar máquina dedicada e máquina APU usando a mesma resolução, escala, refresh rate, WebView2 e commit."
+    ],
+    "driverFollowUp": [
+      "Se ainda houver falha após corrigir o integrador, executar instalação limpa de um driver NVIDIA estável e repetir o teste.",
+      "Investigar ou remover IddSampleDriver se não houver uso intencional.",
+      "Verificar novos eventos 4101/nvlddmkm no exato horário da reprodução; eventos antigos isolados não bastam.",
+      "Não alterar TdrDelay como correção: isso mascara travamentos de GPU e não estabiliza a física."
+    ]
+  },
+  "dataNeededFromOtherMachine": [
+    "Modelo exato da CPU/APU e GPU integrada",
+    "RAM total, frequência e configuração single/dual channel",
+    "Versão/data do driver da APU",
+    "Versão do Windows, WebView2 e DirectX/WDDM",
+    "Resolução, refresh rate, DPI e devicePixelRatio",
+    "Estado de HAGS",
+    "Presença do processo GPU do WebView2 e flags --disable-gpu/SwiftShader",
+    "Eventos Display 4101 ou driver-specific no horário da reprodução",
+    "FPS/frame times, especialmente máximos acima de 14,5 ms",
+    "Commit exato e configuração cursorAnimation",
+    "Resultado da matriz A/B WebGL, WebView2 GPU e Liquid"
+  ],
+  "limitations": [
+    "Não foi coletado um relatório equivalente da máquina APU, portanto a comparação direta ainda não é possível.",
+    "O defeito não foi reproduzido de forma controlada nesta sessão porque a configuração atual está disabled e a solicitação principal foi produzir diagnóstico sem alterar o ambiente do usuário.",
+    "Nenhum build Rust ou teste Cargo foi executado por solicitação do usuário.",
+    "Não foi aberta a página interna chrome://gpu do WebView2; a aceleração foi inferida por DxDiag, HAGS, processo GPU e ausência de flags de desativação.",
+    "Contadores de utilização são snapshots e não representam necessariamente o momento exato da falha.",
+    "A análise numérica é estática/representativa e deve ser confirmada por teste automatizado após a correção."
+  ],
+  "finalAssessment": {
+    "isCpuTheRootCause": false,
+    "isGpuTheRootCause": false,
+    "isDriverTheRootCause": "unlikely",
+    "isHardwarePerformanceARelevantTrigger": true,
+    "isCodeDefectTheRootCause": true,
+    "mostLikelyDefect": "Integrador de mola instável em src/liquid-cursor.ts:314 e 327-333, agravado pela ausência de guards e pelo canvas de tela inteira.",
+    "recommendedFirstMove": "Corrigir a integração temporal e adicionar bounds/finitude antes de trocar hardware ou drivers."
+  }
+}

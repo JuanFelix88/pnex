@@ -85,8 +85,11 @@ let inputBuffer = "";
 let lastCommand = "";
 let shellTitle: string | null = null;
 let currentWindowTitle = "pnex";
-let commandRunning = false;
-let progressRunning = false;
+let oscProgressRunning = false;
+let titleProgressRunning = false;
+let lastTitleProgressFrame: string | null = null;
+let lastTitleProgressFrameAt = 0;
+let titleProgressTimer: number | null = null;
 let isWindowFocused = true;
 let isPointerInsideWindow = false;
 let isWindowHoverArmed = false;
@@ -160,7 +163,38 @@ function applyUiTheme(name?: string): void {
 }
 
 function updateTerminalRunningState(): void {
-  document.documentElement.dataset.terminalRunning = String(commandRunning || progressRunning);
+  document.documentElement.dataset.terminalRunning = String(oscProgressRunning || titleProgressRunning);
+}
+
+function clearTitleProgress(): void {
+  if (titleProgressTimer !== null) window.clearTimeout(titleProgressTimer);
+  titleProgressTimer = null;
+  titleProgressRunning = false;
+  lastTitleProgressFrame = null;
+  lastTitleProgressFrameAt = 0;
+  updateTerminalRunningState();
+}
+
+function trackAgentTitleProgress(title: string): void {
+  // Codex emits successive braille frames in its OSC 0 title every 100 ms while pending.
+  const frame = title.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u)?.[0] ?? null;
+  if (frame === null) {
+    clearTitleProgress();
+    return;
+  }
+
+  const now = performance.now();
+  if (lastTitleProgressFrame !== null
+    && frame !== lastTitleProgressFrame
+    && now - lastTitleProgressFrameAt <= 500) {
+    titleProgressRunning = true;
+    updateTerminalRunningState();
+  }
+  lastTitleProgressFrame = frame;
+  lastTitleProgressFrameAt = now;
+
+  if (titleProgressTimer !== null) window.clearTimeout(titleProgressTimer);
+  titleProgressTimer = window.setTimeout(clearTitleProgress, 500);
 }
 
 function animateTitlebarTitle(): void {
@@ -356,17 +390,15 @@ async function connectTerminal(terminal: Terminal): Promise<void> {
     listen<TerminalExit>("terminal:exit", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
         activeSessionId = null;
-        commandRunning = false;
-        progressRunning = false;
-        updateTerminalRunningState();
+        oscProgressRunning = false;
+        clearTitleProgress();
         showError("A sessão do terminal foi encerrada.");
       }
     }),
     listen<TerminalError>("terminal:error", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
-        commandRunning = false;
-        progressRunning = false;
-        updateTerminalRunningState();
+        oscProgressRunning = false;
+        clearTitleProgress();
         showError(`Erro do terminal: ${payload.message}`);
       }
     }),
@@ -408,14 +440,15 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: Liq
   setupPromptHud(terminal);
   terminal.onTitleChange((title) => {
     shellTitle = title.trim() || null;
+    trackAgentTitleProgress(title);
     updateWindowTitle();
   });
   terminal.parser.registerOscHandler(9, (payload) => {
     const [command, state] = payload.split(";", 3);
     if (command !== "4") return false;
 
-    // OSC 9;4 is the Windows Terminal/ConEmu progress protocol.
-    progressRunning = state === "1" || state === "3";
+    // Pi emits state 3 on agent_start and state 0 on agent_end.
+    oscProgressRunning = state === "1" || state === "3";
     updateTerminalRunningState();
     return true;
   });
@@ -425,8 +458,6 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: Liq
     trackCommand(data);
 
     if (submitted) {
-      commandRunning = true;
-      updateTerminalRunningState();
       updateWindowTitle(true);
 
       if (activeHud) {
@@ -476,8 +507,8 @@ function setupPromptHud(terminal: Terminal): void {
       pendingExitCode = Number.isFinite(exitCode) ? exitCode : 1;
     } else if (key === "cwd") {
       finalizePromptHud();
-      commandRunning = false;
-      updateTerminalRunningState();
+      oscProgressRunning = false;
+      clearTitleProgress();
       currentCwd = value;
       activeHud = createPromptHud(terminal, value);
       lastCommand = "";
