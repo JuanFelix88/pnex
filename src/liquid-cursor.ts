@@ -15,12 +15,13 @@ interface AnimatedPoint extends Point {
 const BLINK_DELAY_MS = 170;
 const BLINK_INTERVAL_MS = 140;
 const CORNER_COUNT = 4;
-const SPRING_STIFFNESS = 2_500;
-const SPRING_DAMPING_RATIO = 1;
-const DIRECTIONAL_STRETCH = 0.3;
-const MAXIMUM_TRAIL_CELLS = 6;
-const TYPING_PULSE_SCALE = 0.08;
-const TYPING_PULSE_DECAY = 220;
+const SPRING_STIFFNESS = 3_600;
+const DIRECTIONAL_STRETCH = 0.2;
+const MAXIMUM_TRAIL_CELLS = 4;
+const MAXIMUM_FRAME_GAP_SECONDS = 0.25;
+const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
+const TYPING_PULSE_SCALE = 0.06;
+const TYPING_PULSE_DECAY = 260;
 const CURSOR_OPACITY = 0.88;
 
 export class LiquidCursor {
@@ -31,8 +32,6 @@ export class LiquidCursor {
   private targetCorners: Point[] = [];
   private mode: CursorAnimation;
   private color: string;
-  private screenWidth = 0;
-  private screenHeight = 0;
   private cellWidth = 0;
   private cellHeight = 0;
   private targetCenter: Point | null = null;
@@ -151,9 +150,6 @@ export class LiquidCursor {
     const { width, height } = bounds;
     if (width <= 0 || height <= 0 || this.terminal.cols <= 0 || this.terminal.rows <= 0) return;
 
-    this.screenWidth = width;
-    this.screenHeight = height;
-    this.resizeCanvas(width, height);
     this.cellWidth = width / this.terminal.cols;
     this.cellHeight = height / this.terminal.rows;
 
@@ -189,6 +185,7 @@ export class LiquidCursor {
       { x: right, y: bottom },
       { x: left, y: bottom },
     ];
+    this.resizeCanvas(left, top, right, bottom);
 
     if (!this.terminalCursorVisible) {
       if (this.corners.length !== CORNER_COUNT) this.snapToTarget();
@@ -258,17 +255,26 @@ export class LiquidCursor {
     this.startAnimation();
   }
 
-  private resizeCanvas(width: number, height: number): void {
-    const ratio = window.devicePixelRatio || 1;
-    const pixelWidth = Math.round(width * ratio);
-    const pixelHeight = Math.round(height * ratio);
-    if (this.canvas.width === pixelWidth && this.canvas.height === pixelHeight) return;
+  private resizeCanvas(left: number, top: number, right: number, bottom: number): void {
+    const ratio = Math.min(Math.max(window.devicePixelRatio || 1, 1), MAXIMUM_DEVICE_PIXEL_RATIO);
+    const pulsePadding = Math.max(this.cellWidth, this.cellHeight) * TYPING_PULSE_SCALE + 2;
+    const padding = Math.ceil(this.maximumTrailDistance() + pulsePadding);
+    const originX = left - padding;
+    const originY = top - padding;
+    const width = right - left + padding * 2;
+    const height = bottom - top + padding * 2;
+    const pixelWidth = Math.max(Math.round(width * ratio), 1);
+    const pixelHeight = Math.max(Math.round(height * ratio), 1);
 
-    this.canvas.width = pixelWidth;
-    this.canvas.height = pixelHeight;
+    if (this.canvas.width !== pixelWidth || this.canvas.height !== pixelHeight) {
+      this.canvas.width = pixelWidth;
+      this.canvas.height = pixelHeight;
+    }
+    this.canvas.style.left = `${originX}px`;
+    this.canvas.style.top = `${originY}px`;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
-    this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    this.context.setTransform(ratio, 0, 0, ratio, -originX * ratio, -originY * ratio);
   }
 
   private snapToTarget(): void {
@@ -279,21 +285,45 @@ export class LiquidCursor {
     }
   }
 
-  private limitTrail(): void {
-    if (!this.targetCenter || this.corners.length !== CORNER_COUNT) return;
-    const center = this.cornerCenter();
-    const deltaX = center.x - this.targetCenter.x;
-    const deltaY = center.y - this.targetCenter.y;
-    const distance = Math.hypot(deltaX, deltaY);
-    const maximum = Math.hypot(this.cellWidth, this.cellHeight) * MAXIMUM_TRAIL_CELLS;
-    if (distance <= maximum) return;
+  private maximumTrailDistance(): number {
+    const distance = Math.hypot(this.cellWidth, this.cellHeight) * MAXIMUM_TRAIL_CELLS;
+    return Number.isFinite(distance) ? Math.max(distance, 1) : 1;
+  }
 
-    const scale = maximum / distance;
-    const shiftX = this.targetCenter.x + deltaX * scale - center.x;
-    const shiftY = this.targetCenter.y + deltaY * scale - center.y;
-    for (const corner of this.corners) {
-      corner.x += shiftX;
-      corner.y += shiftY;
+  private constrainCorner(corner: AnimatedPoint, target: Point): boolean {
+    if (![corner.x, corner.y, corner.velocityX, corner.velocityY, target.x, target.y]
+      .every(Number.isFinite)) return false;
+
+    const maximumTrail = this.maximumTrailDistance();
+    const deltaX = corner.x - target.x;
+    const deltaY = corner.y - target.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (!Number.isFinite(distance)) return false;
+    if (distance > maximumTrail) {
+      const scale = maximumTrail / distance;
+      corner.x = target.x + deltaX * scale;
+      corner.y = target.y + deltaY * scale;
+    }
+
+    const speed = Math.hypot(corner.velocityX, corner.velocityY);
+    const maximumSpeed = maximumTrail
+      * Math.sqrt(SPRING_STIFFNESS * (1 + DIRECTIONAL_STRETCH));
+    if (!Number.isFinite(speed)) return false;
+    if (speed > maximumSpeed) {
+      const scale = maximumSpeed / speed;
+      corner.velocityX *= scale;
+      corner.velocityY *= scale;
+    }
+    return true;
+  }
+
+  private limitTrail(): void {
+    if (this.corners.length !== CORNER_COUNT || this.targetCorners.length !== CORNER_COUNT) return;
+    for (let index = 0; index < CORNER_COUNT; index += 1) {
+      if (!this.constrainCorner(this.corners[index], this.targetCorners[index])) {
+        this.snapToTarget();
+        return;
+      }
     }
   }
 
@@ -307,30 +337,59 @@ export class LiquidCursor {
     this.animationFrame = requestAnimationFrame((time) => this.animate(time));
   }
 
+  private advanceCorner(
+    corner: AnimatedPoint,
+    target: Point,
+    stiffness: number,
+    deltaTime: number,
+  ): void {
+    // Exact critically damped spring solution. Unlike Euler integration, this remains
+    // stable regardless of frame pacing and converges without simulation substeps.
+    const angularFrequency = Math.sqrt(stiffness);
+    const decay = Math.exp(-angularFrequency * deltaTime);
+    const offsetX = corner.x - target.x;
+    const offsetY = corner.y - target.y;
+    const factorX = corner.velocityX + angularFrequency * offsetX;
+    const factorY = corner.velocityY + angularFrequency * offsetY;
+
+    corner.x = target.x + (offsetX + factorX * deltaTime) * decay;
+    corner.y = target.y + (offsetY + factorY * deltaTime) * decay;
+    corner.velocityX = (corner.velocityX - angularFrequency * factorX * deltaTime) * decay;
+    corner.velocityY = (corner.velocityY - angularFrequency * factorY * deltaTime) * decay;
+  }
+
   private animate(time: number): void {
     this.animationFrame = null;
     if (this.mode === "disabled") return;
 
-    const deltaTime = Math.min((time - this.lastFrameAt) / 1_000, 1 / 30);
+    const deltaTime = (time - this.lastFrameAt) / 1_000;
     this.lastFrameAt = time;
-    let moving = false;
+    if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > MAXIMUM_FRAME_GAP_SECONDS) {
+      this.pulse = 0;
+      this.snapToTarget();
+      this.draw();
+      return;
+    }
 
-    for (let index = 0; index < this.corners.length; index += 1) {
+    let moving = false;
+    let invalid = this.corners.length !== CORNER_COUNT
+      || this.targetCorners.length !== CORNER_COUNT
+      || !this.targetCenter;
+
+    for (let index = 0; !invalid && index < CORNER_COUNT; index += 1) {
       const corner = this.corners[index];
       const target = this.targetCorners[index];
-      if (!target || !this.targetCenter) continue;
-
-      const relativeX = target.x - this.targetCenter.x;
-      const relativeY = target.y - this.targetCenter.y;
+      const relativeX = target.x - this.targetCenter!.x;
+      const relativeY = target.y - this.targetCenter!.y;
       const projection = (relativeX * this.direction.x + relativeY * this.direction.y)
         / Math.max(Math.hypot(relativeX, relativeY), 1);
       const stiffness = SPRING_STIFFNESS * (1 + projection * DIRECTIONAL_STRETCH);
-      const damping = 2 * Math.sqrt(stiffness) * SPRING_DAMPING_RATIO;
 
-      corner.velocityX += (stiffness * (target.x - corner.x) - damping * corner.velocityX) * deltaTime;
-      corner.velocityY += (stiffness * (target.y - corner.y) - damping * corner.velocityY) * deltaTime;
-      corner.x += corner.velocityX * deltaTime;
-      corner.y += corner.velocityY * deltaTime;
+      this.advanceCorner(corner, target, stiffness, deltaTime);
+      if (!this.constrainCorner(corner, target)) {
+        invalid = true;
+        break;
+      }
 
       const remaining = Math.hypot(target.x - corner.x, target.y - corner.y);
       const speed = Math.hypot(corner.velocityX, corner.velocityY);
@@ -344,14 +403,29 @@ export class LiquidCursor {
       }
     }
 
-    this.pulse *= Math.exp(-deltaTime * TYPING_PULSE_DECAY);
-    if (this.pulse > 0.01) moving = true;
+    if (invalid) {
+      this.pulse = 0;
+      this.snapToTarget();
+      moving = false;
+    } else {
+      this.pulse *= Math.exp(-deltaTime * TYPING_PULSE_DECAY);
+      if (!Number.isFinite(this.pulse)) this.pulse = 0;
+      if (this.pulse > 0.01) moving = true;
+    }
+
     this.draw();
     if (moving) this.animationFrame = requestAnimationFrame((nextTime) => this.animate(nextTime));
   }
 
+  private clearCanvas(): void {
+    this.context.save();
+    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.context.restore();
+  }
+
   private draw(): void {
-    this.context.clearRect(0, 0, this.screenWidth, this.screenHeight);
+    this.clearCanvas();
     if (
       this.mode === "disabled"
       || !this.terminalCursorVisible
@@ -360,7 +434,13 @@ export class LiquidCursor {
       || !this.isBlinkVisible()
     ) return;
 
+    this.limitTrail();
     const points = this.scaledCorners();
+    if (!points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))) {
+      this.pulse = 0;
+      this.snapToTarget();
+      return;
+    }
     this.context.save();
     this.context.fillStyle = this.color;
     this.context.strokeStyle = this.color;
