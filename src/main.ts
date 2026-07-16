@@ -99,6 +99,7 @@ let isWindowHoverArmed = false;
 let inEscapeSequence = false;
 let activeHud: PromptHud | null = null;
 let focusedHud: PromptHud | null = null;
+let selectionShimmerId = 0;
 let terminalRevealed = false;
 const promptHuds: PromptHud[] = [];
 
@@ -305,8 +306,150 @@ function createTerminal(config: AppConfig): {
   terminal.loadAddon(new WebLinksAddon());
   terminal.open(terminalElement);
   const liquidCursor = new LiquidCursor(terminal, cursorAnimation, theme.cursor);
+  setupSelectionShimmer(terminal);
   loadWebglRenderer(terminal);
   return { terminal, fitAddon, liquidCursor };
+}
+
+function setupSelectionShimmer(terminal: Terminal): void {
+  const terminalHost = terminal.element;
+  const screen = terminalHost?.querySelector<HTMLElement>(".xterm-screen");
+  if (!terminalHost || !screen) return;
+
+  const id = `selection-shimmer-${selectionShimmerId++}`;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("selection-shimmer");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("hidden", "");
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="${id}-gradient">
+        <stop offset="0" stop-opacity="0" />
+        <stop class="selection-shimmer-highlight" offset="50%" stop-opacity="0.55" />
+        <stop offset="100%" stop-opacity="0" />
+      </linearGradient>
+      <clipPath id="${id}-clip" clipPathUnits="userSpaceOnUse">
+        <path shape-rendering="crispEdges" />
+      </clipPath>
+    </defs>
+    <g clip-path="url(#${id}-clip)">
+      <rect class="selection-shimmer-sweep" x="-70%" width="70%" height="100%" fill="url(#${id}-gradient)" />
+      <rect class="selection-shimmer-sweep selection-shimmer-sweep-offset" x="-70%" width="70%" height="100%" fill="url(#${id}-gradient)" />
+    </g>
+  `;
+  const path = svg.querySelector("clipPath path");
+  if (!path) return;
+
+  const tooltip = document.createElement("div");
+  const tooltipLabel = document.createElement("span");
+  tooltip.className = "selection-copy-tooltip";
+  tooltipLabel.textContent = "ctrl+intert";
+  tooltip.append(tooltipLabel);
+  tooltip.setAttribute("aria-hidden", "true");
+  tooltip.hidden = true;
+  screen.append(svg, tooltip);
+
+  let frame = 0;
+  let copied = false;
+  let copiedTimer = 0;
+  let columnSelection = false;
+  let controlPressed = false;
+  const render = (): void => {
+    frame = 0;
+    const range = terminal.getSelectionPosition();
+    const width = screen.clientWidth;
+    const height = screen.clientHeight;
+    if ((!controlPressed && !copied) || !range || !width || !height) {
+      svg.setAttribute("hidden", "");
+      tooltip.hidden = true;
+      return;
+    }
+
+    const viewportY = terminal.buffer.active.viewportY;
+    const firstRow = Math.max(range.start.y, viewportY);
+    const lastRow = Math.min(range.end.y, viewportY + terminal.rows - 1);
+    const cellWidth = width / terminal.cols;
+    const cellHeight = height / terminal.rows;
+    const columnStart = Math.min(range.start.x, range.end.x);
+    const columnEnd = Math.max(range.start.x, range.end.x);
+    const segments: string[] = [];
+    let anchorX = 0;
+    let anchorY = 0;
+
+    for (let row = firstRow; row <= lastRow; row++) {
+      const start = Math.max(0, columnSelection ? columnStart : row === range.start.y ? range.start.x : 0);
+      const end = Math.min(terminal.cols, columnSelection ? columnEnd : row === range.end.y ? range.end.x : terminal.cols);
+      if (end <= start) continue;
+
+      const x = start * cellWidth;
+      const y = (row - viewportY) * cellHeight;
+      const segmentWidth = (end - start) * cellWidth;
+      if (segments.length === 0) {
+        anchorX = x;
+        anchorY = y;
+      }
+      segments.push(`M${x} ${y}h${segmentWidth}v${cellHeight}h-${segmentWidth}Z`);
+    }
+
+    const visible = segments.length > 0;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    path.setAttribute("d", segments.join(""));
+    svg.toggleAttribute("hidden", !visible);
+    tooltip.hidden = !visible;
+    if (!visible) return;
+
+    const tooltipWidth = tooltip.offsetWidth;
+    const tooltipHeight = tooltip.offsetHeight;
+    const gap = 4;
+    const top = anchorY >= tooltipHeight + gap
+      ? anchorY - tooltipHeight - gap
+      : Math.min(height - tooltipHeight, anchorY + cellHeight + gap);
+    tooltip.style.left = `${Math.max(0, Math.min(anchorX, width - tooltipWidth))}px`;
+    tooltip.style.top = `${Math.max(0, top)}px`;
+  };
+  const scheduleRender = (): void => {
+    if (!frame) frame = requestAnimationFrame(render);
+  };
+
+  const setControlPressed = (pressed: boolean): void => {
+    if (controlPressed === pressed) return;
+    controlPressed = pressed;
+    scheduleRender();
+  };
+
+  terminalHost.addEventListener("pnex:copied", () => {
+    copied = true;
+    tooltipLabel.textContent = "copied!";
+    tooltip.classList.remove("selection-copy-tooltip-copied");
+    void tooltip.offsetWidth;
+    tooltip.classList.add("selection-copy-tooltip-copied");
+    scheduleRender();
+    window.clearTimeout(copiedTimer);
+    copiedTimer = window.setTimeout(() => {
+      copied = false;
+      tooltipLabel.textContent = "ctrl+intert";
+      tooltip.classList.remove("selection-copy-tooltip-copied");
+      scheduleRender();
+    }, 1_000);
+  });
+
+  screen.addEventListener("mousedown", (event) => {
+    columnSelection = event.altKey && event.detail === 1;
+    setControlPressed(event.ctrlKey);
+  }, { capture: true });
+  terminal.textarea?.addEventListener("keydown", () => {
+    columnSelection = false;
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Control") setControlPressed(true);
+  });
+  window.addEventListener("keyup", (event) => {
+    if (event.key === "Control") setControlPressed(false);
+  });
+  window.addEventListener("blur", () => setControlPressed(false));
+  terminal.onSelectionChange(scheduleRender);
+  terminal.onScroll(scheduleRender);
+  terminal.onResize(scheduleRender);
 }
 
 function loadWebglRenderer(terminal: Terminal): void {
@@ -376,6 +519,7 @@ function applyTheme(theme: TerminalTheme): void {
   root.setProperty("--terminal-blue", theme.blue);
   root.setProperty("--terminal-white", theme.white);
   root.setProperty("--terminal-cursor", theme.cursor);
+  root.setProperty("--terminal-selection", theme.selection);
 }
 
 function currentSize(terminal: Terminal): TerminalSize {
@@ -733,6 +877,7 @@ function focusPreviousPromptHud(terminal: Terminal): boolean {
 async function copyTerminal(terminal: Terminal): Promise<void> {
   if (terminal.hasSelection()) {
     await navigator.clipboard.writeText(terminal.getSelection());
+    terminal.element?.dispatchEvent(new Event("pnex:copied"));
   }
 }
 
@@ -777,6 +922,14 @@ function setupShortcuts(terminal: Terminal): void {
         void copyTerminal(terminal).catch((error: unknown) => {
           showError(`Não foi possível copiar: ${String(error)}`);
         });
+        return false;
+      case "insert":
+        event.preventDefault();
+        if (terminal.hasSelection()) {
+          void copyTerminal(terminal).catch((error: unknown) => {
+            showError(`Não foi possível copiar: ${String(error)}`);
+          });
+        }
         return false;
       default:
         return true;
@@ -991,6 +1144,7 @@ function openMenu(
 function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: LiquidCursor): void {
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
+  const titlebarIcon = requiredElement("#titlebar-icon");
   const titlebarToggle = requiredElement("#titlebar-toggle") as HTMLButtonElement;
   const titlebarMenu = requiredElement("#titlebar-menu");
   const minimize = requiredElement("#window-minimize");
@@ -1013,21 +1167,21 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
 
   const closeTitlebarMenu = (): void => {
     const titleWasHidden = titlebarTitle.hidden;
+    titlebarIcon.setAttribute("hidden", "");
     titlebarMenu.hidden = true;
+    titlebarToggle.hidden = false;
     titlebarTitle.hidden = false;
     if (titleWasHidden) animateTitlebarTitle();
     titlebarToggle.setAttribute("aria-expanded", "false");
-    titlebarToggle.setAttribute("aria-label", "Mostrar menus");
   };
 
   titlebarToggle.addEventListener("click", (event) => {
     event.stopPropagation();
-    const willExpand = titlebarMenu.hidden;
-    titlebarMenu.hidden = !willExpand;
-    titlebarTitle.hidden = willExpand;
-    titlebarToggle.setAttribute("aria-expanded", String(willExpand));
-    titlebarToggle.setAttribute("aria-label", willExpand ? "Ocultar menus" : "Mostrar menus");
-    if (!willExpand) closeMenu();
+    titlebarIcon.removeAttribute("hidden");
+    titlebarMenu.hidden = false;
+    titlebarToggle.hidden = true;
+    titlebarTitle.hidden = true;
+    titlebarToggle.setAttribute("aria-expanded", "true");
   });
 
   triggers.forEach((trigger) => {
@@ -1044,6 +1198,21 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
   document.addEventListener("click", (event) => {
     closeMenu();
     if (event.target instanceof Node && !titlebar.contains(event.target)) closeTitlebarMenu();
+  });
+  document.addEventListener("focusin", (event) => {
+    if (
+      titlebarMenu.hidden
+      || !(event.target instanceof Node)
+      || titlebarMenu.contains(event.target)
+      || menuPopup.contains(event.target)
+    ) return;
+
+    closeMenu();
+    closeTitlebarMenu();
+  });
+  window.addEventListener("blur", () => {
+    closeMenu();
+    closeTitlebarMenu();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
