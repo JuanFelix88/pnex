@@ -14,6 +14,8 @@ pub struct Notification {
     title: String,
     body: String,
     visual_path: Option<PathBuf>,
+    #[serde(default)]
+    activate_window_on_click: bool,
 }
 
 impl Notification {
@@ -22,12 +24,22 @@ impl Notification {
             title: title.into(),
             body: body.into(),
             visual_path: None,
+            activate_window_on_click: false,
         }
     }
 
     pub fn visual(mut self, path: impl Into<PathBuf>) -> Self {
         self.visual_path = Some(path.into());
         self
+    }
+
+    pub fn activate_window_on_click(mut self) -> Self {
+        self.activate_window_on_click = true;
+        self
+    }
+
+    pub fn should_activate_window_on_click(&self) -> bool {
+        self.activate_window_on_click
     }
 
     fn validate(&self) -> Result<Option<&Path>, NotificationError> {
@@ -108,6 +120,25 @@ impl NotificationSystem {
     }
 
     pub fn notify(&self, notification: Notification) -> Result<(), NotificationError> {
+        self.show(notification, None)
+    }
+
+    pub fn notify_with_click_handler<F>(
+        &self,
+        notification: Notification,
+        on_click: F,
+    ) -> Result<(), NotificationError>
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.show(notification, Some(Box::new(on_click)))
+    }
+
+    fn show(
+        &self,
+        notification: Notification,
+        on_click: Option<Box<dyn FnOnce() + Send>>,
+    ) -> Result<(), NotificationError> {
         let visual = notification.validate()?;
 
         #[cfg(target_os = "macos")]
@@ -133,10 +164,31 @@ impl NotificationSystem {
             native.app_id(&self.app_identifier);
         }
 
-        native
+        #[cfg(all(unix, not(target_os = "macos")))]
+        if on_click.is_some() {
+            native.action("default", "Open pnex");
+        }
+
+        let handle = native
             .show()
-            .map(|_| ())
-            .map_err(|error| NotificationError::Backend(error.to_string()))
+            .map_err(|error| NotificationError::Backend(error.to_string()))?;
+
+        if let Some(on_click) = on_click {
+            // macOS builds must use notify-rust's `preview-macos-un` feature before shipping
+            // click activation: the legacy NSUserNotificationCenter backend needs the main run
+            // loop, while this listener intentionally waits on a background thread.
+            std::thread::spawn(move || {
+                let _ = handle.wait_for_response(
+                    move |response: &notify_rust::NotificationResponse| {
+                        if response.is_default_action() {
+                            on_click();
+                        }
+                    },
+                );
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -246,6 +298,13 @@ mod tests {
                 .validate(),
             Err(NotificationError::VisualNotFile(_))
         ));
+    }
+
+    #[test]
+    fn enables_window_activation_on_click() {
+        assert!(Notification::new("title", "body")
+            .activate_window_on_click()
+            .should_activate_window_on_click());
     }
 
     #[test]

@@ -69,14 +69,21 @@ fn open_config(app: AppHandle, state: State<'_, ConfigStore>) -> Result<(), Stri
 
 #[tauri::command]
 async fn show_notification(
+    window: WebviewWindow,
     state: State<'_, NotificationSystem>,
     notification: Notification,
 ) -> Result<(), String> {
     let system = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        system
-            .notify(notification)
-            .map_err(|error| error.to_string())
+        if notification.should_activate_window_on_click() {
+            system
+                .notify_with_click_handler(notification, move || activate_window(&window))
+                .map_err(|error| error.to_string())
+        } else {
+            system
+                .notify(notification)
+                .map_err(|error| error.to_string())
+        }
     })
     .await
     .map_err(|error| error.to_string())?
@@ -117,6 +124,16 @@ fn write_terminal(
             let data = decode_json_terminal_input(value)?;
             state.write(window.label(), &data)
         }
+    }
+}
+
+fn activate_window(window: &WebviewWindow) {
+    if let Err(error) = window
+        .unminimize()
+        .and_then(|_| window.show())
+        .and_then(|_| window.set_focus())
+    {
+        eprintln!("Could not activate notification source window: {error}");
     }
 }
 

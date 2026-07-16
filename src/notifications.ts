@@ -4,6 +4,7 @@ export interface SystemNotification {
   title: string;
   body: string;
   visualPath?: string;
+  activateWindowOnClick?: boolean;
 }
 
 export function notify(notification: SystemNotification): Promise<void> {

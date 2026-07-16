@@ -180,7 +180,8 @@ function updateTerminalRunningState(): void {
     const title = currentWindowTitle;
     void sendSystemNotification({
       title,
-      body: `Terminal processing has stopped\nYour terminal: ${title}`,
+      body: "Terminal processing has stopped.",
+      activateWindowOnClick: true,
     }).catch((error: unknown) => {
       console.warn("Could not show terminal completion notification.", error);
     });
