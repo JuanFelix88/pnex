@@ -3,9 +3,11 @@ use serde_json::Value;
 use std::{
     collections::BTreeMap,
     fs,
+    io::Write,
     path::{Path, PathBuf},
     sync::Mutex,
 };
+use tempfile::NamedTempFile;
 
 const CONFIG_FILE_NAME: &str = "pnex-config.json";
 const DEFAULT_FONT_FAMILY: &str = "Consolas, \"Courier New\", monospace";
@@ -18,6 +20,22 @@ pub enum CursorAnimation {
     Liquid,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LiquidCursorSettings {
+    pub response: u8,
+    pub fluidity: u8,
+}
+
+impl Default for LiquidCursorSettings {
+    fn default() -> Self {
+        Self {
+            response: 70,
+            fluidity: 42,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
@@ -27,6 +45,7 @@ pub struct AppConfig {
     pub font_family: String,
     pub theme: Value,
     pub cursor_animation: CursorAnimation,
+    pub liquid_cursor: LiquidCursorSettings,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -40,6 +59,7 @@ impl Default for AppConfig {
             font_family: DEFAULT_FONT_FAMILY.to_owned(),
             theme: default_theme(),
             cursor_animation: CursorAnimation::Liquid,
+            liquid_cursor: LiquidCursorSettings::default(),
             extra: BTreeMap::new(),
         }
     }
@@ -111,11 +131,30 @@ impl ConfigStore {
             .map_err(lock_error)
     }
 
-    pub fn save(&self, config: AppConfig) -> Result<(), String> {
+    pub fn save(&self, mut config: AppConfig) -> Result<(), String> {
+        let mut current = self.config.lock().map_err(lock_error)?;
+        // Liquid Cursor has a dedicated patch command. Preserve its latest values when
+        // another window saves an older full configuration.
+        config.cursor_animation = current.cursor_animation.clone();
+        config.liquid_cursor = current.liquid_cursor.clone();
         validate(&config)?;
         persist(&self.path, &config)?;
-        let mut current = self.config.lock().map_err(lock_error)?;
         *current = config;
+        Ok(())
+    }
+
+    pub fn save_liquid_cursor(
+        &self,
+        cursor_animation: CursorAnimation,
+        liquid_cursor: LiquidCursorSettings,
+    ) -> Result<(), String> {
+        let mut current = self.config.lock().map_err(lock_error)?;
+        let mut next = current.clone();
+        next.cursor_animation = cursor_animation;
+        next.liquid_cursor = liquid_cursor;
+        validate(&next)?;
+        persist(&self.path, &next)?;
+        *current = next;
         Ok(())
     }
 
@@ -129,14 +168,37 @@ impl ConfigStore {
 }
 
 fn persist(path: &Path, config: &AppConfig) -> Result<(), String> {
-    let content = serde_json::to_string_pretty(config)
-        .map_err(|error| format!("Could not serialize configuration: {error}"))?;
-    fs::write(path, format!("{content}\n")).map_err(|error| {
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("Configuration path has no parent: {}", path.display()))?;
+    let mut temporary = NamedTempFile::new_in(parent).map_err(|error| {
         format!(
-            "Could not write configuration at {}: {error}",
+            "Could not create a temporary configuration at {}: {error}",
+            parent.display()
+        )
+    })?;
+    serde_json::to_writer_pretty(&mut temporary, config)
+        .map_err(|error| format!("Could not serialize configuration: {error}"))?;
+    temporary.write_all(b"\n").map_err(|error| {
+        format!(
+            "Could not write the temporary configuration for {}: {error}",
             path.display()
         )
-    })
+    })?;
+    temporary.as_file().sync_all().map_err(|error| {
+        format!(
+            "Could not flush the temporary configuration for {}: {error}",
+            path.display()
+        )
+    })?;
+    temporary.persist(path).map_err(|error| {
+        format!(
+            "Could not replace configuration at {}: {}",
+            path.display(),
+            error.error
+        )
+    })?;
+    Ok(())
 }
 
 fn validate(config: &AppConfig) -> Result<(), String> {
@@ -148,6 +210,14 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("fontSize must be between 6 and 72.".to_owned());
     }
 
+    if config.liquid_cursor.response > 100 {
+        return Err("liquidCursor.response must be between 0 and 100.".to_owned());
+    }
+
+    if config.liquid_cursor.fluidity > 100 {
+        return Err("liquidCursor.fluidity must be between 0 and 100.".to_owned());
+    }
+
     Ok(())
 }
 
@@ -157,7 +227,7 @@ fn lock_error<T>(_: std::sync::PoisonError<T>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppConfig, ConfigStore, CursorAnimation};
+    use super::{AppConfig, ConfigStore, CursorAnimation, LiquidCursorSettings};
     use std::{
         fs,
         time::{SystemTime, UNIX_EPOCH},
@@ -183,6 +253,8 @@ mod tests {
         assert_eq!(config.font_size, 14);
         assert_eq!(config.theme["name"], "pnex-dark");
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
+        assert_eq!(config.liquid_cursor.response, 70);
+        assert_eq!(config.liquid_cursor.fluidity, 42);
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -205,6 +277,35 @@ mod tests {
         assert_eq!(config.theme["name"], "Dracula");
         assert_eq!(config.theme["background"], "#282a36");
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
+        assert_eq!(config.liquid_cursor, Default::default());
+
+        fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[test]
+    fn a_stale_full_save_does_not_overwrite_liquid_cursor_settings() {
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+        let mut stale_config = store.get().expect("stale config");
+
+        store
+            .save_liquid_cursor(
+                CursorAnimation::Disabled,
+                LiquidCursorSettings {
+                    response: 25,
+                    fluidity: 80,
+                },
+            )
+            .expect("save liquid cursor");
+        stale_config.font_size = 18;
+        store.save(stale_config).expect("save stale config");
+
+        let saved = store.get().expect("saved config");
+        assert_eq!(saved.font_size, 18);
+        assert_eq!(saved.cursor_animation, CursorAnimation::Disabled);
+        assert_eq!(saved.liquid_cursor.response, 25);
+        assert_eq!(saved.liquid_cursor.fluidity, 80);
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }

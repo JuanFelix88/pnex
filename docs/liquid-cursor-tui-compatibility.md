@@ -300,7 +300,7 @@ Writing to the final column of the final row can trigger wrapping or scrolling, 
 
 ## Compatibility Test Plan
 
-A TUI is compatible when all of the following pass inside pnex with **Cursor Animation → Liquid** enabled.
+A TUI is compatible when all of the following pass inside pnex with **Options → Liquid Cursor → Liquid motion** enabled.
 
 ### Basic behavior
 

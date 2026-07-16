@@ -2,6 +2,16 @@ import type { Terminal } from "@xterm/xterm";
 
 export type CursorAnimation = "disabled" | "liquid";
 
+export interface LiquidCursorSettings {
+  response: number;
+  fluidity: number;
+}
+
+export const DEFAULT_LIQUID_CURSOR_SETTINGS: LiquidCursorSettings = {
+  response: 70,
+  fluidity: 42,
+};
+
 interface Point {
   x: number;
   y: number;
@@ -15,9 +25,12 @@ interface AnimatedPoint extends Point {
 const BLINK_DELAY_MS = 170;
 const BLINK_INTERVAL_MS = 140;
 const CORNER_COUNT = 4;
-const SPRING_STIFFNESS = 10_000;
-const DIRECTIONAL_STRETCH = 0.12;
-const MAXIMUM_TRAIL_CELLS = 3;
+const MINIMUM_SPRING_STIFFNESS = 2_000;
+const MAXIMUM_SPRING_STIFFNESS = 18_000;
+const MINIMUM_DIRECTIONAL_STRETCH = 0.02;
+const MAXIMUM_DIRECTIONAL_STRETCH = 0.26;
+const MINIMUM_TRAIL_CELLS = 1.5;
+const MAXIMUM_TRAIL_CELLS = 5;
 const MAXIMUM_FRAME_GAP_SECONDS = 0.25;
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
 const TYPING_PULSE_SCALE = 0.05;
@@ -32,6 +45,7 @@ export class LiquidCursor {
   private targetCorners: Point[] = [];
   private mode: CursorAnimation;
   private color: string;
+  private settings: LiquidCursorSettings;
   private cellWidth = 0;
   private cellHeight = 0;
   private targetCenter: Point | null = null;
@@ -50,6 +64,7 @@ export class LiquidCursor {
     private readonly terminal: Terminal,
     mode: CursorAnimation,
     color: string,
+    settings: LiquidCursorSettings,
   ) {
     const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
     const context = this.canvas.getContext("2d");
@@ -61,6 +76,7 @@ export class LiquidCursor {
     this.context = context;
     this.mode = mode;
     this.color = color;
+    this.settings = settings;
     this.canvas.className = "liquid-cursor";
     this.canvas.setAttribute("aria-hidden", "true");
     this.screen.append(this.canvas);
@@ -122,6 +138,11 @@ export class LiquidCursor {
   setColor(color: string): void {
     this.color = color;
     this.draw();
+  }
+
+  setSettings(settings: LiquidCursorSettings): void {
+    this.settings = settings;
+    this.updateTarget();
   }
 
   wake(): void {
@@ -285,8 +306,22 @@ export class LiquidCursor {
     }
   }
 
+  private springStiffness(): number {
+    const ratio = this.settings.response / 100;
+    return MINIMUM_SPRING_STIFFNESS
+      * Math.pow(MAXIMUM_SPRING_STIFFNESS / MINIMUM_SPRING_STIFFNESS, ratio);
+  }
+
+  private directionalStretch(): number {
+    return MINIMUM_DIRECTIONAL_STRETCH
+      + (MAXIMUM_DIRECTIONAL_STRETCH - MINIMUM_DIRECTIONAL_STRETCH)
+      * (this.settings.fluidity / 100);
+  }
+
   private maximumTrailDistance(): number {
-    const distance = Math.hypot(this.cellWidth, this.cellHeight) * MAXIMUM_TRAIL_CELLS;
+    const trailCells = MINIMUM_TRAIL_CELLS
+      + (MAXIMUM_TRAIL_CELLS - MINIMUM_TRAIL_CELLS) * (this.settings.fluidity / 100);
+    const distance = Math.hypot(this.cellWidth, this.cellHeight) * trailCells;
     return Number.isFinite(distance) ? Math.max(distance, 1) : 1;
   }
 
@@ -307,7 +342,7 @@ export class LiquidCursor {
 
     const speed = Math.hypot(corner.velocityX, corner.velocityY);
     const maximumSpeed = maximumTrail
-      * Math.sqrt(SPRING_STIFFNESS * (1 + DIRECTIONAL_STRETCH));
+      * Math.sqrt(this.springStiffness() * (1 + this.directionalStretch()));
     if (!Number.isFinite(speed)) return false;
     if (speed > maximumSpeed) {
       const scale = maximumSpeed / speed;
@@ -383,7 +418,8 @@ export class LiquidCursor {
       const relativeY = target.y - this.targetCenter!.y;
       const projection = (relativeX * this.direction.x + relativeY * this.direction.y)
         / Math.max(Math.hypot(relativeX, relativeY), 1);
-      const stiffness = SPRING_STIFFNESS * (1 + projection * DIRECTIONAL_STRETCH);
+      const stiffness = this.springStiffness()
+        * (1 + projection * this.directionalStretch());
 
       this.advanceCorner(corner, target, stiffness, deltaTime);
       if (!this.constrainCorner(corner, target)) {

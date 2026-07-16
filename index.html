@@ -53,6 +53,37 @@
         </div>
       </header>
       <div id="menu-popup" class="menu-popup" hidden></div>
+      <section id="liquid-cursor-panel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="liquid-cursor-title" aria-describedby="liquid-cursor-description" hidden>
+        <div class="settings-panel-header">
+          <div>
+            <h2 id="liquid-cursor-title">Liquid Cursor</h2>
+            <p id="liquid-cursor-description">Tune how the cursor follows your flow.</p>
+          </div>
+          <button id="liquid-cursor-close" class="settings-panel-close" type="button" aria-label="Close Liquid Cursor settings">×</button>
+        </div>
+        <label class="settings-switch-row" for="liquid-cursor-enabled">
+          <span>
+            <strong>Liquid motion</strong>
+            <small>Bring movement to every keystroke</small>
+          </span>
+          <span class="settings-switch">
+            <input id="liquid-cursor-enabled" type="checkbox" role="switch" />
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
+        <div id="liquid-cursor-controls" class="settings-slider-group">
+          <label class="settings-slider" for="liquid-cursor-response">
+            <strong>Response</strong>
+            <input id="liquid-cursor-response" type="range" min="0" max="100" step="1" />
+            <span><small>Smooth</small><small>Instant</small></span>
+          </label>
+          <label class="settings-slider" for="liquid-cursor-fluidity">
+            <strong>Fluidity</strong>
+            <input id="liquid-cursor-fluidity" type="range" min="0" max="100" step="1" />
+            <span><small>Firm</small><small>Elastic</small></span>
+          </label>
+        </div>
+      </section>
       <section id="terminal-container" aria-label="Terminal interativo">
         <div id="terminal"></div>
         <div id="window-hover-overlay" aria-hidden="true" hidden>

@@ -6,7 +6,12 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type IMarker } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { LiquidCursor, type CursorAnimation } from "./liquid-cursor";
+import {
+  DEFAULT_LIQUID_CURSOR_SETTINGS,
+  LiquidCursor,
+  type CursorAnimation,
+  type LiquidCursorSettings,
+} from "./liquid-cursor";
 import { notify as sendSystemNotification } from "./notifications";
 import { builtinThemes, type TerminalTheme } from "./themes";
 import "./styles.css";
@@ -19,6 +24,13 @@ interface AppConfig {
   theme: unknown;
   uiThemeName?: string;
   cursorAnimation?: CursorAnimation;
+  liquidCursor?: Partial<LiquidCursorSettings>;
+}
+
+interface LiquidCursorConfigChanged {
+  sourceWindow: string;
+  cursorAnimation: CursorAnimation;
+  liquidCursor: LiquidCursorSettings;
 }
 
 interface TerminalSize {
@@ -54,7 +66,7 @@ type MenuAction =
   | "select-all"
   | "set-theme"
   | "set-ui-theme"
-  | "set-cursor-animation"
+  | "open-liquid-cursor"
   | "toggle-devtools"
   | "about";
 
@@ -66,7 +78,6 @@ interface MenuItem {
   disabled?: boolean;
   theme?: TerminalTheme;
   uiThemeName?: string;
-  cursorAnimation?: CursorAnimation;
   checked?: boolean;
 }
 
@@ -101,6 +112,8 @@ let activeHud: PromptHud | null = null;
 let focusedHud: PromptHud | null = null;
 let selectionShimmerId = 0;
 let terminalRevealed = false;
+let liquidCursorSaveQueue = Promise.resolve();
+let closingAfterCursorSave = false;
 const promptHuds: PromptHud[] = [];
 
 interface PromptHud {
@@ -285,7 +298,9 @@ function createTerminal(config: AppConfig): {
 } {
   const theme = configuredTheme(config.theme);
   const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
+  const liquidCursorSettings = configuredLiquidCursorSettings(config.liquidCursor);
   config.cursorAnimation = cursorAnimation;
+  config.liquidCursor = liquidCursorSettings;
   applyTheme(theme);
   document.documentElement.style.setProperty("--terminal-font-family", config.fontFamily);
   document.documentElement.style.setProperty("--terminal-font-size", `${config.fontSize}px`);
@@ -305,7 +320,12 @@ function createTerminal(config: AppConfig): {
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(new WebLinksAddon());
   terminal.open(terminalElement);
-  const liquidCursor = new LiquidCursor(terminal, cursorAnimation, theme.cursor);
+  const liquidCursor = new LiquidCursor(
+    terminal,
+    cursorAnimation,
+    theme.cursor,
+    liquidCursorSettings,
+  );
   setupSelectionShimmer(terminal);
   loadWebglRenderer(terminal);
   return { terminal, fitAddon, liquidCursor };
@@ -477,6 +497,20 @@ function configuredTheme(value: unknown): TerminalTheme {
 
 function configuredCursorAnimation(value?: CursorAnimation): CursorAnimation {
   return value === "disabled" ? "disabled" : "liquid";
+}
+
+function configuredLiquidCursorSettings(
+  value?: Partial<LiquidCursorSettings>,
+): LiquidCursorSettings {
+  const clamp = (candidate: unknown, fallback: number): number => {
+    if (typeof candidate !== "number" || !Number.isFinite(candidate)) return fallback;
+    return Math.min(Math.max(Math.round(candidate), 0), 100);
+  };
+
+  return {
+    response: clamp(value?.response, DEFAULT_LIQUID_CURSOR_SETTINGS.response),
+    fluidity: clamp(value?.fluidity, DEFAULT_LIQUID_CURSOR_SETTINGS.fluidity),
+  };
 }
 
 function toXtermTheme(theme: TerminalTheme, cursorAnimation: CursorAnimation) {
@@ -975,19 +1009,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
           checked: theme.name === selectedTheme.name,
         })),
         { separator: true },
-        { label: "Cursor Animation", disabled: true },
-        {
-          label: "Liquid",
-          action: "set-cursor-animation",
-          cursorAnimation: "liquid",
-          checked: configuredCursorAnimation(config.cursorAnimation) === "liquid",
-        },
-        {
-          label: "Disabled",
-          action: "set-cursor-animation",
-          cursorAnimation: "disabled",
-          checked: configuredCursorAnimation(config.cursorAnimation) === "disabled",
-        },
+        { label: "Liquid Cursor…", action: "open-liquid-cursor" },
         { separator: true },
         { label: "UI Themes", disabled: true },
         {
@@ -1021,7 +1043,6 @@ async function runMenuAction(
   liquidCursor: LiquidCursor,
   theme?: TerminalTheme,
   uiThemeName?: string,
-  cursorAnimation?: CursorAnimation,
 ): Promise<void> {
   switch (action) {
     case "new-window":
@@ -1031,7 +1052,7 @@ async function runMenuAction(
       await invoke("new_window", { inheritedDirectory: currentCwd });
       return;
     case "close-app":
-      await invoke("close_app");
+      await invoke("request_close_app");
       return;
     case "open-config":
       await invoke("open_config");
@@ -1058,22 +1079,163 @@ async function runMenuAction(
       applyUiTheme(config.uiThemeName);
       await invoke("save_config", { config });
       return;
-    case "set-cursor-animation": {
-      const nextAnimation = configuredCursorAnimation(cursorAnimation);
-      config.cursorAnimation = nextAnimation;
-      liquidCursor.setMode(nextAnimation);
-      terminal.options.cursorBlink = nextAnimation === "disabled";
-      terminal.options.cursorInactiveStyle = nextAnimation === "disabled" ? "outline" : "none";
-      terminal.options.theme = toXtermTheme(configuredTheme(config.theme), nextAnimation);
-      await invoke("save_config", { config });
+    case "open-liquid-cursor":
+      showLiquidCursorPanel();
       return;
-    }
     case "toggle-devtools":
       await invoke("toggle_devtools");
       return;
     case "about":
       window.alert("pnex\nTerminal workspace");
   }
+}
+
+function applyCursorAnimation(
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+  animation: CursorAnimation,
+): void {
+  config.cursorAnimation = animation;
+  liquidCursor.setMode(animation);
+  terminal.options.cursorBlink = animation === "disabled";
+  terminal.options.cursorInactiveStyle = animation === "disabled" ? "outline" : "none";
+  terminal.options.theme = toXtermTheme(configuredTheme(config.theme), animation);
+}
+
+function positionLiquidCursorPanel(panel: HTMLElement): void {
+  const trigger = document.querySelector<HTMLButtonElement>('.menu-trigger[data-menu="options"]');
+  const triggerBounds = trigger?.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(triggerBounds?.left ?? 8, 8),
+    Math.max(window.innerWidth - panel.offsetWidth - 8, 8),
+  );
+  panel.style.left = `${left}px`;
+  panel.style.top = `${triggerBounds?.bottom ?? 34}px`;
+}
+
+function showLiquidCursorPanel(): void {
+  const panel = requiredElement("#liquid-cursor-panel");
+  panel.hidden = false;
+  positionLiquidCursorPanel(panel);
+  requiredElement("#liquid-cursor-enabled").focus();
+}
+
+function setupLiquidCursorPanel(
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+): void {
+  const panel = requiredElement("#liquid-cursor-panel");
+  const close = requiredElement("#liquid-cursor-close");
+  const enabled = requiredElement("#liquid-cursor-enabled") as HTMLInputElement;
+  const controls = requiredElement("#liquid-cursor-controls");
+  const response = requiredElement("#liquid-cursor-response") as HTMLInputElement;
+  const fluidity = requiredElement("#liquid-cursor-fluidity") as HTMLInputElement;
+  const settings = configuredLiquidCursorSettings(config.liquidCursor);
+  config.liquidCursor = settings;
+  response.value = String(settings.response);
+  fluidity.value = String(settings.fluidity);
+  enabled.checked = configuredCursorAnimation(config.cursorAnimation) === "liquid";
+
+  const persist = (): void => {
+    const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
+    const liquidCursorSettings = configuredLiquidCursorSettings(config.liquidCursor);
+    const save = liquidCursorSaveQueue
+      .catch(() => undefined)
+      .then(() => invoke<void>("save_liquid_cursor", {
+        cursorAnimation,
+        liquidCursor: liquidCursorSettings,
+      }));
+    liquidCursorSaveQueue = save;
+    void save.catch((error: unknown) => {
+      showError(`Não foi possível salvar o Liquid Cursor: ${String(error)}`);
+    });
+  };
+  const syncEnabledState = (): void => {
+    const disabled = !enabled.checked;
+    response.disabled = disabled;
+    fluidity.disabled = disabled;
+    controls.setAttribute("aria-disabled", String(disabled));
+  };
+  const applySettings = (): void => {
+    const nextSettings = configuredLiquidCursorSettings({
+      response: Number(response.value),
+      fluidity: Number(fluidity.value),
+    });
+    config.liquidCursor = nextSettings;
+    liquidCursor.setSettings(nextSettings);
+  };
+  const hidePanel = (restoreTerminalFocus: boolean): void => {
+    panel.hidden = true;
+    if (restoreTerminalFocus) terminal.focus();
+  };
+
+  syncEnabledState();
+  enabled.addEventListener("change", () => {
+    applyCursorAnimation(
+      terminal,
+      config,
+      liquidCursor,
+      enabled.checked ? "liquid" : "disabled",
+    );
+    syncEnabledState();
+    persist();
+  });
+  for (const slider of [response, fluidity]) {
+    slider.addEventListener("input", applySettings);
+    slider.addEventListener("change", persist);
+  }
+  close.addEventListener("click", () => hidePanel(true));
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const focusable = [...panel.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled])',
+    )];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  void listen<LiquidCursorConfigChanged>(
+    "liquid-cursor-config-changed",
+    ({ payload }) => {
+      if (payload.sourceWindow === appWindow.label) return;
+      const nextSettings = configuredLiquidCursorSettings(payload.liquidCursor);
+      const nextAnimation = configuredCursorAnimation(payload.cursorAnimation);
+      config.liquidCursor = nextSettings;
+      response.value = String(nextSettings.response);
+      fluidity.value = String(nextSettings.fluidity);
+      enabled.checked = nextAnimation === "liquid";
+      liquidCursor.setSettings(nextSettings);
+      applyCursorAnimation(terminal, config, liquidCursor, nextAnimation);
+      syncEnabledState();
+    },
+  ).catch((error: unknown) => {
+    console.warn("Could not synchronize Liquid Cursor settings.", error);
+  });
+  document.addEventListener("click", (event) => {
+    if (
+      panel.hidden
+      || !(event.target instanceof Node)
+      || menuPopup.contains(event.target)
+      || panel.contains(event.target)
+    ) return;
+    hidePanel(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) hidePanel(true);
+  });
+  window.addEventListener("resize", () => {
+    if (!panel.hidden) positionLiquidCursorPanel(panel);
+  });
 }
 
 function openMenu(
@@ -1118,7 +1280,8 @@ function openMenu(
       hint.textContent = item.hint;
       button.append(hint);
     }
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
       closeMenu();
       void runMenuAction(
         action,
@@ -1127,7 +1290,6 @@ function openMenu(
         liquidCursor,
         item.theme,
         item.uiThemeName,
-        item.cursorAnimation,
       ).catch((error: unknown) => {
         showError(`Não foi possível executar a ação: ${String(error)}`);
       });
@@ -1142,6 +1304,7 @@ function openMenu(
 }
 
 function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: LiquidCursor): void {
+  setupLiquidCursorPanel(terminal, config, liquidCursor);
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
   const titlebarIcon = requiredElement("#titlebar-icon");
@@ -1177,6 +1340,7 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
 
   titlebarToggle.addEventListener("click", (event) => {
     event.stopPropagation();
+    requiredElement("#liquid-cursor-panel").hidden = true;
     titlebarIcon.removeAttribute("hidden");
     titlebarMenu.hidden = false;
     titlebarToggle.hidden = true;
@@ -1187,6 +1351,7 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
   triggers.forEach((trigger) => {
     trigger.addEventListener("click", (event) => {
       event.stopPropagation();
+      requiredElement("#liquid-cursor-panel").hidden = true;
       if (!menuPopup.hidden) {
         closeMenu();
       } else {
@@ -1240,7 +1405,31 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
   });
 }
 
+async function setupCloseAfterCursorSave(): Promise<void> {
+  await Promise.all([
+    appWindow.onCloseRequested((event) => {
+      event.preventDefault();
+      if (closingAfterCursorSave) return;
+      closingAfterCursorSave = true;
+      void liquidCursorSaveQueue
+        .then(() => appWindow.destroy())
+        .catch((error: unknown) => {
+          closingAfterCursorSave = false;
+          showError(`Não foi possível fechar a janela: ${String(error)}`);
+        });
+    }),
+    listen("app-close-requested", () => {
+      void liquidCursorSaveQueue
+        .then(() => invoke("confirm_app_close"))
+        .catch((error: unknown) => {
+          showError(`Não foi possível fechar o aplicativo: ${String(error)}`);
+        });
+    }),
+  ]);
+}
+
 async function bootstrap(): Promise<void> {
+  await setupCloseAfterCursorSave();
   setupLoadingScreenDragging();
   const config = await invoke<AppConfig>("get_config");
   applyUiTheme(config.uiThemeName);

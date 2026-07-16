@@ -440,6 +440,175 @@ nav,
   opacity: 0.7;
 }
 
+.settings-panel {
+  position: fixed;
+  z-index: 20;
+  width: min(328px, calc(100vw - 16px));
+  max-height: calc(100vh - 42px);
+  overflow-y: auto;
+  border: 1px solid var(--terminal-border);
+  border-radius: 6px;
+  background: var(--terminal-menu);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 42%);
+  padding: 16px;
+  color: var(--terminal-foreground);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  scrollbar-color: var(--terminal-border) var(--terminal-menu);
+  scrollbar-width: thin;
+  user-select: none;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel-header,
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-panel-header {
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.settings-panel h2,
+.settings-panel p {
+  margin: 0;
+}
+
+.settings-panel h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-panel p,
+.settings-panel small {
+  color: color-mix(in srgb, var(--terminal-foreground) 68%, transparent);
+  font-size: 11px;
+}
+
+.settings-panel p {
+  margin-top: 3px;
+}
+
+.settings-panel-close {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: 18px/1 system-ui, sans-serif;
+}
+
+.settings-panel-close:hover,
+.settings-panel-close:focus-visible {
+  background: color-mix(in srgb, var(--terminal-foreground) 14%, transparent);
+  outline: none;
+}
+
+.settings-switch-row {
+  gap: 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--terminal-border) 65%, transparent);
+  padding-bottom: 14px;
+}
+
+.settings-switch-row strong,
+.settings-switch-row small {
+  display: block;
+}
+
+.settings-switch-row strong,
+.settings-slider strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-switch-row small {
+  margin-top: 2px;
+}
+
+.settings-switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.settings-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.settings-switch span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--terminal-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--terminal-background) 80%, var(--terminal-border));
+  transition: background 120ms ease;
+}
+
+.settings-switch span::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--terminal-foreground);
+  content: "";
+  transition: transform 120ms ease;
+}
+
+.settings-switch input:checked + span {
+  border-color: var(--terminal-cursor);
+  background: color-mix(in srgb, var(--terminal-cursor) 78%, var(--terminal-background));
+}
+
+.settings-switch input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.settings-switch input:focus-visible + span {
+  outline: 1px solid var(--terminal-foreground);
+  outline-offset: 2px;
+}
+
+.settings-slider-group {
+  display: grid;
+  gap: 15px;
+  padding-top: 14px;
+  transition: opacity 120ms ease;
+}
+
+.settings-slider-group[aria-disabled="true"] {
+  opacity: 0.42;
+}
+
+.settings-slider {
+  display: grid;
+  gap: 7px;
+}
+
+.settings-slider input {
+  width: 100%;
+  height: 4px;
+  margin: 2px 0;
+  accent-color: var(--terminal-cursor);
+  cursor: default;
+}
+
+.settings-slider > span {
+  display: flex;
+  justify-content: space-between;
+}
+
 .prompt-hud-decoration {
   pointer-events: none;
 }
