@@ -5,11 +5,13 @@ export type CursorAnimation = "disabled" | "liquid";
 export interface LiquidCursorSettings {
   response: number;
   fluidity: number;
+  trail: number;
 }
 
 export const DEFAULT_LIQUID_CURSOR_SETTINGS: LiquidCursorSettings = {
   response: 70,
   fluidity: 42,
+  trail: 42,
 };
 
 interface Point {
@@ -346,7 +348,7 @@ export class LiquidCursor {
 
   private maximumTrailDistance(): number {
     const trailCells = MINIMUM_TRAIL_CELLS
-      + (MAXIMUM_TRAIL_CELLS - MINIMUM_TRAIL_CELLS) * (this.settings.fluidity / 100);
+      + (MAXIMUM_TRAIL_CELLS - MINIMUM_TRAIL_CELLS) * (this.settings.trail / 100);
     const distance = Math.hypot(this.cellWidth, this.cellHeight) * trailCells;
     return Number.isFinite(distance) ? Math.max(distance, 1) : 1;
   }

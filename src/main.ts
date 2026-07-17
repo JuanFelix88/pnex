@@ -511,6 +511,7 @@ function configuredLiquidCursorSettings(
   return {
     response: clamp(value?.response, DEFAULT_LIQUID_CURSOR_SETTINGS.response),
     fluidity: clamp(value?.fluidity, DEFAULT_LIQUID_CURSOR_SETTINGS.fluidity),
+    trail: clamp(value?.trail, DEFAULT_LIQUID_CURSOR_SETTINGS.trail),
   };
 }
 
@@ -1144,10 +1145,12 @@ function setupLiquidCursorPanel(
   const controls = requiredElement("#liquid-cursor-controls");
   const response = requiredElement("#liquid-cursor-response") as HTMLInputElement;
   const fluidity = requiredElement("#liquid-cursor-fluidity") as HTMLInputElement;
+  const trail = requiredElement("#liquid-cursor-trail") as HTMLInputElement;
   const settings = configuredLiquidCursorSettings(config.liquidCursor);
   config.liquidCursor = settings;
   response.value = String(settings.response);
   fluidity.value = String(settings.fluidity);
+  trail.value = String(settings.trail);
   enabled.checked = configuredCursorAnimation(config.cursorAnimation) === "liquid";
 
   const persist = (): void => {
@@ -1168,12 +1171,14 @@ function setupLiquidCursorPanel(
     const disabled = !enabled.checked;
     response.disabled = disabled;
     fluidity.disabled = disabled;
+    trail.disabled = disabled;
     controls.setAttribute("aria-disabled", String(disabled));
   };
   const applySettings = (): void => {
     const nextSettings = configuredLiquidCursorSettings({
       response: Number(response.value),
       fluidity: Number(fluidity.value),
+      trail: Number(trail.value),
     });
     config.liquidCursor = nextSettings;
     liquidCursor.setSettings(nextSettings);
@@ -1194,7 +1199,7 @@ function setupLiquidCursorPanel(
     syncEnabledState();
     persist();
   });
-  for (const slider of [response, fluidity]) {
+  for (const slider of [response, fluidity, trail]) {
     slider.addEventListener("input", applySettings);
     slider.addEventListener("change", persist);
   }
@@ -1225,6 +1230,7 @@ function setupLiquidCursorPanel(
       config.liquidCursor = nextSettings;
       response.value = String(nextSettings.response);
       fluidity.value = String(nextSettings.fluidity);
+      trail.value = String(nextSettings.trail);
       enabled.checked = nextAnimation === "liquid";
       liquidCursor.setSettings(nextSettings);
       applyCursorAnimation(terminal, config, liquidCursor, nextAnimation);

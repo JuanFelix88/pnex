@@ -25,6 +25,7 @@ pub enum CursorAnimation {
 pub struct LiquidCursorSettings {
     pub response: u8,
     pub fluidity: u8,
+    pub trail: u8,
 }
 
 impl Default for LiquidCursorSettings {
@@ -32,6 +33,7 @@ impl Default for LiquidCursorSettings {
         Self {
             response: 70,
             fluidity: 42,
+            trail: 42,
         }
     }
 }
@@ -218,6 +220,10 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("liquidCursor.fluidity must be between 0 and 100.".to_owned());
     }
 
+    if config.liquid_cursor.trail > 100 {
+        return Err("liquidCursor.trail must be between 0 and 100.".to_owned());
+    }
+
     Ok(())
 }
 
@@ -255,6 +261,7 @@ mod tests {
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
         assert_eq!(config.liquid_cursor.response, 70);
         assert_eq!(config.liquid_cursor.fluidity, 42);
+        assert_eq!(config.liquid_cursor.trail, 42);
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -295,6 +302,7 @@ mod tests {
                 LiquidCursorSettings {
                     response: 25,
                     fluidity: 80,
+                    trail: 60,
                 },
             )
             .expect("save liquid cursor");
@@ -306,6 +314,7 @@ mod tests {
         assert_eq!(saved.cursor_animation, CursorAnimation::Disabled);
         assert_eq!(saved.liquid_cursor.response, 25);
         assert_eq!(saved.liquid_cursor.fluidity, 80);
+        assert_eq!(saved.liquid_cursor.trail, 60);
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }
