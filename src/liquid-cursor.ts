@@ -33,8 +33,11 @@ const MINIMUM_TRAIL_CELLS = 1.5;
 const MAXIMUM_TRAIL_CELLS = 5;
 const MAXIMUM_FRAME_GAP_SECONDS = 0.25;
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
-const TYPING_PULSE_SCALE = 0.05;
-const TYPING_PULSE_DECAY = 36;
+const TYPING_PULSE_ATTACK_MS = 5;
+const TYPING_PULSE_FADE_MS = 100;
+const TYPING_PULSE_BURST_MS = 120;
+const TYPING_PULSE_BASE_STRENGTH = 0.24;
+const TYPING_PULSE_GAIN = 0.16;
 const CURSOR_OPACITY = 0.88;
 
 export class LiquidCursor {
@@ -45,6 +48,7 @@ export class LiquidCursor {
   private targetCorners: Point[] = [];
   private mode: CursorAnimation;
   private color: string;
+  private accentColor: string;
   private settings: LiquidCursorSettings;
   private cellWidth = 0;
   private cellHeight = 0;
@@ -55,7 +59,10 @@ export class LiquidCursor {
   private targetUpdateNeedsSnap = false;
   private lastFrameAt = 0;
   private lastActivityAt = performance.now();
+  private lastTypingAt = Number.NEGATIVE_INFINITY;
   private pulse = 0;
+  private pulseStart = 0;
+  private pulseStrength = 0;
   private focused = false;
   private terminalCursorVisible = true;
   private cursorInsideViewport = false;
@@ -64,6 +71,7 @@ export class LiquidCursor {
     private readonly terminal: Terminal,
     mode: CursorAnimation,
     color: string,
+    accentColor: string,
     settings: LiquidCursorSettings,
   ) {
     const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
@@ -76,6 +84,7 @@ export class LiquidCursor {
     this.context = context;
     this.mode = mode;
     this.color = color;
+    this.accentColor = accentColor;
     this.settings = settings;
     this.canvas.className = "liquid-cursor";
     this.canvas.setAttribute("aria-hidden", "true");
@@ -129,14 +138,19 @@ export class LiquidCursor {
     if (mode === "liquid") {
       this.wake();
       this.updateTarget(true);
-    } else if (this.animationFrame !== null) {
-      cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = null;
+    } else {
+      this.pulse = 0;
+      this.pulseStrength = 0;
+      if (this.animationFrame !== null) {
+        cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null;
+      }
     }
   }
 
-  setColor(color: string): void {
+  setColors(color: string, accentColor: string): void {
     this.color = color;
+    this.accentColor = accentColor;
     this.draw();
   }
 
@@ -145,10 +159,23 @@ export class LiquidCursor {
     this.updateTarget();
   }
 
-  wake(): void {
+  pulseTyping(): void {
+    if (this.mode === "disabled") return;
+    const now = performance.now();
+    this.lastActivityAt = now;
+    if (!this.terminalCursorVisible) return;
+
+    this.pulseStart = this.pulse;
+    this.pulseStrength = now - this.lastTypingAt <= TYPING_PULSE_BURST_MS
+      ? Math.min(this.pulseStrength + TYPING_PULSE_GAIN, 1)
+      : TYPING_PULSE_BASE_STRENGTH;
+    this.lastTypingAt = now;
+    this.startAnimation();
+  }
+
+  private wake(): void {
     if (this.mode === "disabled") return;
     this.lastActivityAt = performance.now();
-    this.pulse = 1;
     if (this.terminalCursorVisible) this.startAnimation();
   }
 
@@ -278,8 +305,7 @@ export class LiquidCursor {
 
   private resizeCanvas(left: number, top: number, right: number, bottom: number): void {
     const ratio = Math.min(Math.max(window.devicePixelRatio || 1, 1), MAXIMUM_DEVICE_PIXEL_RATIO);
-    const pulsePadding = Math.max(this.cellWidth, this.cellHeight) * TYPING_PULSE_SCALE + 2;
-    const padding = Math.ceil(this.maximumTrailDistance() + pulsePadding);
+    const padding = Math.ceil(this.maximumTrailDistance() + 2);
     const originX = left - padding;
     const originY = top - padding;
     const width = right - left + padding * 2;
@@ -444,13 +470,29 @@ export class LiquidCursor {
       this.snapToTarget();
       moving = false;
     } else {
-      this.pulse *= Math.exp(-deltaTime * TYPING_PULSE_DECAY);
-      if (!Number.isFinite(this.pulse)) this.pulse = 0;
+      this.updateTypingPulse(time);
       if (this.pulse > 0.01) moving = true;
     }
 
     this.draw();
     if (moving) this.animationFrame = requestAnimationFrame((nextTime) => this.animate(nextTime));
+  }
+
+  private updateTypingPulse(time: number): void {
+    const elapsed = time - this.lastTypingAt;
+    if (!Number.isFinite(elapsed)) {
+      this.pulse = 0;
+      return;
+    }
+
+    if (elapsed < TYPING_PULSE_ATTACK_MS) {
+      const progress = Math.max(elapsed, 0) / TYPING_PULSE_ATTACK_MS;
+      this.pulse = this.pulseStart + (this.pulseStrength - this.pulseStart) * progress;
+      return;
+    }
+
+    const remaining = 1 - (elapsed - TYPING_PULSE_ATTACK_MS) / TYPING_PULSE_FADE_MS;
+    this.pulse = this.pulseStrength * Math.max(remaining, 0);
   }
 
   private clearCanvas(): void {
@@ -471,7 +513,7 @@ export class LiquidCursor {
     ) return;
 
     this.limitTrail();
-    const points = this.scaledCorners();
+    const points = this.corners;
     if (!points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))) {
       this.pulse = 0;
       this.snapToTarget();
@@ -484,6 +526,12 @@ export class LiquidCursor {
     this.squarePolygon(points);
     if (this.focused) {
       this.context.fill();
+      if (this.pulse > 0.01) {
+        this.context.fillStyle = this.accentColor;
+        this.context.globalAlpha = this.pulse;
+        this.squarePolygon(points);
+        this.context.fill();
+      }
     } else {
       this.context.lineWidth = 1;
       this.context.stroke();
@@ -496,16 +544,6 @@ export class LiquidCursor {
     const elapsed = performance.now() - this.lastActivityAt;
     return elapsed < BLINK_DELAY_MS
       || Math.floor((elapsed - BLINK_DELAY_MS) / BLINK_INTERVAL_MS) % 2 === 0;
-  }
-
-  private scaledCorners(): Point[] {
-    if (this.pulse <= 0.01) return this.corners;
-    const center = this.cornerCenter();
-    const scale = 1 + this.pulse * TYPING_PULSE_SCALE;
-    return this.corners.map((corner) => ({
-      x: center.x + (corner.x - center.x) * scale,
-      y: center.y + (corner.y - center.y) * scale,
-    }));
   }
 
   private cornerCenter(): Point {

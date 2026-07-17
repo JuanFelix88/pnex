@@ -324,6 +324,7 @@ function createTerminal(config: AppConfig): {
     terminal,
     cursorAnimation,
     theme.cursor,
+    theme.brightBlue,
     liquidCursorSettings,
   );
   setupSelectionShimmer(terminal);
@@ -653,7 +654,7 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: Liq
     return true;
   });
   terminal.onData((data) => {
-    liquidCursor.wake();
+    liquidCursor.pulseTyping();
     const submitted = /\r|\n/.test(data);
     trackCommand(data);
 
@@ -872,7 +873,12 @@ function formatCommandTime(hud: PromptHud): string | null {
 function trackCommand(data: string): void {
   for (const character of data) {
     if (inEscapeSequence) {
-      if (character >= "A" && character <= "z") inEscapeSequence = false;
+      if (character === "\x7f") {
+        inputBuffer = inputBuffer.trimEnd().replace(/\S+$/, "");
+        inEscapeSequence = false;
+      } else if (character >= "A" && character <= "z") {
+        inEscapeSequence = false;
+      }
       continue;
     }
     if (character === "\x1b") {
@@ -934,6 +940,12 @@ function setupShortcuts(terminal: Terminal): void {
     if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       sendTerminalInput("\n");
+      return false;
+    }
+
+    if (event.key === "Backspace" && event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      terminal.input("\x1b\x7f");
       return false;
     }
 
@@ -1070,7 +1082,7 @@ async function runMenuAction(
       if (!theme) return;
       config.theme = theme;
       terminal.options.theme = toXtermTheme(theme, configuredCursorAnimation(config.cursorAnimation));
-      liquidCursor.setColor(theme.cursor);
+      liquidCursor.setColors(theme.cursor, theme.brightBlue);
       applyTheme(theme);
       await invoke("save_config", { config });
       return;
