@@ -71,22 +71,34 @@
             <span aria-hidden="true"></span>
           </span>
         </label>
-        <div id="liquid-cursor-controls" class="settings-slider-group">
-          <label class="settings-slider" for="liquid-cursor-response">
-            <strong>Response</strong>
-            <input id="liquid-cursor-response" type="range" min="0" max="100" step="1" />
-            <span><small>Smooth</small><small>Instant</small></span>
+        <div id="liquid-cursor-controls">
+          <label class="settings-switch-row settings-switch-row-secondary" for="liquid-cursor-overlay-enabled">
+            <span>
+              <strong>Typing accent</strong>
+              <small>Color pulse on every keystroke</small>
+            </span>
+            <span class="settings-switch">
+              <input id="liquid-cursor-overlay-enabled" type="checkbox" role="switch" />
+              <span aria-hidden="true"></span>
+            </span>
           </label>
-          <label class="settings-slider" for="liquid-cursor-fluidity">
-            <strong>Fluidity</strong>
-            <input id="liquid-cursor-fluidity" type="range" min="0" max="100" step="1" />
-            <span><small>Firm</small><small>Elastic</small></span>
-          </label>
-          <label class="settings-slider" for="liquid-cursor-trail">
-            <strong>Trail</strong>
-            <input id="liquid-cursor-trail" type="range" min="0" max="100" step="1" />
-            <span><small>Short</small><small>Long</small></span>
-          </label>
+          <div class="settings-slider-group">
+            <label class="settings-slider" for="liquid-cursor-animation-length">
+              <strong>Animation length</strong>
+              <input id="liquid-cursor-animation-length" type="range" min="0" max="500" step="5" />
+              <span><small>Instant</small><small>Smooth</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-short-animation-length">
+              <strong>Short moves</strong>
+              <input id="liquid-cursor-short-animation-length" type="range" min="0" max="200" step="5" />
+              <span><small>Instant</small><small>Smooth</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-trail">
+              <strong>Smear trail</strong>
+              <input id="liquid-cursor-trail" type="range" min="0" max="100" step="1" />
+              <span><small>Compact</small><small>Maximum</small></span>
+            </label>
+          </div>
         </div>
       </section>
       <section id="terminal-container" aria-label="Terminal interativo">

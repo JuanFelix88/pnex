@@ -531,6 +531,10 @@ nav,
   margin-top: 2px;
 }
 
+.settings-switch-row-secondary {
+  padding-top: 14px;
+}
+
 .settings-switch {
   position: relative;
   width: 34px;
@@ -587,7 +591,11 @@ nav,
   transition: opacity 120ms ease;
 }
 
-.settings-slider-group[aria-disabled="true"] {
+#liquid-cursor-controls {
+  transition: opacity 120ms ease;
+}
+
+#liquid-cursor-controls[aria-disabled="true"] {
   opacity: 0.42;
 }
 

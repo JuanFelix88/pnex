@@ -23,17 +23,19 @@ pub enum CursorAnimation {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct LiquidCursorSettings {
-    pub response: u8,
-    pub fluidity: u8,
-    pub trail: u8,
+    pub animation_length: u16,
+    pub short_animation_length: u16,
+    pub trail_size: u8,
+    pub typing_overlay: bool,
 }
 
 impl Default for LiquidCursorSettings {
     fn default() -> Self {
         Self {
-            response: 70,
-            fluidity: 42,
-            trail: 42,
+            animation_length: 150,
+            short_animation_length: 40,
+            trail_size: 100,
+            typing_overlay: true,
         }
     }
 }
@@ -212,16 +214,16 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("fontSize must be between 6 and 72.".to_owned());
     }
 
-    if config.liquid_cursor.response > 100 {
-        return Err("liquidCursor.response must be between 0 and 100.".to_owned());
+    if config.liquid_cursor.animation_length > 500 {
+        return Err("liquidCursor.animationLength must be between 0 and 500.".to_owned());
     }
 
-    if config.liquid_cursor.fluidity > 100 {
-        return Err("liquidCursor.fluidity must be between 0 and 100.".to_owned());
+    if config.liquid_cursor.short_animation_length > 200 {
+        return Err("liquidCursor.shortAnimationLength must be between 0 and 200.".to_owned());
     }
 
-    if config.liquid_cursor.trail > 100 {
-        return Err("liquidCursor.trail must be between 0 and 100.".to_owned());
+    if config.liquid_cursor.trail_size > 100 {
+        return Err("liquidCursor.trailSize must be between 0 and 100.".to_owned());
     }
 
     Ok(())
@@ -259,9 +261,10 @@ mod tests {
         assert_eq!(config.font_size, 14);
         assert_eq!(config.theme["name"], "pnex-dark");
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
-        assert_eq!(config.liquid_cursor.response, 70);
-        assert_eq!(config.liquid_cursor.fluidity, 42);
-        assert_eq!(config.liquid_cursor.trail, 42);
+        assert_eq!(config.liquid_cursor.animation_length, 150);
+        assert_eq!(config.liquid_cursor.short_animation_length, 40);
+        assert_eq!(config.liquid_cursor.trail_size, 100);
+        assert!(config.liquid_cursor.typing_overlay);
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -300,9 +303,10 @@ mod tests {
             .save_liquid_cursor(
                 CursorAnimation::Disabled,
                 LiquidCursorSettings {
-                    response: 25,
-                    fluidity: 80,
-                    trail: 60,
+                    animation_length: 250,
+                    short_animation_length: 80,
+                    trail_size: 60,
+                    typing_overlay: false,
                 },
             )
             .expect("save liquid cursor");
@@ -312,9 +316,10 @@ mod tests {
         let saved = store.get().expect("saved config");
         assert_eq!(saved.font_size, 18);
         assert_eq!(saved.cursor_animation, CursorAnimation::Disabled);
-        assert_eq!(saved.liquid_cursor.response, 25);
-        assert_eq!(saved.liquid_cursor.fluidity, 80);
-        assert_eq!(saved.liquid_cursor.trail, 60);
+        assert_eq!(saved.liquid_cursor.animation_length, 250);
+        assert_eq!(saved.liquid_cursor.short_animation_length, 80);
+        assert_eq!(saved.liquid_cursor.trail_size, 60);
+        assert!(!saved.liquid_cursor.typing_overlay);
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }
