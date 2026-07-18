@@ -7,6 +7,8 @@ export interface LiquidCursorSettings {
   shortAnimationLength: number;
   trailSize: number;
   typingOverlay: boolean;
+  inputShadow: boolean;
+  inputShadowOpacity: number;
 }
 
 export const DEFAULT_LIQUID_CURSOR_SETTINGS: LiquidCursorSettings = {
@@ -14,6 +16,8 @@ export const DEFAULT_LIQUID_CURSOR_SETTINGS: LiquidCursorSettings = {
   shortAnimationLength: 40,
   trailSize: 100,
   typingOverlay: true,
+  inputShadow: true,
+  inputShadowOpacity: 45,
 };
 
 interface Point {

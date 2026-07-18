@@ -6,6 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type IMarker } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { InputShadow } from "./input-shadow";
 import {
   DEFAULT_LIQUID_CURSOR_SETTINGS,
   LiquidCursor,
@@ -297,6 +298,7 @@ function createTerminal(config: AppConfig): {
   terminal: Terminal;
   fitAddon: FitAddon;
   liquidCursor: LiquidCursor;
+  inputShadow: InputShadow;
 } {
   const theme = configuredTheme(config.theme);
   const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
@@ -329,9 +331,10 @@ function createTerminal(config: AppConfig): {
     theme.brightBlue,
     liquidCursorSettings,
   );
+  const inputShadow = new InputShadow(terminal, liquidCursorSettings);
   setupSelectionShimmer(terminal);
   loadWebglRenderer(terminal);
-  return { terminal, fitAddon, liquidCursor };
+  return { terminal, fitAddon, liquidCursor, inputShadow };
 }
 
 function setupSelectionShimmer(terminal: Terminal): void {
@@ -505,9 +508,14 @@ function configuredCursorAnimation(value?: CursorAnimation): CursorAnimation {
 function configuredLiquidCursorSettings(
   value?: Partial<LiquidCursorSettings>,
 ): LiquidCursorSettings {
-  const clamp = (candidate: unknown, fallback: number, maximum: number): number => {
+  const clamp = (
+    candidate: unknown,
+    fallback: number,
+    maximum: number,
+    minimum = 0,
+  ): number => {
     if (typeof candidate !== "number" || !Number.isFinite(candidate)) return fallback;
-    return Math.min(Math.max(Math.round(candidate), 0), maximum);
+    return Math.min(Math.max(Math.round(candidate), minimum), maximum);
   };
 
   return {
@@ -525,6 +533,15 @@ function configuredLiquidCursorSettings(
     typingOverlay: typeof value?.typingOverlay === "boolean"
       ? value.typingOverlay
       : DEFAULT_LIQUID_CURSOR_SETTINGS.typingOverlay,
+    inputShadow: typeof value?.inputShadow === "boolean"
+      ? value.inputShadow
+      : DEFAULT_LIQUID_CURSOR_SETTINGS.inputShadow,
+    inputShadowOpacity: clamp(
+      value?.inputShadowOpacity,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.inputShadowOpacity,
+      100,
+      10,
+    ),
   };
 }
 
@@ -593,13 +610,18 @@ function binaryStringToBytes(data: string): Uint8Array {
   return Uint8Array.from(data, (character) => character.charCodeAt(0));
 }
 
-function writeTerminalOutput(terminal: Terminal, data: Uint8Array): void {
-  terminal.write(data);
+function writeTerminalOutput(
+  terminal: Terminal,
+  inputShadow: InputShadow,
+  data: Uint8Array,
+): void {
+  const shadowRevision = inputShadow.currentRevision();
+  terminal.write(data, () => inputShadow.clearIfRevision(shadowRevision));
 }
 
-async function connectTerminal(terminal: Terminal): Promise<void> {
+async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Promise<void> {
   const output = new Channel<ArrayBuffer>();
-  output.onmessage = (data) => writeTerminalOutput(terminal, new Uint8Array(data));
+  output.onmessage = (data) => writeTerminalOutput(terminal, inputShadow, new Uint8Array(data));
 
   await Promise.all([
     listen<TerminalExit>("terminal:exit", ({ payload }) => {
@@ -627,7 +649,12 @@ async function connectTerminal(terminal: Terminal): Promise<void> {
   terminal.focus();
 }
 
-function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: LiquidCursor): void {
+function setupTerminal(
+  terminal: Terminal,
+  fitAddon: FitAddon,
+  liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
+): void {
   let queuedPtyResize: TerminalSize | null = null;
   let ptyResizeInFlight = false;
   let resizeTimer: number | null = null;
@@ -669,6 +696,7 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: Liq
   });
   terminal.onData((data) => {
     liquidCursor.pulseTyping();
+    inputShadow.show(data);
 
     // Start the PTY round trip before title and HUD bookkeeping. Channel output cannot be
     // handled until this callback returns, so the existing HUD lifecycle remains ordered.
@@ -1160,6 +1188,7 @@ function setupLiquidCursorPanel(
   terminal: Terminal,
   config: AppConfig,
   liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
 ): void {
   const panel = requiredElement("#liquid-cursor-panel");
   const close = requiredElement("#liquid-cursor-close");
@@ -1171,12 +1200,17 @@ function setupLiquidCursorPanel(
     "#liquid-cursor-short-animation-length",
   ) as HTMLInputElement;
   const trail = requiredElement("#liquid-cursor-trail") as HTMLInputElement;
+  const shadowControls = requiredElement("#input-shadow-controls");
+  const shadowEnabled = requiredElement("#input-shadow-enabled") as HTMLInputElement;
+  const shadowOpacity = requiredElement("#input-shadow-opacity") as HTMLInputElement;
   const settings = configuredLiquidCursorSettings(config.liquidCursor);
   config.liquidCursor = settings;
   overlayEnabled.checked = settings.typingOverlay;
   animationLength.value = String(settings.animationLength);
   shortAnimationLength.value = String(settings.shortAnimationLength);
   trail.value = String(settings.trailSize);
+  shadowEnabled.checked = settings.inputShadow;
+  shadowOpacity.value = String(settings.inputShadowOpacity);
   enabled.checked = configuredCursorAnimation(config.cursorAnimation) === "liquid";
 
   const persist = (): void => {
@@ -1201,15 +1235,23 @@ function setupLiquidCursorPanel(
     trail.disabled = disabled;
     controls.setAttribute("aria-disabled", String(disabled));
   };
+  const syncShadowState = (): void => {
+    const disabled = !shadowEnabled.checked;
+    shadowOpacity.disabled = disabled;
+    shadowControls.setAttribute("aria-disabled", String(disabled));
+  };
   const applySettings = (): void => {
     const nextSettings = configuredLiquidCursorSettings({
       animationLength: Number(animationLength.value),
       shortAnimationLength: Number(shortAnimationLength.value),
       trailSize: Number(trail.value),
       typingOverlay: overlayEnabled.checked,
+      inputShadow: shadowEnabled.checked,
+      inputShadowOpacity: Number(shadowOpacity.value),
     });
     config.liquidCursor = nextSettings;
     liquidCursor.setSettings(nextSettings);
+    inputShadow.setSettings(nextSettings);
   };
   const hidePanel = (restoreTerminalFocus: boolean): void => {
     panel.hidden = true;
@@ -1217,6 +1259,7 @@ function setupLiquidCursorPanel(
   };
 
   syncEnabledState();
+  syncShadowState();
   enabled.addEventListener("change", () => {
     applyCursorAnimation(
       terminal,
@@ -1231,6 +1274,13 @@ function setupLiquidCursorPanel(
     applySettings();
     persist();
   });
+  shadowEnabled.addEventListener("change", () => {
+    applySettings();
+    syncShadowState();
+    persist();
+  });
+  shadowOpacity.addEventListener("input", applySettings);
+  shadowOpacity.addEventListener("change", persist);
   for (const slider of [animationLength, shortAnimationLength, trail]) {
     slider.addEventListener("input", applySettings);
     slider.addEventListener("change", persist);
@@ -1264,10 +1314,14 @@ function setupLiquidCursorPanel(
       animationLength.value = String(nextSettings.animationLength);
       shortAnimationLength.value = String(nextSettings.shortAnimationLength);
       trail.value = String(nextSettings.trailSize);
+      shadowEnabled.checked = nextSettings.inputShadow;
+      shadowOpacity.value = String(nextSettings.inputShadowOpacity);
       enabled.checked = nextAnimation === "liquid";
       liquidCursor.setSettings(nextSettings);
+      inputShadow.setSettings(nextSettings);
       applyCursorAnimation(terminal, config, liquidCursor, nextAnimation);
       syncEnabledState();
+      syncShadowState();
     },
   ).catch((error: unknown) => {
     console.warn("Could not synchronize Liquid Cursor settings.", error);
@@ -1354,8 +1408,13 @@ function openMenu(
   menuPopup.hidden = false;
 }
 
-function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: LiquidCursor): void {
-  setupLiquidCursorPanel(terminal, config, liquidCursor);
+function setupTitlebar(
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
+): void {
+  setupLiquidCursorPanel(terminal, config, liquidCursor, inputShadow);
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
   const titlebarIcon = requiredElement("#titlebar-icon");
@@ -1484,10 +1543,10 @@ async function bootstrap(): Promise<void> {
   setupLoadingScreenDragging();
   const config = await invoke<AppConfig>("get_config");
   applyUiTheme(config.uiThemeName);
-  const { terminal, fitAddon, liquidCursor } = createTerminal(config);
+  const { terminal, fitAddon, liquidCursor, inputShadow } = createTerminal(config);
 
-  setupTerminal(terminal, fitAddon, liquidCursor);
-  setupTitlebar(terminal, config, liquidCursor);
+  setupTerminal(terminal, fitAddon, liquidCursor, inputShadow);
+  setupTitlebar(terminal, config, liquidCursor, inputShadow);
   await setupWindowHoverOverlay();
 
   // The shell prompt is customized at startup and can redraw several times.
@@ -1495,7 +1554,7 @@ async function bootstrap(): Promise<void> {
   const minimumLoadingDelay = new Promise<void>((resolve) => window.setTimeout(resolve, 1_500));
   window.setTimeout(revealTerminal, 3_000);
 
-  await connectTerminal(terminal);
+  await connectTerminal(terminal, inputShadow);
   await minimumLoadingDelay;
   dismissLoadingScreen();
   clearError();

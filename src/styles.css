@@ -236,6 +236,30 @@ nav,
   display: none;
 }
 
+.input-shadow {
+  position: absolute;
+  z-index: 9;
+  inset: 0;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+}
+
+.input-shadow[hidden] {
+  display: none;
+}
+
+.input-shadow-text {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+  color: var(--terminal-foreground);
+  font-family: var(--terminal-font-family);
+  font-size: var(--terminal-font-size);
+  font-variant-ligatures: none;
+  white-space: pre;
+}
+
 .selection-shimmer {
   position: absolute;
   z-index: 7;
@@ -591,11 +615,13 @@ nav,
   transition: opacity 120ms ease;
 }
 
-#liquid-cursor-controls {
+#liquid-cursor-controls,
+#input-shadow-controls {
   transition: opacity 120ms ease;
 }
 
-#liquid-cursor-controls[aria-disabled="true"] {
+#liquid-cursor-controls[aria-disabled="true"],
+#input-shadow-controls[aria-disabled="true"] {
   opacity: 0.42;
 }
 

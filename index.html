@@ -100,6 +100,25 @@
             </label>
           </div>
         </div>
+        <div id="input-shadow-controls">
+          <label class="settings-switch-row settings-switch-row-secondary" for="input-shadow-enabled">
+            <span>
+              <strong>Input shadow</strong>
+              <small>Show local input before the PTY responds</small>
+            </span>
+            <span class="settings-switch">
+              <input id="input-shadow-enabled" type="checkbox" role="switch" />
+              <span aria-hidden="true"></span>
+            </span>
+          </label>
+          <div class="settings-slider-group">
+            <label class="settings-slider" for="input-shadow-opacity">
+              <strong>Shadow opacity</strong>
+              <input id="input-shadow-opacity" type="range" min="10" max="100" step="5" />
+              <span><small>Subtle</small><small>Solid</small></span>
+            </label>
+          </div>
+        </div>
       </section>
       <section id="terminal-container" aria-label="Terminal interativo">
         <div id="terminal"></div>

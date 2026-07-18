@@ -27,6 +27,8 @@ pub struct LiquidCursorSettings {
     pub short_animation_length: u16,
     pub trail_size: u8,
     pub typing_overlay: bool,
+    pub input_shadow: bool,
+    pub input_shadow_opacity: u8,
 }
 
 impl Default for LiquidCursorSettings {
@@ -36,6 +38,8 @@ impl Default for LiquidCursorSettings {
             short_animation_length: 40,
             trail_size: 100,
             typing_overlay: true,
+            input_shadow: true,
+            input_shadow_opacity: 45,
         }
     }
 }
@@ -226,6 +230,10 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("liquidCursor.trailSize must be between 0 and 100.".to_owned());
     }
 
+    if !(10..=100).contains(&config.liquid_cursor.input_shadow_opacity) {
+        return Err("liquidCursor.inputShadowOpacity must be between 10 and 100.".to_owned());
+    }
+
     Ok(())
 }
 
@@ -265,6 +273,8 @@ mod tests {
         assert_eq!(config.liquid_cursor.short_animation_length, 40);
         assert_eq!(config.liquid_cursor.trail_size, 100);
         assert!(config.liquid_cursor.typing_overlay);
+        assert!(config.liquid_cursor.input_shadow);
+        assert_eq!(config.liquid_cursor.input_shadow_opacity, 45);
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -307,6 +317,8 @@ mod tests {
                     short_animation_length: 80,
                     trail_size: 60,
                     typing_overlay: false,
+                    input_shadow: false,
+                    input_shadow_opacity: 70,
                 },
             )
             .expect("save liquid cursor");
@@ -320,6 +332,8 @@ mod tests {
         assert_eq!(saved.liquid_cursor.short_animation_length, 80);
         assert_eq!(saved.liquid_cursor.trail_size, 60);
         assert!(!saved.liquid_cursor.typing_overlay);
+        assert!(!saved.liquid_cursor.input_shadow);
+        assert_eq!(saved.liquid_cursor.input_shadow_opacity, 70);
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }
