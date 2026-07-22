@@ -400,10 +400,10 @@ nav,
   scrollbar-color: var(--terminal-border) var(--terminal-menu);
   scrollbar-width: thin;
   border: 1px solid var(--terminal-border);
-  border-radius: 3px;
+  border-radius: 0 0 3px 3px;
   background: var(--terminal-menu);
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
 .menu-popup::-webkit-scrollbar {
@@ -425,7 +425,7 @@ nav,
 }
 
 .menu-label {
-  padding: 6px 12px 3px;
+  padding: 4px 10px 2px;
   color: var(--terminal-foreground);
   font: 11px/1.35 system-ui, sans-serif;
   opacity: 0.7;
@@ -437,7 +437,7 @@ nav,
   width: 100%;
   border: 0;
   background: transparent;
-  padding: 6px 12px;
+  padding: 4px 10px;
   color: var(--terminal-foreground);
   cursor: default;
   font: 12px/1.35 system-ui, sans-serif;
@@ -453,7 +453,7 @@ nav,
 
 .menu-separator {
   height: 1px;
-  margin: 4px 0;
+  margin: 3px 0;
   background: var(--terminal-border);
 }
 

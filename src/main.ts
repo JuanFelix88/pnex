@@ -271,7 +271,7 @@ function updateWindowHoverOverlay(): void {
   windowHoverOverlay.hidden = !isWindowHoverArmed || isWindowFocused || !isPointerInsideWindow;
 }
 
-async function setupWindowHoverOverlay(): Promise<void> {
+async function setupWindowHoverOverlay(onFocused: () => void): Promise<void> {
   document.body.addEventListener("pointerenter", (event) => {
     if (event.pointerType !== "mouse") return;
     isPointerInsideWindow = true;
@@ -289,9 +289,11 @@ async function setupWindowHoverOverlay(): Promise<void> {
   await appWindow.onFocusChanged(({ payload: focused }) => {
     isWindowFocused = focused;
     updateWindowHoverOverlay();
+    if (focused) onFocused();
   });
   isWindowFocused = await appWindow.isFocused();
   updateWindowHoverOverlay();
+  if (isWindowFocused) onFocused();
 }
 
 function createTerminal(config: AppConfig): {
@@ -1040,6 +1042,9 @@ function setupShortcuts(terminal: Terminal): void {
 function closeMenu(): void {
   menuPopup.hidden = true;
   menuPopup.replaceChildren();
+  document.querySelectorAll(".menu-trigger").forEach((trigger) => {
+    trigger.setAttribute("aria-expanded", "false");
+  });
 }
 
 function menuItems(menuName: string, config: AppConfig): MenuItem[] {
@@ -1351,6 +1356,7 @@ function openMenu(
     if (item.separator) {
       const separator = document.createElement("div");
       separator.className = "menu-separator";
+      separator.setAttribute("role", "separator");
       menuPopup.append(separator);
       continue;
     }
@@ -1359,6 +1365,7 @@ function openMenu(
     if (item.disabled) {
       const label = document.createElement("div");
       label.className = "menu-label";
+      label.setAttribute("role", "presentation");
       label.textContent = item.label;
       menuPopup.append(label);
       continue;
@@ -1369,6 +1376,7 @@ function openMenu(
     const button = document.createElement("button");
     button.className = "menu-item";
     button.type = "button";
+    button.setAttribute("role", "menuitem");
     button.textContent = item.checked ? `✓ ${item.label}` : item.label;
     if (item.hint) {
       const hint = document.createElement("span");
@@ -1393,9 +1401,12 @@ function openMenu(
     menuPopup.append(button);
   }
 
+  document.querySelectorAll(".menu-trigger").forEach((item) => {
+    item.setAttribute("aria-expanded", String(item === trigger));
+  });
   const bounds = trigger.getBoundingClientRect();
   menuPopup.style.left = `${bounds.left}px`;
-  menuPopup.style.top = `${bounds.bottom}px`;
+  menuPopup.style.top = `${bounds.bottom - 1}px`;
   menuPopup.hidden = false;
 }
 
@@ -1404,7 +1415,7 @@ function setupTitlebar(
   config: AppConfig,
   liquidCursor: LiquidCursor,
   inputShadow: InputShadow,
-): void {
+): () => void {
   setupLiquidCursorPanel(terminal, config, liquidCursor, inputShadow);
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
@@ -1438,24 +1449,33 @@ function setupTitlebar(
     if (titleWasHidden) animateTitlebarTitle();
     titlebarToggle.setAttribute("aria-expanded", "false");
   };
-
-  titlebarToggle.addEventListener("click", (event) => {
-    event.stopPropagation();
+  const showTitlebarMenu = (): void => {
     requiredElement("#liquid-cursor-panel").hidden = true;
     titlebarIcon.removeAttribute("hidden");
     titlebarMenu.hidden = false;
     titlebarToggle.hidden = true;
     titlebarTitle.hidden = true;
     titlebarToggle.setAttribute("aria-expanded", "true");
+  };
+
+  titlebarToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    showTitlebarMenu();
+    triggers[0]?.focus();
   });
 
   triggers.forEach((trigger) => {
     trigger.addEventListener("click", (event) => {
       event.stopPropagation();
       requiredElement("#liquid-cursor-panel").hidden = true;
-      if (!menuPopup.hidden) {
+      if (trigger.getAttribute("aria-expanded") === "true") {
         closeMenu();
       } else {
+        openMenu(trigger, terminal, config, liquidCursor);
+      }
+    });
+    trigger.addEventListener("mouseenter", () => {
+      if (!menuPopup.hidden && trigger.getAttribute("aria-expanded") !== "true") {
         openMenu(trigger, terminal, config, liquidCursor);
       }
     });
@@ -1481,10 +1501,43 @@ function setupTitlebar(
     closeTitlebarMenu();
   });
   document.addEventListener("keydown", (event) => {
+    if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !menuPopup.hidden) {
+      const items = [...menuPopup.querySelectorAll<HTMLButtonElement>(".menu-item")];
+      if (items.length === 0) return;
+      const current = items.indexOf(document.activeElement as HTMLButtonElement);
+      const offset = event.key === "ArrowDown" ? 1 : -1;
+      const next = current < 0
+        ? (offset > 0 ? 0 : items.length - 1)
+        : (current + offset + items.length) % items.length;
+      event.preventDefault();
+      items[next]?.focus();
+      return;
+    }
     if (event.key !== "Escape") return;
     closeMenu();
     closeTitlebarMenu();
+    terminal.focus();
   });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Alt") {
+      event.preventDefault();
+      return;
+    }
+    if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
+
+    const trigger = document.querySelector<HTMLButtonElement>(
+      `.menu-trigger[data-menu="${({ f: "file", o: "options", e: "edit", h: "help" } as const)[event.key.toLowerCase() as "f" | "o" | "e" | "h"] ?? ""}"]`,
+    );
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    showTitlebarMenu();
+    openMenu(trigger, terminal, config, liquidCursor);
+    trigger.focus();
+  }, true);
+  window.addEventListener("keyup", (event) => {
+    if (event.key === "Alt") event.preventDefault();
+  }, true);
 
   minimize.addEventListener("click", () => {
     void appWindow.minimize();
@@ -1504,6 +1557,13 @@ function setupTitlebar(
   void appWindow.onResized(() => {
     void updateMaximizeGlyph();
   });
+
+  return () => {
+    requiredElement("#liquid-cursor-panel").hidden = true;
+    closeMenu();
+    closeTitlebarMenu();
+    terminal.focus();
+  };
 }
 
 async function setupCloseAfterCursorSave(): Promise<void> {
@@ -1537,8 +1597,8 @@ async function bootstrap(): Promise<void> {
   const { terminal, fitAddon, liquidCursor, inputShadow } = createTerminal(config);
 
   setupTerminal(terminal, fitAddon, liquidCursor, inputShadow);
-  setupTitlebar(terminal, config, liquidCursor, inputShadow);
-  await setupWindowHoverOverlay();
+  const restoreTerminalFocus = setupTitlebar(terminal, config, liquidCursor, inputShadow);
+  await setupWindowHoverOverlay(restoreTerminalFocus);
 
   // The shell prompt is customized at startup and can redraw several times.
   // Keep it behind the loading screen until its first HUD arrives.
