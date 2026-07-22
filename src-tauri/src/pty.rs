@@ -28,6 +28,8 @@ pub struct TerminalSize {
 #[serde(rename_all = "camelCase")]
 pub struct TerminalStarted {
     pub session_id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) startup_command: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -108,7 +110,10 @@ impl PtyState {
         }
 
         self.spawn_reader(window, output, session_id, reader);
-        Ok(TerminalStarted { session_id })
+        Ok(TerminalStarted {
+            session_id,
+            startup_command: None,
+        })
     }
 
     pub fn write(&self, window_label: &str, data: &[u8]) -> Result<(), String> {

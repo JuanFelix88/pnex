@@ -25,25 +25,30 @@ use tauri_plugin_opener::OpenerExt;
 static NEXT_WINDOW_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Default)]
-struct WindowStartDirectories(Mutex<HashMap<String, String>>);
+struct WindowStartDirectories(Mutex<HashMap<String, (String, Option<String>)>>);
 
 #[derive(Default)]
 struct AppCloseState(Mutex<Option<HashSet<String>>>);
 
 impl WindowStartDirectories {
-    fn set(&self, window_label: String, directory: String) -> Result<(), String> {
+    fn set(
+        &self,
+        window_label: String,
+        directory: String,
+        command: Option<String>,
+    ) -> Result<(), String> {
         self.0
             .lock()
-            .map_err(|_| "Window directory state is unavailable.".to_owned())?
-            .insert(window_label, directory);
+            .map_err(|_| "Window start state is unavailable.".to_owned())?
+            .insert(window_label, (directory, command));
         Ok(())
     }
 
-    fn take(&self, window_label: &str) -> Result<Option<String>, String> {
+    fn take(&self, window_label: &str) -> Result<Option<(String, Option<String>)>, String> {
         Ok(self
             .0
             .lock()
-            .map_err(|_| "Window directory state is unavailable.".to_owned())?
+            .map_err(|_| "Window start state is unavailable.".to_owned())?
             .remove(window_label))
     }
 
@@ -131,17 +136,21 @@ fn start_terminal(
     output: Channel<Response>,
 ) -> Result<TerminalStarted, String> {
     let config = config_store.get()?;
-    let start_directory = directories
-        .take(window.label())?
-        .unwrap_or(config.start_directory);
-    state.start(
+    let inherited = directories.take(window.label())?;
+    let start_directory = inherited
+        .as_ref()
+        .map(|(directory, _)| directory.as_str())
+        .unwrap_or(&config.start_directory);
+    let mut started = state.start(
         window,
         output,
         size,
         &config.shell,
-        &start_directory,
+        start_directory,
         config_store.home_directory(),
-    )
+    )?;
+    started.startup_command = inherited.and_then(|(_, command)| command);
+    Ok(started)
 }
 
 #[tauri::command]
@@ -198,6 +207,7 @@ async fn new_window(
     window: WebviewWindow,
     directories: State<'_, WindowStartDirectories>,
     inherited_directory: Option<String>,
+    inherited_command: Option<String>,
 ) -> Result<(), String> {
     let size = window.inner_size().map_err(|error| error.to_string())?;
     let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
@@ -206,9 +216,13 @@ async fn new_window(
     let id = NEXT_WINDOW_ID.fetch_add(1, Ordering::Relaxed);
     let label = format!("pnex-window-{id}");
     let directory = inherited_directory.map(validate_directory).transpose()?;
+    let command = inherited_command.map(validate_command).transpose()?;
+    if command.is_some() && directory.is_none() {
+        return Err("An inherited command requires an inherited directory.".to_owned());
+    }
 
     if let Some(directory) = directory {
-        directories.set(label.clone(), directory)?;
+        directories.set(label.clone(), directory, command)?;
     }
 
     match WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App("index.html".into()))
@@ -234,6 +248,15 @@ fn validate_directory(directory: String) -> Result<String, String> {
         return Err("The inherited path is not a directory.".to_owned());
     }
     Ok(shell_directory(&directory))
+}
+
+fn validate_command(command: String) -> Result<String, String> {
+    const MAX_COMMAND_BYTES: usize = 32_768;
+    let command = command.trim();
+    if command.is_empty() || command.len() > MAX_COMMAND_BYTES || command.contains(['\r', '\n']) {
+        return Err("The inherited command must be one non-empty line.".to_owned());
+    }
+    Ok(command.to_owned())
 }
 
 #[cfg(target_os = "windows")]
@@ -443,17 +466,34 @@ mod tests {
     fn inherited_directory_is_consumed_when_terminal_starts() {
         let directories = WindowStartDirectories::default();
         directories
-            .set("pnex-window-1".to_owned(), "C:\\workspace".to_owned())
-            .expect("directory state");
+            .set(
+                "pnex-window-1".to_owned(),
+                "C:\\workspace".to_owned(),
+                Some("pnpm build".to_owned()),
+            )
+            .expect("window start state");
 
         assert_eq!(
-            directories.take("pnex-window-1").expect("directory state"),
-            Some("C:\\workspace".to_owned())
+            directories
+                .take("pnex-window-1")
+                .expect("window start state"),
+            Some(("C:\\workspace".to_owned(), Some("pnpm build".to_owned())))
         );
         assert_eq!(
-            directories.take("pnex-window-1").expect("directory state"),
+            directories
+                .take("pnex-window-1")
+                .expect("window start state"),
             None
         );
+    }
+
+    #[test]
+    fn inherited_commands_are_single_line() {
+        assert_eq!(
+            super::validate_command("  pnpm build  ".to_owned()).expect("command"),
+            "pnpm build"
+        );
+        assert!(super::validate_command("echo one\necho two".to_owned()).is_err());
     }
 }
 

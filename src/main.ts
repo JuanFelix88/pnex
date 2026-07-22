@@ -41,6 +41,7 @@ interface TerminalSize {
 
 interface TerminalStarted {
   sessionId: number;
+  startupCommand?: string;
 }
 
 interface TerminalExit {
@@ -60,6 +61,7 @@ interface GitContext {
 type MenuAction =
   | "new-window"
   | "new-window-here"
+  | "new-window-here-command"
   | "close-app"
   | "open-config"
   | "copy"
@@ -77,6 +79,7 @@ interface MenuItem {
   hint?: string;
   separator?: true;
   disabled?: boolean;
+  heading?: true;
   theme?: TerminalTheme;
   uiThemeName?: string;
   checked?: boolean;
@@ -96,6 +99,8 @@ let currentCwd = "";
 let pendingExitCode = 0;
 let inputBuffer = "";
 let lastCommand = "";
+let acceptingShellCommand = false;
+let pendingStartupCommand: string | null = null;
 let shellTitle: string | null = null;
 let currentWindowTitle = "pnex";
 let oscProgressRunning = false;
@@ -251,7 +256,7 @@ function setWindowTitle(title: string): void {
   void appWindow.setTitle(title);
 }
 
-function updateWindowTitle(isRunning = false): void {
+function updateWindowTitle(isRunning = false, command = lastCommand): void {
   if (shellTitle !== null) {
     setWindowTitle(shellTitle);
     return;
@@ -260,8 +265,8 @@ function updateWindowTitle(isRunning = false): void {
   const normalized = currentCwd.replace(/\\/g, "/").replace(/\/$/, "");
   const folder = normalized.slice(normalized.lastIndexOf("/") + 1);
   const base = folder ? `${folder} — pnex` : "pnex";
-  const title = isRunning && lastCommand
-    ? `● ${lastCommand} [${folder || "~"}] — pnex`
+  const title = isRunning && command
+    ? `● ${command} [${folder || "~"}] — pnex`
     : isRunning ? `● ${base}` : base;
   setWindowTitle(title);
 }
@@ -648,7 +653,16 @@ async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Pr
     output,
   });
   activeSessionId = started.sessionId;
+  pendingStartupCommand = started.startupCommand ?? null;
+  runPendingStartupCommand(terminal);
   terminal.focus();
+}
+
+function runPendingStartupCommand(terminal: Terminal): void {
+  if (!acceptingShellCommand || activeSessionId === null || !pendingStartupCommand) return;
+  const command = pendingStartupCommand;
+  pendingStartupCommand = null;
+  terminal.input(`${command}\r`);
 }
 
 function setupTerminal(
@@ -699,11 +713,11 @@ function setupTerminal(
   terminal.onData((data) => {
     liquidCursor.pulseTyping();
     inputShadow.show(data);
-    const submitted = /\r|\n/.test(data);
-    trackCommand(data);
+    const submittedCommand = acceptingShellCommand ? trackCommand(data) : null;
 
-    if (submitted) {
-      updateWindowTitle(true);
+    if (submittedCommand !== null) {
+      acceptingShellCommand = false;
+      updateWindowTitle(true, submittedCommand);
 
       if (activeHud) {
         activeHud.status = "running";
@@ -756,8 +770,11 @@ function setupPromptHud(terminal: Terminal): void {
       clearTitleProgress();
       currentCwd = value;
       activeHud = createPromptHud(terminal, value);
-      lastCommand = "";
+      inputBuffer = "";
+      inEscapeSequence = false;
+      acceptingShellCommand = true;
       updateWindowTitle();
+      runPendingStartupCommand(terminal);
     }
     return true;
   });
@@ -914,7 +931,7 @@ function formatCommandTime(hud: PromptHud): string | null {
   return minutes > 0 ? `${minutes}m and ${seconds % 60}s` : `(${seconds}s and ${elapsed % 1_000}ms)`;
 }
 
-function trackCommand(data: string): void {
+function trackCommand(data: string): string | null {
   for (const character of data) {
     if (inEscapeSequence) {
       if (character === "\x7f") {
@@ -928,8 +945,10 @@ function trackCommand(data: string): void {
     if (character === "\x1b") {
       inEscapeSequence = true;
     } else if (character === "\r" || character === "\n") {
-      lastCommand = inputBuffer.trim();
+      const command = inputBuffer.trim();
+      if (command) lastCommand = command;
       inputBuffer = "";
+      return command;
     } else if (character === "\x03" || character === "\x15") {
       inputBuffer = "";
     } else if (character === "\x7f" || character === "\b") {
@@ -938,6 +957,7 @@ function trackCommand(data: string): void {
       inputBuffer += character;
     }
   }
+  return null;
 }
 
 function focusPreviousPromptHud(terminal: Terminal): boolean {
@@ -1053,6 +1073,11 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
       return [
         { label: "New Window", action: "new-window" },
         { label: "New Window Here", action: "new-window-here", disabled: !currentCwd },
+        {
+          label: "New Window Here Command",
+          action: "new-window-here-command",
+          disabled: !currentCwd || !lastCommand,
+        },
         { label: "Close App", action: "close-app" },
       ];
     case "options": {
@@ -1060,7 +1085,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
       return [
         { label: "Options JSON", action: "open-config" },
         { separator: true },
-        { label: "Themes", disabled: true },
+        { label: "Themes", heading: true },
         ...builtinThemes.map((theme) => ({
           label: theme.name,
           action: "set-theme" as const,
@@ -1070,7 +1095,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
         { separator: true },
         { label: "Liquid Cursor…", action: "open-liquid-cursor" },
         { separator: true },
-        { label: "UI Themes", disabled: true },
+        { label: "UI Themes", heading: true },
         {
           label: "Default Theme",
           action: "set-ui-theme",
@@ -1109,6 +1134,12 @@ async function runMenuAction(
       return;
     case "new-window-here":
       await invoke("new_window", { inheritedDirectory: currentCwd });
+      return;
+    case "new-window-here-command":
+      await invoke("new_window", {
+        inheritedDirectory: currentCwd,
+        inheritedCommand: lastCommand,
+      });
       return;
     case "close-app":
       await invoke("request_close_app");
@@ -1362,7 +1393,7 @@ function openMenu(
     }
 
     if (!item.label) continue;
-    if (item.disabled) {
+    if (item.heading) {
       const label = document.createElement("div");
       label.className = "menu-label";
       label.setAttribute("role", "presentation");
@@ -1376,6 +1407,7 @@ function openMenu(
     const button = document.createElement("button");
     button.className = "menu-item";
     button.type = "button";
+    button.disabled = item.disabled ?? false;
     button.setAttribute("role", "menuitem");
     button.textContent = item.checked ? `✓ ${item.label}` : item.label;
     if (item.hint) {
@@ -1502,7 +1534,7 @@ function setupTitlebar(
   });
   document.addEventListener("keydown", (event) => {
     if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !menuPopup.hidden) {
-      const items = [...menuPopup.querySelectorAll<HTMLButtonElement>(".menu-item")];
+      const items = [...menuPopup.querySelectorAll<HTMLButtonElement>(".menu-item:not(:disabled)")];
       if (items.length === 0) return;
       const current = items.indexOf(document.activeElement as HTMLButtonElement);
       const offset = event.key === "ArrowDown" ? 1 : -1;

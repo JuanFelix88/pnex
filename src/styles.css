@@ -444,11 +444,16 @@ nav,
   text-align: left;
 }
 
-.menu-item:hover,
-.menu-item:focus-visible {
+.menu-item:not(:disabled):hover,
+.menu-item:not(:disabled):focus-visible {
   background: #094771;
   color: #ffffff;
   outline: none;
+}
+
+.menu-item:disabled {
+  color: var(--terminal-foreground);
+  opacity: 0.5;
 }
 
 .menu-separator {
