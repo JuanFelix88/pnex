@@ -697,12 +697,7 @@ function setupTerminal(
   terminal.onData((data) => {
     liquidCursor.pulseTyping();
     inputShadow.show(data);
-
-    // Start the PTY round trip before title and HUD bookkeeping. Channel output cannot be
-    // handled until this callback returns, so the existing HUD lifecycle remains ordered.
-    sendTerminalInput(data);
-
-    const submitted = data.includes("\r") || data.includes("\n");
+    const submitted = /\r|\n/.test(data);
     trackCommand(data);
 
     if (submitted) {
@@ -714,6 +709,7 @@ function setupTerminal(
         updatePromptHudState(activeHud);
       }
     }
+    sendTerminalInput(data);
   });
   terminal.onBinary((data) => sendTerminalInput(binaryStringToBytes(data)));
   setupShortcuts(terminal);
@@ -917,11 +913,6 @@ function formatCommandTime(hud: PromptHud): string | null {
 }
 
 function trackCommand(data: string): void {
-  if (data.length > 1 && !inEscapeSequence && !/[\u0000-\u001f\u007f]/.test(data)) {
-    inputBuffer += data;
-    return;
-  }
-
   for (const character of data) {
     if (inEscapeSequence) {
       if (character === "\x7f") {
