@@ -98,6 +98,41 @@ fn save_liquid_cursor(
 }
 
 #[tauri::command]
+fn set_window_loading(window: WebviewWindow, loading: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::{
+            core::w,
+            Win32::{
+                Foundation::HANDLE,
+                UI::WindowsAndMessaging::{RemovePropW, SetPropW},
+            },
+        };
+
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        unsafe {
+            if loading {
+                SetPropW(
+                    hwnd,
+                    w!("WController.Loading"),
+                    Some(HANDLE(1usize as *mut _)),
+                )
+                .map_err(|error| error.to_string())
+            } else {
+                let _ = RemovePropW(hwnd, w!("WController.Loading"));
+                Ok(())
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, loading);
+        Ok(())
+    }
+}
+
+#[tauri::command]
 fn open_config(app: AppHandle, state: State<'_, ConfigStore>) -> Result<(), String> {
     app.opener()
         .open_path(state.path().to_string_lossy().into_owned(), None::<&str>)
@@ -520,6 +555,7 @@ pub fn run() {
             get_config,
             save_config,
             save_liquid_cursor,
+            set_window_loading,
             open_config,
             show_notification,
             start_terminal,
