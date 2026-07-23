@@ -1,6 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, ProgressBarStatus } from "@tauri-apps/api/window";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -102,6 +102,7 @@ let lastCommand = "";
 let acceptingShellCommand = false;
 let pendingStartupCommand: string | null = null;
 let shellTitle: string | null = null;
+let shellName = "bash";
 let currentWindowTitle = "pnex";
 let oscProgressRunning = false;
 let titleProgressRunning = false;
@@ -185,6 +186,13 @@ function applyUiTheme(name?: string): void {
   document.documentElement.dataset.uiTheme = name === "Default Theme" ? name : "Default Theme";
 }
 
+function configuredShellName(shell: string): string {
+  const configured = shell.trim();
+  const executable = configured.match(/^"([^"]+)"/)?.[1] ?? configured.split(/\s+/, 1)[0];
+  return executable?.split(/[\\/]/).pop()?.replace(/\.exe$/i, "")
+    || (navigator.userAgent.includes("Windows") ? "powershell" : "bash");
+}
+
 function updateTerminalRunningState(): void {
   const running = oscProgressRunning || titleProgressRunning;
   document.documentElement.dataset.terminalRunning = String(running);
@@ -192,6 +200,11 @@ function updateTerminalRunningState(): void {
 
   terminalRunning = running;
   const stateVersion = ++terminalRunningStateVersion;
+  void appWindow.setProgressBar({
+    status: running ? ProgressBarStatus.Indeterminate : ProgressBarStatus.None,
+  }).catch((error: unknown) => {
+    console.warn("Could not update taskbar progress.", error);
+  });
   if (running) return;
 
   queueMicrotask(() => {
@@ -263,11 +276,11 @@ function updateWindowTitle(isRunning = false, command = lastCommand): void {
   }
 
   const normalized = currentCwd.replace(/\\/g, "/").replace(/\/$/, "");
-  const folder = normalized.slice(normalized.lastIndexOf("/") + 1);
-  const base = folder ? `${folder} — pnex` : "pnex";
+  const folder = normalized.slice(normalized.lastIndexOf("/") + 1) || "~";
+  const idleTitle = `${shellName} - ${folder}`;
   const title = isRunning && command
-    ? `● ${command} [${folder || "~"}] — pnex`
-    : isRunning ? `● ${base}` : base;
+    ? `● ${command} [${folder}] — pnex`
+    : isRunning ? `● ${idleTitle}` : idleTitle;
   setWindowTitle(title);
 }
 
@@ -1625,6 +1638,7 @@ async function bootstrap(): Promise<void> {
   await setupCloseAfterCursorSave();
   setupLoadingScreenDragging();
   const config = await invoke<AppConfig>("get_config");
+  shellName = configuredShellName(config.shell);
   applyUiTheme(config.uiThemeName);
   const { terminal, fitAddon, liquidCursor, inputShadow } = createTerminal(config);
 
