@@ -1,0 +1,2320 @@
+{
+  "version": "2.14",
+  "children": [
+    {
+      "type": "frame",
+      "id": "EzkzR",
+      "x": 1545,
+      "y": 376,
+      "name": "pnex — Landing Page",
+      "clip": true,
+      "width": 1440,
+      "height": 1618,
+      "fill": "$background",
+      "layout": "vertical",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "cSCPd",
+          "name": "Announcement Bar",
+          "width": "fill_container",
+          "height": 36,
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 90,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#533AFD",
+                "position": 0
+              },
+              {
+                "color": "#7B82FF",
+                "position": 1
+              }
+            ]
+          },
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "iyEEv",
+              "name": "Announcement Text",
+              "fill": "#FFFFFF",
+              "content": "pnex 1.0 is here  ·  A better terminal workflow for teams",
+              "fontFamily": "$font-body",
+              "fontSize": 13,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "yUgv3",
+          "name": "Navigation",
+          "width": "fill_container",
+          "height": 76,
+          "padding": [
+            0,
+            132
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "c6jJaG",
+              "name": "Brand",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "xu5x7",
+                  "name": "pnex Terminal Cube Mark",
+                  "clip": true,
+                  "width": 32,
+                  "height": 32,
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "radial",
+                    "enabled": true,
+                    "rotation": 0,
+                    "size": {
+                      "width": 1.25,
+                      "height": 1.25
+                    },
+                    "colors": [
+                      {
+                        "color": "#3C444F",
+                        "position": 0
+                      },
+                      {
+                        "color": "#202630",
+                        "position": 0.46
+                      },
+                      {
+                        "color": "#0A0D12",
+                        "position": 1
+                      }
+                    ],
+                    "center": {
+                      "y": 0.38
+                    }
+                  },
+                  "cornerRadius": 4,
+                  "stroke": "#59616C",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "CxGRy",
+                      "x": 5.25,
+                      "y": 3.75,
+                      "name": "Cube Top Face",
+                      "geometry": "M86 0l86 51-86 51-86-51z",
+                      "viewBox": [
+                        0,
+                        0,
+                        172,
+                        102
+                      ],
+                      "fill": "#C9CED5",
+                      "width": 21.5,
+                      "height": 12.75,
+                      "stroke": "#F1F3F5",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner"
+                    },
+                    {
+                      "type": "path",
+                      "id": "viKgv",
+                      "x": 5.25,
+                      "y": 10.125,
+                      "name": "Cube Left Face",
+                      "geometry": "M0 0l86 51 0 88-86-51z",
+                      "viewBox": [
+                        0,
+                        0,
+                        86,
+                        139
+                      ],
+                      "fill": "#59616B",
+                      "width": 10.75,
+                      "height": 17.375,
+                      "stroke": "#9098A3",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner"
+                    },
+                    {
+                      "type": "path",
+                      "id": "ifFE4",
+                      "x": 16,
+                      "y": 10.125,
+                      "name": "Terminal Cube Face",
+                      "geometry": "M0 51l86-51 0 88-86 51z",
+                      "viewBox": [
+                        0,
+                        0,
+                        86,
+                        139
+                      ],
+                      "fill": "#929AA5",
+                      "width": 10.75,
+                      "height": 17.375,
+                      "stroke": "#E3E6EA",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#00000066",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 2
+                      }
+                    },
+                    {
+                      "type": "path",
+                      "id": "BrzR1",
+                      "x": 9,
+                      "y": 6.125,
+                      "name": "Top Face Inset",
+                      "geometry": "M69 0l69 28-69 28-69-28z",
+                      "viewBox": [
+                        0,
+                        0,
+                        138,
+                        56
+                      ],
+                      "fill": "#68717c26",
+                      "width": 14,
+                      "height": 8.5
+                    },
+                    {
+                      "type": "path",
+                      "id": "ZnCFf",
+                      "x": 13.5,
+                      "y": 8.625,
+                      "name": "Top Prompt Mark",
+                      "geometry": "M0 5l10-5 10 6 0 4-10 6-10-5z m24 11l15-7 0 5-15 7z",
+                      "viewBox": [
+                        0,
+                        0,
+                        39,
+                        27
+                      ],
+                      "fill": "#E9EDF1",
+                      "width": 4.875,
+                      "height": 3.375
+                    },
+                    {
+                      "type": "path",
+                      "id": "K2OyA",
+                      "x": 18.375,
+                      "y": 16.125,
+                      "name": "Terminal Prompt Chevron",
+                      "geometry": "M23 11l-23-11 0 9 13 7-13 7 0 9 23-11z",
+                      "viewBox": [
+                        0,
+                        0,
+                        35,
+                        39
+                      ],
+                      "fill": "#FFFFFF",
+                      "width": 4.375,
+                      "height": 4.875
+                    },
+                    {
+                      "type": "path",
+                      "id": "bb32F",
+                      "x": 22.625,
+                      "y": 19.25,
+                      "name": "Terminal Cursor",
+                      "geometry": "M0 9l22-9 0 7-22 9z",
+                      "viewBox": [
+                        0,
+                        0,
+                        22,
+                        16
+                      ],
+                      "fill": "#D4D9DF",
+                      "width": 2.75,
+                      "height": 2
+                    },
+                    {
+                      "type": "path",
+                      "id": "E9OV5",
+                      "x": 15.75,
+                      "y": 16.25,
+                      "name": "Cube Edge Highlight",
+                      "geometry": "M2 0l3 2 0 90-5 2 0-91z",
+                      "viewBox": [
+                        0,
+                        0,
+                        5,
+                        94
+                      ],
+                      "fill": "#F6F7F8",
+                      "width": 0.625,
+                      "height": 11.25
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "grijL",
+                  "name": "pnex Wordmark",
+                  "fill": "$foreground",
+                  "content": "pnex",
+                  "fontFamily": "$font-heading",
+                  "fontSize": 23,
+                  "fontWeight": "700",
+                  "letterSpacing": -0.7
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "AIfBC",
+              "name": "Navigation Links",
+              "gap": 28,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "bcsav",
+                  "name": "Nav — Product",
+                  "fill": "$muted-foreground",
+                  "content": "Product",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "otoFH",
+                  "name": "Nav — Docs",
+                  "fill": "$muted-foreground",
+                  "content": "Docs",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "yeFTK",
+                  "name": "Nav — Changelog",
+                  "fill": "$muted-foreground",
+                  "content": "Changelog",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "Om4Jj",
+                  "name": "Nav — GitHub",
+                  "fill": "$muted-foreground",
+                  "content": "GitHub",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wlh39",
+              "name": "Navigation CTA",
+              "fill": "$foreground",
+              "cornerRadius": 9999,
+              "padding": [
+                10,
+                16
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "wgyjJ",
+                  "name": "Nav CTA Label",
+                  "fill": "#FFFFFF",
+                  "content": "Install pnex",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "m6MeD",
+          "name": "Hero",
+          "width": "fill_container",
+          "height": 493,
+          "fill": "#0B1020",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            42,
+            280,
+            20,
+            280
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "K4oQy",
+              "name": "Hero Title",
+              "fill": "#FFFFFF",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "The fluid terminal \nfor your worflow",
+              "textAlign": "center",
+              "fontFamily": "$font-heading",
+              "fontSize": 58,
+              "fontWeight": "600",
+              "letterSpacing": -2.2
+            },
+            {
+              "type": "text",
+              "id": "NRvBW",
+              "name": "Hero Subtitle",
+              "fill": "#C4CDD8",
+              "textGrowth": "fixed-width",
+              "width": 620,
+              "content": "pnex turns every command into shared context — so you can ship with confidence, without losing your place.",
+              "lineHeight": 1.5,
+              "textAlign": "center",
+              "fontFamily": "$font-body",
+              "fontSize": 18,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "ptXPI",
+              "name": "Hero Actions",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "eO04K",
+                  "name": "Primary Button",
+                  "fill": "$primary",
+                  "cornerRadius": 8,
+                  "gap": 8,
+                  "padding": [
+                    13,
+                    19
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "CHGAl",
+                      "name": "Primary Button Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "download",
+                      "library": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jg0pz",
+                      "name": "Primary Button Label",
+                      "fill": "#FFFFFF",
+                      "content": "Install for macOS",
+                      "fontFamily": "$font-body",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "lmdVo",
+                  "name": "Docs Button",
+                  "fill": "#171D2A",
+                  "cornerRadius": 8,
+                  "stroke": "#46536A",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    13,
+                    19
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "vHlnI",
+                      "name": "Docs Button Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "book-open",
+                      "library": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Op4uH",
+                      "name": "Docs Button Label",
+                      "fill": "#FFFFFF",
+                      "content": "Read the docs",
+                      "fontFamily": "$font-body",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xSPJK",
+          "name": "Product Terminal Demo",
+          "width": 1096,
+          "height": 512,
+          "fill": "#121316",
+          "cornerRadius": 18,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0D253D1F",
+            "offset": {
+              "x": 0,
+              "y": 12
+            },
+            "blur": 36
+          },
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            0,
+            0,
+            32,
+            0
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "b0Xi9",
+              "name": "Terminal Top Bar",
+              "width": "fill_container",
+              "height": 54,
+              "fill": "#1C1E23",
+              "cornerRadius": [
+                18,
+                18,
+                0,
+                0
+              ],
+              "padding": [
+                0,
+                18
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "z7xoiM",
+                  "name": "Window Controls",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "wqceY",
+                      "name": "Close",
+                      "fill": "#FF5F57",
+                      "width": 11,
+                      "height": 11
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "RRuAn",
+                      "name": "Minimize",
+                      "fill": "#FFBD2E",
+                      "width": 11,
+                      "height": 11
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "MGj4M",
+                      "name": "Expand",
+                      "fill": "#28C840",
+                      "width": 11,
+                      "height": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "h5Jt9",
+                  "name": "Terminal Title",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "qL0lP",
+                      "name": "Terminal Title Icon",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "terminal",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "bQHOP",
+                      "name": "Terminal Title Text",
+                      "fill": "#C8CED8",
+                      "content": "pnex · api-service",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DWKH4",
+              "name": "Terminal Content",
+              "width": 960,
+              "height": 340,
+              "fill": "#0A0B0D",
+              "cornerRadius": 12,
+              "stroke": "#2C3038",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 16,
+              "padding": [
+                18,
+                22
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dVYgc",
+                  "name": "Command One",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "APgva",
+                      "name": "Command One Prompt",
+                      "fill": "#7B82FF",
+                      "content": "❯",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "JPbxe",
+                      "name": "Command One Command",
+                      "fill": "#F4F6F8",
+                      "content": "pnex up --environment staging",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "HdLNl",
+                  "name": "Deploy Output",
+                  "width": "fill_container",
+                  "gap": 9,
+                  "padding": [
+                    0,
+                    0,
+                    0,
+                    24
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "h3hY5F",
+                      "name": "Deploy Success Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "#54D38B"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZoG9v",
+                      "name": "Deploy Success Text",
+                      "fill": "#B5C0CE",
+                      "content": "Deployment is ready at staging.pnex.dev",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "O0fgTt",
+                  "name": "Command Two",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "IHtX5",
+                      "name": "Command Two Prompt",
+                      "fill": "#7B82FF",
+                      "content": "❯",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "txiDH",
+                      "name": "Command Two Command",
+                      "fill": "#F4F6F8",
+                      "content": "pnex inspect billing-webhook",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "r9zGc6",
+                  "name": "Inspect Output",
+                  "width": "fill_container",
+                  "gap": 14,
+                  "padding": [
+                    0,
+                    0,
+                    0,
+                    24
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hX2Ol",
+                      "name": "Inspect STATUS",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "B13Y1Z",
+                          "name": "STATUS Label",
+                          "fill": "#687586",
+                          "content": "STATUS",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "gh4gj",
+                          "name": "STATUS Value",
+                          "fill": "#54D38B",
+                          "content": "Healthy",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Jl5IK",
+                      "name": "Inspect LATENCY",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cydna",
+                          "name": "LATENCY Label",
+                          "fill": "#687586",
+                          "content": "LATENCY",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "G5qrO6",
+                          "name": "LATENCY Value",
+                          "fill": "#A6B1FF",
+                          "content": "42ms",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Pf1X1",
+                      "name": "Inspect REGION",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "I0wQoe",
+                          "name": "REGION Label",
+                          "fill": "#687586",
+                          "content": "REGION",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "TkrAJ",
+                          "name": "REGION Value",
+                          "fill": "#B5C0CE",
+                          "content": "gru1",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JHJPv",
+                  "name": "Command Three",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "WfB1i",
+                      "name": "Command Three Prompt",
+                      "fill": "#7B82FF",
+                      "content": "❯",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jpHmu",
+                      "name": "Command Three Command",
+                      "fill": "#F4F6F8",
+                      "content": "pnex share ./trace --with @maria",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "rKMOc",
+                  "name": "Share Output",
+                  "width": "fill_container",
+                  "gap": 9,
+                  "padding": [
+                    0,
+                    0,
+                    0,
+                    24
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "IZOMS",
+                      "name": "Share Output Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "link",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Vi9qR",
+                      "name": "Share Output Text",
+                      "fill": "#B5C0CE",
+                      "content": "Trace shared · visible to the payments team",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Qg3v2",
+                  "name": "Active Prompt",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "padding": [
+                    2,
+                    0,
+                    0,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "R4hSh6",
+                      "name": "Active Prompt Chevron",
+                      "fill": "#7B82FF",
+                      "content": "❯",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "oLQKv",
+                      "name": "Active Prompt Cursor",
+                      "fill": "#F4F6F8",
+                      "content": "_",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "F4Rzjw",
+              "name": "Terminal Caption",
+              "width": "fill_container",
+              "gap": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "FuuQD",
+                  "name": "Caption Sparkle",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "sparkles",
+                  "library": "lucide",
+                  "fill": "#A6B1FF"
+                },
+                {
+                  "type": "text",
+                  "id": "g0ijT",
+                  "name": "Caption Text",
+                  "fill": "#AEB8C4",
+                  "content": "Every command stays searchable, shareable and attached to the work.",
+                  "fontFamily": "$font-body",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "vjeqn",
+          "name": "Trust Strip",
+          "width": "fill_container",
+          "height": 120,
+          "layout": "vertical",
+          "gap": 18,
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "HqzDj",
+              "name": "Trust Label",
+              "fill": "$muted-foreground",
+              "content": "BUILT FOR THE WAY MODERN ENGINEERING TEAMS SHIP",
+              "fontFamily": "$font-body",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1.1
+            },
+            {
+              "type": "frame",
+              "id": "aIEs0",
+              "name": "Trust Logos",
+              "gap": 42,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "zYKLS",
+                  "name": "Trust Vercel",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "MPsVQ",
+                      "name": "Vercel Mark",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "triangle",
+                      "library": "lucide",
+                      "fill": "#93A0AE"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vCZOb",
+                      "name": "Vercel Name",
+                      "fill": "#748392",
+                      "content": "Vercel",
+                      "fontFamily": "$font-body",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "R9JUeV",
+                  "name": "Trust Linear",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "P79dZq",
+                      "name": "Linear Mark",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "circle",
+                      "library": "lucide",
+                      "fill": "#93A0AE"
+                    },
+                    {
+                      "type": "text",
+                      "id": "uYWV6",
+                      "name": "Linear Name",
+                      "fill": "#748392",
+                      "content": "Linear",
+                      "fontFamily": "$font-body",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "L2JSP",
+                  "name": "Trust Raycast",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "JxfB8",
+                      "name": "Raycast Mark",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "asterisk",
+                      "library": "lucide",
+                      "fill": "#93A0AE"
+                    },
+                    {
+                      "type": "text",
+                      "id": "g3RWj",
+                      "name": "Raycast Name",
+                      "fill": "#748392",
+                      "content": "Raycast",
+                      "fontFamily": "$font-body",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "LmNzL",
+                  "name": "Trust Sentry",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "UxY0L",
+                      "name": "Sentry Mark",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "shield-check",
+                      "library": "lucide",
+                      "fill": "#93A0AE"
+                    },
+                    {
+                      "type": "text",
+                      "id": "p0TLZI",
+                      "name": "Sentry Name",
+                      "fill": "#748392",
+                      "content": "Sentry",
+                      "fontFamily": "$font-body",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Lilbp",
+          "name": "Workflow Showcase",
+          "width": 1176,
+          "height": 372,
+          "fill": "$surface-dark",
+          "cornerRadius": 24,
+          "padding": [
+            52,
+            62
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Fp3vk",
+              "name": "Workflow Copy",
+              "width": 440,
+              "layout": "vertical",
+              "gap": 15,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "eZ9lq",
+                  "name": "Workflow Badge",
+                  "fill": "#27292F",
+                  "cornerRadius": 9999,
+                  "gap": 7,
+                  "padding": [
+                    7,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "GQCUY",
+                      "name": "Workflow Badge Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "git-branch",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "qqVMp",
+                      "name": "Workflow Badge Label",
+                      "fill": "#DAE0FF",
+                      "content": "TEAM CONTEXT",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "gknpI",
+                  "name": "Workflow Title",
+                  "fill": "#FFFFFF",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Turn terminal work into shared momentum.",
+                  "fontFamily": "$font-heading",
+                  "fontSize": 36,
+                  "fontWeight": "600",
+                  "letterSpacing": -1.1
+                },
+                {
+                  "type": "text",
+                  "id": "loMLm",
+                  "name": "Workflow Description",
+                  "fill": "#AEB8C4",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "pnex captures the why behind every action, then puts it exactly where your collaborators need it.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$font-body",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "zmPDW",
+                  "name": "Workflow Link",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dNhnc",
+                      "name": "Workflow Link Label",
+                      "fill": "#A6B1FF",
+                      "content": "Explore team workflows",
+                      "fontFamily": "$font-body",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "V6YlK",
+                      "name": "Workflow Link Arrow",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "arrow-up-right",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "k1EKp",
+              "name": "Connected Workflow Diagram",
+              "width": 430,
+              "height": 268,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "GEpyU",
+                  "x": 100,
+                  "y": 18,
+                  "name": "Workflow Glow",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "radial",
+                    "enabled": true,
+                    "rotation": 0,
+                    "size": {
+                      "width": 1,
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#533AFD88",
+                        "position": 0
+                      },
+                      {
+                        "color": "#533AFD00",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": 230,
+                  "height": 230
+                },
+                {
+                  "type": "frame",
+                  "id": "wDuaC",
+                  "x": 158,
+                  "y": 76,
+                  "name": "pnex Hub",
+                  "width": 116,
+                  "height": 116,
+                  "fill": "#292636",
+                  "cornerRadius": 24,
+                  "stroke": "#6F64FF",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#533AFD66",
+                    "offset": {
+                      "x": 0,
+                      "y": 6
+                    },
+                    "blur": 20
+                  },
+                  "layout": "vertical",
+                  "gap": 7,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "d2nkNB",
+                      "name": "pnex Hub Icon",
+                      "width": 28,
+                      "height": 28,
+                      "icon": "terminal",
+                      "library": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "JiiCC",
+                      "name": "pnex Hub Text",
+                      "fill": "#FFFFFF",
+                      "content": "pnex",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "P2BlX",
+                  "x": 92,
+                  "y": 72,
+                  "name": "Connector NW",
+                  "rotation": 27,
+                  "fill": "#4A4E5A",
+                  "width": 96,
+                  "height": 1
+                },
+                {
+                  "type": "rectangle",
+                  "id": "InvQJ",
+                  "x": 254,
+                  "y": 75,
+                  "name": "Connector NE",
+                  "rotation": -28,
+                  "fill": "#4A4E5A",
+                  "width": 90,
+                  "height": 1
+                },
+                {
+                  "type": "rectangle",
+                  "id": "IfnF0",
+                  "x": 89,
+                  "y": 198,
+                  "name": "Connector SW",
+                  "rotation": -27,
+                  "fill": "#4A4E5A",
+                  "width": 92,
+                  "height": 1
+                },
+                {
+                  "type": "rectangle",
+                  "id": "BJKVE",
+                  "x": 255,
+                  "y": 195,
+                  "name": "Connector SE",
+                  "rotation": 28,
+                  "fill": "#4A4E5A",
+                  "width": 89,
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "rHcDM",
+                  "x": 4,
+                  "y": 32,
+                  "name": "GitHub Context",
+                  "width": 112,
+                  "height": 50,
+                  "fill": "#24262C",
+                  "cornerRadius": 10,
+                  "stroke": "#3B3E48",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    10,
+                    11
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "cwfGN",
+                      "name": "GitHub Context Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "github",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "wnac0",
+                      "name": "GitHub Context Label",
+                      "fill": "#E9EDF1",
+                      "content": "GitHub",
+                      "fontFamily": "$font-body",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "n85h9f",
+                  "x": 304,
+                  "y": 26,
+                  "name": "Issue Context",
+                  "width": 112,
+                  "height": 50,
+                  "fill": "#24262C",
+                  "cornerRadius": 10,
+                  "stroke": "#3B3E48",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    10,
+                    11
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "sERxE",
+                      "name": "Issue Context Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "circle-dot",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "AQGQb",
+                      "name": "Issue Context Label",
+                      "fill": "#E9EDF1",
+                      "content": "Linear",
+                      "fontFamily": "$font-body",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Gsl07",
+                  "x": 304,
+                  "y": 198,
+                  "name": "Deploy Context",
+                  "width": 112,
+                  "height": 50,
+                  "fill": "#24262C",
+                  "cornerRadius": 10,
+                  "stroke": "#3B3E48",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    10,
+                    11
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "sRESu",
+                      "name": "Deploy Context Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "rocket",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yKXyu",
+                      "name": "Deploy Context Label",
+                      "fill": "#E9EDF1",
+                      "content": "Deploy",
+                      "fontFamily": "$font-body",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "SPzAU",
+                  "x": 4,
+                  "y": 200,
+                  "name": "Team Context",
+                  "width": 112,
+                  "height": 50,
+                  "fill": "#24262C",
+                  "cornerRadius": 10,
+                  "stroke": "#3B3E48",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    10,
+                    11
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "UvRLT",
+                      "name": "Team Context Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "users",
+                      "library": "lucide",
+                      "fill": "#A6B1FF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "f5r2W",
+                      "name": "Team Context Label",
+                      "fill": "#E9EDF1",
+                      "content": "Team",
+                      "fontFamily": "$font-body",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "SAlzb",
+          "name": "Footer",
+          "width": "fill_container",
+          "height": 96,
+          "padding": [
+            0,
+            132
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ZGBrx",
+              "name": "Footer Brand",
+              "gap": 9,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "gssLi",
+                  "name": "Footer Terminal Icon",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "terminal",
+                  "library": "lucide",
+                  "fill": "$primary"
+                },
+                {
+                  "type": "text",
+                  "id": "o5lWs",
+                  "name": "Footer Wordmark",
+                  "fill": "$foreground",
+                  "content": "pnex",
+                  "fontFamily": "$font-heading",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "kszEx",
+              "name": "Footer Copyright",
+              "fill": "$muted-foreground",
+              "content": "© 2026 pnex. Built for builders.",
+              "fontFamily": "$font-body",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "C4Zn9",
+              "name": "Footer Links",
+              "gap": 22,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Ed9T6",
+                  "name": "Footer — Privacy",
+                  "fill": "$muted-foreground",
+                  "content": "Privacy",
+                  "fontFamily": "$font-body",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "Qk93a",
+                  "name": "Footer — Status",
+                  "fill": "$muted-foreground",
+                  "content": "Status",
+                  "fontFamily": "$font-body",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "J4XQ8C",
+                  "name": "Footer — Contact",
+                  "fill": "$muted-foreground",
+                  "content": "Contact",
+                  "fontFamily": "$font-body",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "dO9S4",
+      "x": 1313,
+      "y": 520,
+      "name": "Frame 1",
+      "clip": true,
+      "width": 8,
+      "height": 1,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "ogyGz",
+      "x": 1545,
+      "y": 2114,
+      "name": "pnex — Google Display Ad",
+      "clip": true,
+      "width": 1200,
+      "height": 582,
+      "fill": "#000000",
+      "layout": "none",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "R5AKKN",
+          "x": 625,
+          "y": -250,
+          "name": "Top Cyan Atmosphere",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "radial",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "width": 1,
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#00E5FF48",
+                "position": 0
+              },
+              {
+                "color": "#00E5FF00",
+                "position": 1
+              }
+            ]
+          },
+          "width": 760,
+          "height": 520
+        },
+        {
+          "type": "ellipse",
+          "id": "waHqc",
+          "x": -260,
+          "y": 820,
+          "name": "Bottom Cyan Atmosphere",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "radial",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "width": 1,
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#67E8F940",
+                "position": 0
+              },
+              {
+                "color": "#00E5FF00",
+                "position": 1
+              }
+            ]
+          },
+          "width": 680,
+          "height": 440
+        },
+        {
+          "type": "rectangle",
+          "id": "XCThI",
+          "x": -80,
+          "y": 250,
+          "name": "Cyan Streak One",
+          "opacity": 0.48,
+          "rotation": -7,
+          "fill": "#00E5FF",
+          "width": 820,
+          "height": 5,
+          "effect": {
+            "type": "blur",
+            "radius": 38
+          }
+        },
+        {
+          "type": "rectangle",
+          "id": "FrWJ2",
+          "x": 480,
+          "y": 706,
+          "name": "Cyan Streak Two",
+          "opacity": 0.45,
+          "rotation": 8,
+          "fill": "#67E8F9",
+          "width": 760,
+          "height": 5,
+          "effect": {
+            "type": "blur",
+            "radius": 44
+          }
+        },
+        {
+          "type": "frame",
+          "id": "GISKD",
+          "x": 72,
+          "y": 56,
+          "name": "Ad Content",
+          "width": 1056,
+          "height": 470,
+          "layout": "vertical",
+          "gap": 22,
+          "justifyContent": "space_between",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fFTDj",
+              "name": "Ad Topline",
+              "width": "fill_container",
+              "height": 28,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ECKh8",
+                  "name": "pnex Brand",
+                  "gap": 9,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ZjJmP",
+                      "name": "pnex Terminal Cube Mark",
+                      "clip": true,
+                      "width": 32,
+                      "height": 32,
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "radial",
+                        "enabled": true,
+                        "rotation": 0,
+                        "size": {
+                          "width": 1.25,
+                          "height": 1.25
+                        },
+                        "colors": [
+                          {
+                            "color": "#3C444F",
+                            "position": 0
+                          },
+                          {
+                            "color": "#202630",
+                            "position": 0.46
+                          },
+                          {
+                            "color": "#0A0D12",
+                            "position": 1
+                          }
+                        ],
+                        "center": {
+                          "y": 0.38
+                        }
+                      },
+                      "cornerRadius": 4,
+                      "stroke": "#59616C",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "R5W8i0",
+                          "x": 5.25,
+                          "y": 3.75,
+                          "name": "Cube Top Face",
+                          "geometry": "M86 0l86 51-86 51-86-51z",
+                          "viewBox": [
+                            0,
+                            0,
+                            172,
+                            102
+                          ],
+                          "fill": "#C9CED5",
+                          "width": 21.5,
+                          "height": 12.75,
+                          "stroke": "#F1F3F5",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner"
+                        },
+                        {
+                          "type": "path",
+                          "id": "Ccfpq",
+                          "x": 5.25,
+                          "y": 10.125,
+                          "name": "Cube Left Face",
+                          "geometry": "M0 0l86 51 0 88-86-51z",
+                          "viewBox": [
+                            0,
+                            0,
+                            86,
+                            139
+                          ],
+                          "fill": "#59616B",
+                          "width": 10.75,
+                          "height": 17.375,
+                          "stroke": "#9098A3",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner"
+                        },
+                        {
+                          "type": "path",
+                          "id": "iDHet",
+                          "x": 16,
+                          "y": 10.125,
+                          "name": "Terminal Cube Face",
+                          "geometry": "M0 51l86-51 0 88-86 51z",
+                          "viewBox": [
+                            0,
+                            0,
+                            86,
+                            139
+                          ],
+                          "fill": "#929AA5",
+                          "width": 10.75,
+                          "height": 17.375,
+                          "stroke": "#E3E6EA",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000066",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        },
+                        {
+                          "type": "path",
+                          "id": "gr1sc",
+                          "x": 9,
+                          "y": 6.125,
+                          "name": "Top Face Inset",
+                          "geometry": "M69 0l69 28-69 28-69-28z",
+                          "viewBox": [
+                            0,
+                            0,
+                            138,
+                            56
+                          ],
+                          "fill": "#68717c26",
+                          "width": 14,
+                          "height": 8.5
+                        },
+                        {
+                          "type": "path",
+                          "id": "T3mx7F",
+                          "x": 13.5,
+                          "y": 8.625,
+                          "name": "Top Prompt Mark",
+                          "geometry": "M0 5l10-5 10 6 0 4-10 6-10-5z m24 11l15-7 0 5-15 7z",
+                          "viewBox": [
+                            0,
+                            0,
+                            39,
+                            27
+                          ],
+                          "fill": "#E9EDF1",
+                          "width": 4.875,
+                          "height": 3.375
+                        },
+                        {
+                          "type": "path",
+                          "id": "SNaQY",
+                          "x": 18.375,
+                          "y": 16.125,
+                          "name": "Terminal Prompt Chevron",
+                          "geometry": "M23 11l-23-11 0 9 13 7-13 7 0 9 23-11z",
+                          "viewBox": [
+                            0,
+                            0,
+                            35,
+                            39
+                          ],
+                          "fill": "#FFFFFF",
+                          "width": 4.375,
+                          "height": 4.875
+                        },
+                        {
+                          "type": "path",
+                          "id": "XzKCa",
+                          "x": 22.625,
+                          "y": 19.25,
+                          "name": "Terminal Cursor",
+                          "geometry": "M0 9l22-9 0 7-22 9z",
+                          "viewBox": [
+                            0,
+                            0,
+                            22,
+                            16
+                          ],
+                          "fill": "#D4D9DF",
+                          "width": 2.75,
+                          "height": 2
+                        },
+                        {
+                          "type": "path",
+                          "id": "fltwl",
+                          "x": 15.75,
+                          "y": 16.25,
+                          "name": "Cube Edge Highlight",
+                          "geometry": "M2 0l3 2 0 90-5 2 0-91z",
+                          "viewBox": [
+                            0,
+                            0,
+                            5,
+                            94
+                          ],
+                          "fill": "#F6F7F8",
+                          "width": 0.625,
+                          "height": 11.25
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "sa9K1",
+                      "name": "pnex Brand Name",
+                      "fill": "#FFFFFF",
+                      "content": "pnex",
+                      "fontFamily": "Geist",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "tKFpS",
+                  "name": "Google Display Format",
+                  "fill": "#67E8F9",
+                  "content": "GOOGLE DISPLAY · 1200 × 1200",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 11,
+                  "fontWeight": "500",
+                  "letterSpacing": 0.8
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "m8t8xm",
+              "name": "Ad Hero Copy",
+              "width": "fill_container",
+              "height": 314,
+              "layout": "vertical",
+              "gap": 15,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Th2nL",
+                  "name": "Ad Kicker",
+                  "fill": "#FF4FA3",
+                  "content": "FOR PEOPLE WHO LIVE IN THE TERMINAL",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600",
+                  "letterSpacing": 1.2
+                },
+                {
+                  "type": "text",
+                  "id": "iGVjV",
+                  "name": "Ad Headline",
+                  "fill": "#FFFFFF",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "YOUR TERMINAL.\nFULL FLOW.\nZERO FRICTION.",
+                  "lineHeight": 0.9,
+                  "fontFamily": "Anton",
+                  "fontSize": 80,
+                  "fontWeight": "normal",
+                  "letterSpacing": -1.2
+                },
+                {
+                  "type": "text",
+                  "id": "jdELC",
+                  "name": "Ad Description",
+                  "fill": "#B8B8B8",
+                  "textGrowth": "fixed-width",
+                  "width": 700,
+                  "content": "Stop losing context. Turn every command into shared momentum — and ship faster with pnex.",
+                  "lineHeight": 1.35,
+                  "fontFamily": "Geist",
+                  "fontSize": 18,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "t6q7f4",
+              "name": "Ad Closing Statement",
+              "width": "fill_container",
+              "height": 58,
+              "fill": "#081719",
+              "cornerRadius": 4,
+              "stroke": "#155463",
+              "strokeWidth": 1,
+              "padding": [
+                0,
+                18
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vQ4vR",
+                  "name": "Ad Closing Lead",
+                  "fill": "#FFFFFF",
+                  "content": "NO MORE \"WHAT HAPPENED?\"",
+                  "fontFamily": "Anton",
+                  "fontSize": 25,
+                  "fontWeight": "normal",
+                  "letterSpacing": 0.1
+                },
+                {
+                  "type": "text",
+                  "id": "gTDgQ",
+                  "name": "Ad Closing Support",
+                  "fill": "#67E8F9",
+                  "content": "ONE TERMINAL. FULL CONTEXT.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.9
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dGleG",
+          "x": 612,
+          "y": 107,
+          "name": "macOS Terminal Window",
+          "clip": true,
+          "width": 532,
+          "height": 273,
+          "fill": "#121416",
+          "cornerRadius": 10,
+          "stroke": "#2A3038",
+          "strokeWidth": 1,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00E5FF2B",
+            "offset": {
+              "x": 0,
+              "y": 10
+            },
+            "blur": 22
+          },
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "VZwPO",
+              "name": "macOS Window Title Bar",
+              "width": "fill_container",
+              "height": 34,
+              "fill": "#24272D",
+              "stroke": "#343941",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bw9nu",
+                  "x": 14,
+                  "y": 11,
+                  "name": "macOS Window Controls",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "Ctt8O",
+                      "name": "macOS Close Control",
+                      "fill": "#FF5F57",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "kBOwN",
+                      "name": "macOS Minimize Control",
+                      "fill": "#FEBC2E",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "B2mDC",
+                      "name": "macOS Zoom Control",
+                      "fill": "#28C840",
+                      "width": 12,
+                      "height": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ireOb",
+                  "x": 184,
+                  "y": 10,
+                  "name": "macOS Terminal Title",
+                  "fill": "#B8C0CA",
+                  "content": "pnex — development server",
+                  "fontFamily": "Geist",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SirZS",
+              "name": "macOS Terminal Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#17191D",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                18,
+                20
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "X0liR",
+                  "name": "Terminal Command Line",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dH11O",
+                      "name": "Terminal Prompt Symbol",
+                      "fill": "#00E5FF",
+                      "content": "❯",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IWP8j",
+                      "name": "Terminal Command Text",
+                      "fill": "#F2F7FA",
+                      "content": "bun run dev",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "bbL5r",
+                  "name": "Terminal Server Output",
+                  "fill": "#CBD3DA",
+                  "content": "Started development server: http://localhost:3000",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "frame",
+                  "id": "ojKIL",
+                  "name": "Terminal Empty Space",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "surface-primary": {
+      "type": "color",
+      "value": "#E8E9EB"
+    },
+    "surface-inverse": {
+      "type": "color",
+      "value": "#1A1A1A"
+    },
+    "foreground-primary": {
+      "type": "color",
+      "value": "#1A1A1A"
+    },
+    "foreground-inverse": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "foreground-muted": {
+      "type": "color",
+      "value": "#727272"
+    },
+    "border-subtle": {
+      "type": "color",
+      "value": "#D0D1D2"
+    },
+    "accent-primary": {
+      "type": "color",
+      "value": "#8F5A3C"
+    },
+    "accent-secondary": {
+      "type": "color",
+      "value": "#C2956A"
+    },
+    "accent-tertiary": {
+      "type": "color",
+      "value": "#A38979"
+    },
+    "font-heading": {
+      "type": "string",
+      "value": "Funnel Sans"
+    },
+    "font-body": {
+      "type": "string",
+      "value": "Geist"
+    },
+    "font-caption": {
+      "type": "string",
+      "value": "Inter"
+    },
+    "font-data": {
+      "type": "string",
+      "value": "IBM Plex Mono"
+    },
+    "background": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "foreground": {
+      "type": "color",
+      "value": "#0D253D"
+    },
+    "muted-foreground": {
+      "type": "color",
+      "value": "#657586"
+    },
+    "primary": {
+      "type": "color",
+      "value": "#533AFD"
+    },
+    "primary-foreground": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "secondary": {
+      "type": "color",
+      "value": "#DAE0FF"
+    },
+    "border": {
+      "type": "color",
+      "value": "#DEE2E6"
+    },
+    "card": {
+      "type": "color",
+      "value": "#F7F8F9"
+    },
+    "surface-dark": {
+      "type": "color",
+      "value": "#171715"
+    },
+    "font-mono": {
+      "type": "string",
+      "value": "IBM Plex Mono"
+    }
+  },
+  "fileToken": "0a844fcb-6c81-475e-b726-2f1788cf3a26"
+}
