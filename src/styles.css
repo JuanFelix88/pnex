@@ -156,11 +156,11 @@ nav,
 }
 
 #titlebar-icon {
-  width: 12px;
-  height: 12px;
-  margin: auto 1px auto 12px;
+  width: 18px;
+  height: 18px;
+  margin: auto 1px auto 8px;
   flex: 0 0 auto;
-  color: var(--terminal-foreground);
+  object-fit: contain;
 }
 
 .menu-trigger,
@@ -850,9 +850,9 @@ nav,
 }
 
 .loading-logo {
-  width: 40px;
-  height: 50px;
-  color: var(--terminal-foreground);
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
 }
 
 .loading-brand {

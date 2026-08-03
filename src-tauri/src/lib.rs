@@ -546,6 +546,13 @@ pub fn run() {
                 NotificationSystem::new(app_name, app.config().identifier.clone(), tauri::is_dev());
             app.manage(ConfigStore::load(home_directory)?);
             app.manage(notification_system);
+            if let Some(directory) = std::env::args().nth(1) {
+                app.state::<WindowStartDirectories>().set(
+                    "main".to_owned(),
+                    validate_directory(directory)?,
+                    None,
+                )?;
+            }
             Ok(())
         })
         .manage(PtyState::default())

@@ -276,10 +276,11 @@ fn prompt_initializer(shell: &str) -> &'static str {
     } else {
         shell.to_owned()
     };
-    if shell.to_ascii_lowercase().contains("powershell")
-        || shell.to_ascii_lowercase().contains("pwsh")
-    {
+    let shell = shell.to_ascii_lowercase();
+    if shell.contains("powershell") || shell.contains("pwsh") {
         "function prompt { $code = if ($?) { 0 } else { 1 }; $cwd = (Get-Location).Path; Write-Host -NoNewline (\"$([char]27)]7777;exit=${code}$([char]7)$([char]27)]7777;cwd=${cwd}$([char]7)\"); \"`n  \" }; cls\r\r"
+    } else if shell.contains("cmd.exe") || shell.trim() == "cmd" {
+        "cls\r"
     } else {
         "__pnex_prompt(){ local exit_code=\"$?\" cwd=\"$(pwd)\"; printf '\\033]7777;exit=%s\\007\\033]7777;cwd=%s\\007' \"$exit_code\" \"$cwd\"; }; PROMPT_COMMAND=__pnex_prompt; PS1=\"\\n  \"; clear\r"
     }
@@ -352,6 +353,11 @@ mod tests {
         assert!(prompt.contains("exit=${code}"));
         assert!(prompt.contains("cwd=${cwd}"));
         assert!(!prompt.contains("git "));
+    }
+
+    #[test]
+    fn cmd_receives_only_valid_cmd_syntax() {
+        assert_eq!(prompt_initializer("cmd.exe"), "cls\r");
     }
 
     #[test]
