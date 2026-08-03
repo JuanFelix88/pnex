@@ -549,6 +549,20 @@ function configuredLiquidCursorSettings(
       DEFAULT_LIQUID_CURSOR_SETTINGS.shortAnimationLength,
       200,
     ),
+    instantShortMoves: typeof value?.instantShortMoves === "boolean"
+      ? value.instantShortMoves
+      : DEFAULT_LIQUID_CURSOR_SETTINGS.instantShortMoves,
+    instantShortMoveDistance: clamp(
+      value?.instantShortMoveDistance,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.instantShortMoveDistance,
+      5,
+      1,
+    ),
+    instantShortMoveDelay: clamp(
+      value?.instantShortMoveDelay,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.instantShortMoveDelay,
+      100,
+    ),
     trailSize: clamp(value?.trailSize, DEFAULT_LIQUID_CURSOR_SETTINGS.trailSize, 100),
     typingOverlay: typeof value?.typingOverlay === "boolean"
       ? value.typingOverlay
@@ -1239,6 +1253,15 @@ function setupLiquidCursorPanel(
   const shortAnimationLength = requiredElement(
     "#liquid-cursor-short-animation-length",
   ) as HTMLInputElement;
+  const instantShortMoves = requiredElement(
+    "#liquid-cursor-instant-short-moves",
+  ) as HTMLInputElement;
+  const instantShortMoveDistance = requiredElement(
+    "#liquid-cursor-instant-short-move-distance",
+  ) as HTMLInputElement;
+  const instantShortMoveDelay = requiredElement(
+    "#liquid-cursor-instant-short-move-delay",
+  ) as HTMLInputElement;
   const trail = requiredElement("#liquid-cursor-trail") as HTMLInputElement;
   const shadowControls = requiredElement("#input-shadow-controls");
   const shadowEnabled = requiredElement("#input-shadow-enabled") as HTMLInputElement;
@@ -1248,6 +1271,9 @@ function setupLiquidCursorPanel(
   overlayEnabled.checked = settings.typingOverlay;
   animationLength.value = String(settings.animationLength);
   shortAnimationLength.value = String(settings.shortAnimationLength);
+  instantShortMoves.checked = settings.instantShortMoves;
+  instantShortMoveDistance.value = String(settings.instantShortMoveDistance);
+  instantShortMoveDelay.value = String(settings.instantShortMoveDelay);
   trail.value = String(settings.trailSize);
   shadowEnabled.checked = settings.inputShadow;
   shadowOpacity.value = String(settings.inputShadowOpacity);
@@ -1270,10 +1296,17 @@ function setupLiquidCursorPanel(
   const syncEnabledState = (): void => {
     const disabled = !enabled.checked;
     overlayEnabled.disabled = disabled;
+    instantShortMoves.disabled = disabled;
     animationLength.disabled = disabled;
-    shortAnimationLength.disabled = disabled;
     trail.disabled = disabled;
     controls.setAttribute("aria-disabled", String(disabled));
+    syncInstantShortMovesState();
+  };
+  const syncInstantShortMovesState = (): void => {
+    const disabled = !enabled.checked || !instantShortMoves.checked;
+    shortAnimationLength.disabled = disabled;
+    instantShortMoveDistance.disabled = disabled;
+    instantShortMoveDelay.disabled = disabled;
   };
   const syncShadowState = (): void => {
     const disabled = !shadowEnabled.checked;
@@ -1284,6 +1317,9 @@ function setupLiquidCursorPanel(
     const nextSettings = configuredLiquidCursorSettings({
       animationLength: Number(animationLength.value),
       shortAnimationLength: Number(shortAnimationLength.value),
+      instantShortMoves: instantShortMoves.checked,
+      instantShortMoveDistance: Number(instantShortMoveDistance.value),
+      instantShortMoveDelay: Number(instantShortMoveDelay.value),
       trailSize: Number(trail.value),
       typingOverlay: overlayEnabled.checked,
       inputShadow: shadowEnabled.checked,
@@ -1314,6 +1350,11 @@ function setupLiquidCursorPanel(
     applySettings();
     persist();
   });
+  instantShortMoves.addEventListener("change", () => {
+    applySettings();
+    syncInstantShortMovesState();
+    persist();
+  });
   shadowEnabled.addEventListener("change", () => {
     applySettings();
     syncShadowState();
@@ -1321,7 +1362,13 @@ function setupLiquidCursorPanel(
   });
   shadowOpacity.addEventListener("input", applySettings);
   shadowOpacity.addEventListener("change", persist);
-  for (const slider of [animationLength, shortAnimationLength, trail]) {
+  for (const slider of [
+    animationLength,
+    shortAnimationLength,
+    instantShortMoveDistance,
+    instantShortMoveDelay,
+    trail,
+  ]) {
     slider.addEventListener("input", applySettings);
     slider.addEventListener("change", persist);
   }
@@ -1353,6 +1400,9 @@ function setupLiquidCursorPanel(
       overlayEnabled.checked = nextSettings.typingOverlay;
       animationLength.value = String(nextSettings.animationLength);
       shortAnimationLength.value = String(nextSettings.shortAnimationLength);
+      instantShortMoves.checked = nextSettings.instantShortMoves;
+      instantShortMoveDistance.value = String(nextSettings.instantShortMoveDistance);
+      instantShortMoveDelay.value = String(nextSettings.instantShortMoveDelay);
       trail.value = String(nextSettings.trailSize);
       shadowEnabled.checked = nextSettings.inputShadow;
       shadowOpacity.value = String(nextSettings.inputShadowOpacity);

@@ -72,6 +72,16 @@
               <span aria-hidden="true"></span>
             </span>
           </label>
+          <label class="settings-switch-row settings-switch-row-secondary" for="liquid-cursor-instant-short-moves">
+            <span>
+              <strong>Instant short moves</strong>
+              <small>Snap nearby moves while keeping their trail</small>
+            </span>
+            <span class="settings-switch">
+              <input id="liquid-cursor-instant-short-moves" type="checkbox" role="switch" />
+              <span aria-hidden="true"></span>
+            </span>
+          </label>
           <div class="settings-slider-group">
             <label class="settings-slider" for="liquid-cursor-animation-length">
               <strong>Animation length</strong>
@@ -82,6 +92,16 @@
               <strong>Short moves</strong>
               <input id="liquid-cursor-short-animation-length" type="range" min="0" max="200" step="5" />
               <span><small>Instant</small><small>Smooth</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-instant-short-move-distance">
+              <strong>Instant distance</strong>
+              <input id="liquid-cursor-instant-short-move-distance" type="range" min="1" max="5" step="1" />
+              <span><small>1 cell</small><small>5 cells</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-instant-short-move-delay">
+              <strong>Trail delay</strong>
+              <input id="liquid-cursor-instant-short-move-delay" type="range" min="0" max="100" step="5" />
+              <span><small>Instant</small><small>100 ms</small></span>
             </label>
             <label class="settings-slider" for="liquid-cursor-trail">
               <strong>Smear trail</strong>

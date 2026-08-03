@@ -25,6 +25,9 @@ pub enum CursorAnimation {
 pub struct LiquidCursorSettings {
     pub animation_length: u16,
     pub short_animation_length: u16,
+    pub instant_short_moves: bool,
+    pub instant_short_move_distance: u8,
+    pub instant_short_move_delay: u8,
     pub trail_size: u8,
     pub typing_overlay: bool,
     pub input_shadow: bool,
@@ -36,6 +39,9 @@ impl Default for LiquidCursorSettings {
         Self {
             animation_length: 150,
             short_animation_length: 40,
+            instant_short_moves: true,
+            instant_short_move_distance: 2,
+            instant_short_move_delay: 10,
             trail_size: 100,
             typing_overlay: true,
             input_shadow: true,
@@ -226,6 +232,14 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("liquidCursor.shortAnimationLength must be between 0 and 200.".to_owned());
     }
 
+    if !(1..=5).contains(&config.liquid_cursor.instant_short_move_distance) {
+        return Err("liquidCursor.instantShortMoveDistance must be between 1 and 5.".to_owned());
+    }
+
+    if config.liquid_cursor.instant_short_move_delay > 100 {
+        return Err("liquidCursor.instantShortMoveDelay must be between 0 and 100.".to_owned());
+    }
+
     if config.liquid_cursor.trail_size > 100 {
         return Err("liquidCursor.trailSize must be between 0 and 100.".to_owned());
     }
@@ -271,6 +285,9 @@ mod tests {
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
         assert_eq!(config.liquid_cursor.animation_length, 150);
         assert_eq!(config.liquid_cursor.short_animation_length, 40);
+        assert!(config.liquid_cursor.instant_short_moves);
+        assert_eq!(config.liquid_cursor.instant_short_move_distance, 2);
+        assert_eq!(config.liquid_cursor.instant_short_move_delay, 10);
         assert_eq!(config.liquid_cursor.trail_size, 100);
         assert!(config.liquid_cursor.typing_overlay);
         assert!(config.liquid_cursor.input_shadow);
@@ -315,6 +332,9 @@ mod tests {
                 LiquidCursorSettings {
                     animation_length: 250,
                     short_animation_length: 80,
+                    instant_short_moves: false,
+                    instant_short_move_distance: 4,
+                    instant_short_move_delay: 25,
                     trail_size: 60,
                     typing_overlay: false,
                     input_shadow: false,
@@ -330,6 +350,9 @@ mod tests {
         assert_eq!(saved.cursor_animation, CursorAnimation::Disabled);
         assert_eq!(saved.liquid_cursor.animation_length, 250);
         assert_eq!(saved.liquid_cursor.short_animation_length, 80);
+        assert!(!saved.liquid_cursor.instant_short_moves);
+        assert_eq!(saved.liquid_cursor.instant_short_move_distance, 4);
+        assert_eq!(saved.liquid_cursor.instant_short_move_delay, 25);
         assert_eq!(saved.liquid_cursor.trail_size, 60);
         assert!(!saved.liquid_cursor.typing_overlay);
         assert!(!saved.liquid_cursor.input_shadow);

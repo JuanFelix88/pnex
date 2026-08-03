@@ -5,6 +5,9 @@ export type CursorAnimation = "disabled" | "liquid";
 export interface LiquidCursorSettings {
   animationLength: number;
   shortAnimationLength: number;
+  instantShortMoves: boolean;
+  instantShortMoveDistance: number;
+  instantShortMoveDelay: number;
   trailSize: number;
   typingOverlay: boolean;
   inputShadow: boolean;
@@ -14,6 +17,9 @@ export interface LiquidCursorSettings {
 export const DEFAULT_LIQUID_CURSOR_SETTINGS: LiquidCursorSettings = {
   animationLength: 150,
   shortAnimationLength: 40,
+  instantShortMoves: true,
+  instantShortMoveDistance: 2,
+  instantShortMoveDelay: 10,
   trailSize: 100,
   typingOverlay: true,
   inputShadow: true,
@@ -29,6 +35,7 @@ interface AnimatedPoint extends Point {
   velocityX: number;
   velocityY: number;
   animationLength: number;
+  animationDelay: number;
 }
 
 const BLINK_DELAY_MS = 170;
@@ -342,7 +349,13 @@ export class LiquidCursor {
     if (this.targetCorners.length !== CORNER_COUNT) return;
     this.corners.length = 0;
     for (const point of this.targetCorners) {
-      this.corners.push({ ...point, velocityX: 0, velocityY: 0, animationLength: 0 });
+      this.corners.push({
+        ...point,
+        velocityX: 0,
+        velocityY: 0,
+        animationLength: 0,
+        animationDelay: 0,
+      });
     }
   }
 
@@ -355,14 +368,6 @@ export class LiquidCursor {
 
     const animationLength = this.settings.animationLength / 1_000;
     const shortAnimationLength = this.settings.shortAnimationLength / 1_000;
-    const isShortHorizontalMove = Math.abs(deltaX / this.cellWidth) <= 2.001
-      && Math.abs(deltaY / this.cellHeight) <= 0.001;
-    if (isShortHorizontalMove) {
-      const duration = Math.min(animationLength, shortAnimationLength);
-      for (const corner of this.corners) corner.animationLength = duration;
-      return;
-    }
-
     const alignments = this.corners.map((corner, index) => {
       const target = this.targetCorners[index];
       const relativeX = target.x - this.targetCenter!.x;
@@ -378,11 +383,32 @@ export class LiquidCursor {
       };
     }).sort((first, second) => first.alignment - second.alignment || first.index - second.index);
 
+    const isShortHorizontalMove = this.settings.instantShortMoves
+      && Math.abs(deltaX / this.cellWidth) <= this.settings.instantShortMoveDistance + 0.001
+      && Math.abs(deltaY / this.cellHeight) <= 0.001;
+    if (isShortHorizontalMove) {
+      const trailDuration = Math.min(animationLength, shortAnimationLength)
+        * this.settings.trailSize / 100;
+      for (let rank = 0; rank < alignments.length; rank += 1) {
+        const index = alignments[rank].index;
+        const corner = this.corners[index];
+        corner.animationLength = rank === 0 ? trailDuration : rank === 1 ? trailDuration / 2 : 0;
+        corner.animationDelay = corner.animationLength > 0
+          ? this.settings.instantShortMoveDelay / 1_000
+          : 0;
+        if (corner.animationLength === 0) {
+          Object.assign(corner, this.targetCorners[index], { velocityX: 0, velocityY: 0 });
+        }
+      }
+      return;
+    }
+
     const leading = animationLength * (1 - this.settings.trailSize / 100);
     const middle = (leading + animationLength) / 2;
     for (let rank = 0; rank < alignments.length; rank += 1) {
       const corner = this.corners[alignments[rank].index];
       corner.animationLength = rank === 0 ? animationLength : rank === 1 ? middle : leading;
+      corner.animationDelay = 0;
     }
   }
 
@@ -391,8 +417,15 @@ export class LiquidCursor {
     for (let index = 0; index < CORNER_COUNT; index += 1) {
       const corner = this.corners[index];
       const target = this.targetCorners[index];
-      if (![corner.x, corner.y, corner.velocityX, corner.velocityY, target.x, target.y]
-        .every(Number.isFinite)) {
+      if (![
+        corner.x,
+        corner.y,
+        corner.velocityX,
+        corner.velocityY,
+        corner.animationDelay,
+        target.x,
+        target.y,
+      ].every(Number.isFinite)) {
         this.snapToTarget();
         return;
       }
@@ -410,6 +443,11 @@ export class LiquidCursor {
   }
 
   private advanceCorner(corner: AnimatedPoint, target: Point, deltaTime: number): void {
+    const delay = Math.min(corner.animationDelay, deltaTime);
+    corner.animationDelay -= delay;
+    deltaTime -= delay;
+    if (deltaTime <= 0) return;
+
     if (corner.animationLength <= deltaTime) {
       corner.x = target.x;
       corner.y = target.y;
@@ -456,7 +494,13 @@ export class LiquidCursor {
       const target = this.targetCorners[index];
 
       this.advanceCorner(corner, target, deltaTime);
-      if (![corner.x, corner.y, corner.velocityX, corner.velocityY].every(Number.isFinite)) {
+      if (![
+        corner.x,
+        corner.y,
+        corner.velocityX,
+        corner.velocityY,
+        corner.animationDelay,
+      ].every(Number.isFinite)) {
         invalid = true;
         break;
       }
