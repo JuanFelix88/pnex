@@ -263,6 +263,7 @@ async fn new_window(
     match WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App("index.html".into()))
         .title("pnex")
         .inner_size(width, height)
+        .center()
         .min_inner_size(260.0, 120.0)
         .resizable(true)
         .decorations(false)

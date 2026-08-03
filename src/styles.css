@@ -34,8 +34,8 @@ body {
 #titlebar {
   position: relative;
   display: flex;
-  height: 34px;
-  flex: 0 0 34px;
+  height: 30px;
+  flex: 0 0 30px;
   align-items: stretch;
   overflow: hidden;
   background: var(--terminal-background);
@@ -75,7 +75,7 @@ body {
 #titlebar-toggle {
   display: grid;
   width: 28px;
-  height: 34px;
+  height: 30px;
   flex: 0 0 28px;
   place-items: center;
   border: 0;
@@ -111,7 +111,7 @@ body {
   padding: 0 8px;
   color: var(--terminal-foreground);
   font-size: 12px;
-  line-height: 33px;
+  line-height: 29px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

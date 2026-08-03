@@ -16,6 +16,7 @@
         "title": "pnex",
         "width": 900,
         "height": 600,
+        "center": true,
         "minWidth": 260,
         "minHeight": 120,
         "resizable": true,
