@@ -1525,6 +1525,22 @@ function setupTitlebar(
     if (event.buttons !== 1) return;
     if (event.target instanceof Element && event.target.closest("button")) return;
 
+    if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      event.preventDefault();
+      if (!currentCwd) {
+        showError("Não foi possível clonar a janela antes de detectar o diretório atual.");
+        return;
+      }
+
+      void invoke("new_window", {
+        inheritedDirectory: currentCwd,
+        dragPosition: { x: event.screenX, y: event.screenY },
+      }).catch((error: unknown) => {
+        showError(`Não foi possível clonar a janela: ${String(error)}`);
+      });
+      return;
+    }
+
     if (event.detail === 2) {
       void appWindow.toggleMaximize();
       return;

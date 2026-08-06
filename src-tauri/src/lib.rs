@@ -5,7 +5,7 @@ mod pty;
 use config::{AppConfig, ConfigStore, CursorAnimation, LiquidCursorSettings};
 use notification::{Notification, NotificationSystem};
 use pty::{PtyState, TerminalSize, TerminalStarted};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -23,6 +23,15 @@ use tauri::{
 use tauri_plugin_opener::OpenerExt;
 
 static NEXT_WINDOW_ID: AtomicUsize = AtomicUsize::new(1);
+const CLONED_WINDOW_CURSOR_OFFSET_X: f64 = 15.0;
+const CLONED_WINDOW_CURSOR_OFFSET_Y: f64 = 5.0;
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowDragPosition {
+    x: f64,
+    y: f64,
+}
 
 #[derive(Default)]
 struct WindowStartDirectories(Mutex<HashMap<String, (String, Option<String>)>>);
@@ -243,6 +252,7 @@ async fn new_window(
     directories: State<'_, WindowStartDirectories>,
     inherited_directory: Option<String>,
     inherited_command: Option<String>,
+    drag_position: Option<WindowDragPosition>,
 ) -> Result<(), String> {
     let size = window.inner_size().map_err(|error| error.to_string())?;
     let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
@@ -256,25 +266,49 @@ async fn new_window(
         return Err("An inherited command requires an inherited directory.".to_owned());
     }
 
+    let corrected_position = drag_position.map(corrected_drag_position).transpose()?;
+
     if let Some(directory) = directory {
         directories.set(label.clone(), directory, command)?;
     }
 
-    match WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App("index.html".into()))
-        .title("pnex")
-        .inner_size(width, height)
-        .center()
-        .min_inner_size(260.0, 120.0)
-        .resizable(true)
-        .decorations(false)
-        .build()
-    {
-        Ok(_) => Ok(()),
+    let builder =
+        WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App("index.html".into()))
+            .title("pnex")
+            .inner_size(width, height)
+            .min_inner_size(260.0, 120.0)
+            .resizable(true)
+            .decorations(false);
+    let builder = match corrected_position {
+        Some((x, y)) => builder.position(x, y),
+        None => builder.center(),
+    };
+
+    match builder.build() {
+        Ok(created_window) => {
+            if corrected_position.is_some() {
+                created_window
+                    .start_dragging()
+                    .map_err(|error| error.to_string())?;
+            }
+            Ok(())
+        }
         Err(error) => {
             directories.remove(&label);
             Err(error.to_string())
         }
     }
+}
+
+fn corrected_drag_position(position: WindowDragPosition) -> Result<(f64, f64), String> {
+    if !position.x.is_finite() || !position.y.is_finite() {
+        return Err("The drag position must contain finite coordinates.".to_owned());
+    }
+
+    Ok((
+        position.x - CLONED_WINDOW_CURSOR_OFFSET_X,
+        position.y - CLONED_WINDOW_CURSOR_OFFSET_Y,
+    ))
 }
 
 fn validate_directory(directory: String) -> Result<String, String> {
@@ -530,6 +564,20 @@ mod tests {
             "pnpm build"
         );
         assert!(super::validate_command("echo one\necho two".to_owned()).is_err());
+    }
+
+    #[test]
+    fn offsets_cloned_window_from_cursor() {
+        assert_eq!(
+            super::corrected_drag_position(super::WindowDragPosition { x: 100.0, y: 50.0 })
+                .expect("drag position"),
+            (85.0, 45.0)
+        );
+        assert!(super::corrected_drag_position(super::WindowDragPosition {
+            x: f64::NAN,
+            y: 50.0,
+        })
+        .is_err());
     }
 }
 
