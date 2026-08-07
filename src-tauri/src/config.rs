@@ -11,6 +11,8 @@ use tempfile::NamedTempFile;
 
 const CONFIG_FILE_NAME: &str = "pnex-config.json";
 const DEFAULT_FONT_FAMILY: &str = "Consolas, \"Courier New\", monospace";
+#[cfg(target_os = "windows")]
+const WINDOWS_FALLBACK_SHELL: &str = "powershell.exe";
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,13 +39,13 @@ pub struct LiquidCursorSettings {
 impl Default for LiquidCursorSettings {
     fn default() -> Self {
         Self {
-            animation_length: 150,
-            short_animation_length: 40,
-            instant_short_moves: true,
+            animation_length: 125,
+            short_animation_length: 10,
+            instant_short_moves: false,
             instant_short_move_distance: 2,
-            instant_short_move_delay: 10,
-            trail_size: 100,
-            typing_overlay: true,
+            instant_short_move_delay: 30,
+            trail_size: 95,
+            typing_overlay: false,
             input_shadow: true,
             input_shadow_opacity: 45,
         }
@@ -81,29 +83,88 @@ impl Default for AppConfig {
 
 fn default_theme() -> Value {
     serde_json::json!({
-        "name": "pnex-dark",
-        "background": "#1e1e1e",
-        "foreground": "#cccccc",
+        "name": "Vesper",
+        "background": "#101010",
+        "foreground": "#ffffff",
         "cursor": "#aeafad",
-        "cursorAccent": "#1e1e1e",
-        "selection": "#264f78",
-        "black": "#000000",
-        "red": "#cd3131",
-        "green": "#0dbc79",
-        "yellow": "#e5e510",
-        "blue": "#2472c8",
-        "magenta": "#bc3fbc",
-        "cyan": "#11a8cd",
-        "white": "#e5e5e5",
-        "brightBlack": "#666666",
-        "brightRed": "#f14c4c",
-        "brightGreen": "#23d18b",
-        "brightYellow": "#f5f543",
-        "brightBlue": "#3b8eea",
-        "brightMagenta": "#d670d6",
-        "brightCyan": "#29b8db",
+        "cursorAccent": "#101010",
+        "selection": "#323232",
+        "black": "#101010",
+        "red": "#f5a191",
+        "green": "#90b99f",
+        "yellow": "#e6b99d",
+        "blue": "#aca1cf",
+        "magenta": "#e29eca",
+        "cyan": "#ea83a5",
+        "white": "#a0a0a0",
+        "brightBlack": "#7e7e7e",
+        "brightRed": "#ff8080",
+        "brightGreen": "#99ffe4",
+        "brightYellow": "#ffc799",
+        "brightBlue": "#b9aeda",
+        "brightMagenta": "#ecaad6",
+        "brightCyan": "#f591b2",
         "brightWhite": "#ffffff"
     })
+}
+
+#[cfg(target_os = "windows")]
+fn windows_default_shell(git_bash: Option<PathBuf>) -> String {
+    git_bash
+        .map(|path| format!("\"{}\" --login -i", path.to_string_lossy()))
+        .unwrap_or_else(|| WINDOWS_FALLBACK_SHELL.to_owned())
+}
+
+#[cfg(target_os = "windows")]
+fn find_git_bash() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+
+    for variable in ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(directory) = std::env::var_os(variable) {
+            add_git_bash_candidates(&mut candidates, &PathBuf::from(directory).join("Git"));
+        }
+    }
+    if let Some(directory) = std::env::var_os("LOCALAPPDATA") {
+        add_git_bash_candidates(
+            &mut candidates,
+            &PathBuf::from(directory).join("Programs").join("Git"),
+        );
+    }
+
+    if let Some(path) = std::env::var_os("PATH") {
+        for directory in std::env::split_paths(&path) {
+            let git = directory.join("git.exe");
+            if !git.is_file() {
+                continue;
+            }
+            for root in git.ancestors().skip(2).take(3) {
+                add_git_bash_candidates(&mut candidates, root);
+            }
+        }
+    }
+
+    candidates.into_iter().find(|candidate| candidate.is_file())
+}
+
+#[cfg(target_os = "windows")]
+fn add_git_bash_candidates(candidates: &mut Vec<PathBuf>, root: &Path) {
+    candidates.push(root.join("bin").join("bash.exe"));
+    candidates.push(root.join("usr").join("bin").join("bash.exe"));
+}
+
+#[cfg(target_os = "windows")]
+fn initialize_windows_shell(config: &mut AppConfig) -> bool {
+    if !config.shell.trim().is_empty() {
+        return false;
+    }
+
+    config.shell = windows_default_shell(find_git_bash());
+    true
+}
+
+#[cfg(not(target_os = "windows"))]
+fn initialize_windows_shell(_config: &mut AppConfig) -> bool {
+    false
 }
 
 pub struct ConfigStore {
@@ -115,13 +176,15 @@ pub struct ConfigStore {
 impl ConfigStore {
     pub fn load(home_directory: PathBuf) -> Result<Self, String> {
         let path = home_directory.join(CONFIG_FILE_NAME);
-        let config = match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content)
-                .map_err(|error| format!("Invalid configuration at {}: {error}", path.display()))?,
+        let (mut config, mut should_persist) = match fs::read_to_string(&path) {
+            Ok(content) => (
+                serde_json::from_str(&content).map_err(|error| {
+                    format!("Invalid configuration at {}: {error}", path.display())
+                })?,
+                false,
+            ),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                let config = AppConfig::default();
-                persist(&path, &config)?;
-                config
+                (AppConfig::default(), true)
             }
             Err(error) => {
                 return Err(format!(
@@ -130,6 +193,10 @@ impl ConfigStore {
                 ));
             }
         };
+        should_persist |= initialize_windows_shell(&mut config);
+        if should_persist {
+            persist(&path, &config)?;
+        }
 
         Ok(Self {
             home_directory,
@@ -281,18 +348,64 @@ mod tests {
 
         assert_eq!(config.start_directory, "~/");
         assert_eq!(config.font_size, 14);
-        assert_eq!(config.theme["name"], "pnex-dark");
+        assert_eq!(config.theme["name"], "Vesper");
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
-        assert_eq!(config.liquid_cursor.animation_length, 150);
-        assert_eq!(config.liquid_cursor.short_animation_length, 40);
-        assert!(config.liquid_cursor.instant_short_moves);
+        assert_eq!(config.liquid_cursor.animation_length, 125);
+        assert_eq!(config.liquid_cursor.short_animation_length, 10);
+        assert!(!config.liquid_cursor.instant_short_moves);
         assert_eq!(config.liquid_cursor.instant_short_move_distance, 2);
-        assert_eq!(config.liquid_cursor.instant_short_move_delay, 10);
-        assert_eq!(config.liquid_cursor.trail_size, 100);
-        assert!(config.liquid_cursor.typing_overlay);
+        assert_eq!(config.liquid_cursor.instant_short_move_delay, 30);
+        assert_eq!(config.liquid_cursor.trail_size, 95);
+        assert!(!config.liquid_cursor.typing_overlay);
         assert!(config.liquid_cursor.input_shadow);
         assert_eq!(config.liquid_cursor.input_shadow_opacity, 45);
         assert!(store.path().is_file());
+
+        fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn formats_git_bash_as_an_interactive_login_shell() {
+        let shell = super::windows_default_shell(Some(std::path::PathBuf::from(
+            r"C:\Program Files\Git\bin\bash.exe",
+        )));
+
+        assert_eq!(shell, r#""C:\Program Files\Git\bin\bash.exe" --login -i"#);
+        assert_eq!(super::windows_default_shell(None), "powershell.exe");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn fills_and_persists_an_empty_shell() {
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let path = directory.join("pnex-config.json");
+        fs::write(&path, r#"{"shell":"","theme":{"name":"Dracula"}}"#).expect("legacy config");
+
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+        let config = store.get().expect("config");
+        let saved: AppConfig =
+            serde_json::from_str(&fs::read_to_string(path).expect("saved config"))
+                .expect("saved config json");
+
+        assert!(!config.shell.is_empty());
+        assert_eq!(saved.shell, config.shell);
+        assert_eq!(config.theme["name"], "Dracula");
+
+        fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[test]
+    fn preserves_an_explicit_shell() {
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let path = directory.join("pnex-config.json");
+        fs::write(&path, r#"{"shell":"custom-shell"}"#).expect("config");
+
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+
+        assert_eq!(store.get().expect("config").shell, "custom-shell");
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }

@@ -61,9 +61,10 @@ body {
 #titlebar::after {
   left: 0;
   width: 40%;
+  height: 2px;
   opacity: 0;
   background: linear-gradient(90deg, transparent, var(--terminal-cursor), transparent);
-  filter: drop-shadow(0 0 2px var(--terminal-cursor));
+  filter: drop-shadow(0 0 3px var(--terminal-cursor));
   transform: translateX(-100%);
 }
 
@@ -646,6 +647,23 @@ nav,
 .settings-slider > span {
   display: flex;
   justify-content: space-between;
+}
+
+.settings-reset {
+  width: 100%;
+  margin-top: 16px;
+  border: 1px solid var(--terminal-border);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  padding: 7px 10px;
+  font: 12px/1.35 system-ui, sans-serif;
+}
+
+.settings-reset:hover,
+.settings-reset:focus-visible {
+  background: color-mix(in srgb, var(--terminal-foreground) 14%, transparent);
+  outline: none;
 }
 
 .prompt-hud-decoration {

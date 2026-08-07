@@ -15,13 +15,13 @@ export interface LiquidCursorSettings {
 }
 
 export const DEFAULT_LIQUID_CURSOR_SETTINGS: LiquidCursorSettings = {
-  animationLength: 150,
-  shortAnimationLength: 40,
-  instantShortMoves: true,
+  animationLength: 125,
+  shortAnimationLength: 10,
+  instantShortMoves: false,
   instantShortMoveDistance: 2,
-  instantShortMoveDelay: 10,
-  trailSize: 100,
-  typingOverlay: true,
+  instantShortMoveDelay: 30,
+  trailSize: 95,
+  typingOverlay: false,
   inputShadow: true,
   inputShadowOpacity: 45,
 };

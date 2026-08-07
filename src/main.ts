@@ -1028,6 +1028,20 @@ function setupShortcuts(terminal: Terminal): void {
       return true;
     }
 
+    if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      const sequence = event.key === "PageUp"
+        ? "\x1b[5;3~"
+        : event.key === "PageDown"
+          ? "\x1b[6;3~"
+          : undefined;
+
+      if (sequence) {
+        event.preventDefault();
+        terminal.input(sequence);
+        return false;
+      }
+    }
+
     if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       sendTerminalInput("\n");
@@ -1246,6 +1260,7 @@ function setupLiquidCursorPanel(
 ): void {
   const panel = requiredElement("#liquid-cursor-panel");
   const close = requiredElement("#liquid-cursor-close");
+  const reset = requiredElement("#liquid-cursor-reset") as HTMLButtonElement;
   const enabled = requiredElement("#liquid-cursor-enabled") as HTMLInputElement;
   const controls = requiredElement("#liquid-cursor-controls");
   const overlayEnabled = requiredElement("#liquid-cursor-overlay-enabled") as HTMLInputElement;
@@ -1268,16 +1283,6 @@ function setupLiquidCursorPanel(
   const shadowOpacity = requiredElement("#input-shadow-opacity") as HTMLInputElement;
   const settings = configuredLiquidCursorSettings(config.liquidCursor);
   config.liquidCursor = settings;
-  overlayEnabled.checked = settings.typingOverlay;
-  animationLength.value = String(settings.animationLength);
-  shortAnimationLength.value = String(settings.shortAnimationLength);
-  instantShortMoves.checked = settings.instantShortMoves;
-  instantShortMoveDistance.value = String(settings.instantShortMoveDistance);
-  instantShortMoveDelay.value = String(settings.instantShortMoveDelay);
-  trail.value = String(settings.trailSize);
-  shadowEnabled.checked = settings.inputShadow;
-  shadowOpacity.value = String(settings.inputShadowOpacity);
-  enabled.checked = configuredCursorAnimation(config.cursorAnimation) === "liquid";
 
   const persist = (): void => {
     const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
@@ -1292,6 +1297,17 @@ function setupLiquidCursorPanel(
     void save.catch((error: unknown) => {
       showError(`Não foi possível salvar o Liquid Cursor: ${String(error)}`);
     });
+  };
+  const syncSettingsControls = (nextSettings: LiquidCursorSettings): void => {
+    overlayEnabled.checked = nextSettings.typingOverlay;
+    animationLength.value = String(nextSettings.animationLength);
+    shortAnimationLength.value = String(nextSettings.shortAnimationLength);
+    instantShortMoves.checked = nextSettings.instantShortMoves;
+    instantShortMoveDistance.value = String(nextSettings.instantShortMoveDistance);
+    instantShortMoveDelay.value = String(nextSettings.instantShortMoveDelay);
+    trail.value = String(nextSettings.trailSize);
+    shadowEnabled.checked = nextSettings.inputShadow;
+    shadowOpacity.value = String(nextSettings.inputShadowOpacity);
   };
   const syncEnabledState = (): void => {
     const disabled = !enabled.checked;
@@ -1334,6 +1350,8 @@ function setupLiquidCursorPanel(
     if (restoreTerminalFocus) terminal.focus();
   };
 
+  syncSettingsControls(settings);
+  enabled.checked = configuredCursorAnimation(config.cursorAnimation) === "liquid";
   syncEnabledState();
   syncShadowState();
   enabled.addEventListener("change", () => {
@@ -1372,6 +1390,18 @@ function setupLiquidCursorPanel(
     slider.addEventListener("input", applySettings);
     slider.addEventListener("change", persist);
   }
+  reset.addEventListener("click", () => {
+    const defaultSettings = configuredLiquidCursorSettings(DEFAULT_LIQUID_CURSOR_SETTINGS);
+    config.liquidCursor = defaultSettings;
+    syncSettingsControls(defaultSettings);
+    enabled.checked = true;
+    liquidCursor.setSettings(defaultSettings);
+    inputShadow.setSettings(defaultSettings);
+    applyCursorAnimation(terminal, config, liquidCursor, "liquid");
+    syncEnabledState();
+    syncShadowState();
+    persist();
+  });
   close.addEventListener("click", () => hidePanel(true));
   panel.addEventListener("click", (event) => event.stopPropagation());
   panel.addEventListener("keydown", (event) => {
@@ -1390,30 +1420,31 @@ function setupLiquidCursorPanel(
       first.focus();
     }
   });
+  const synchronizeLiquidCursorConfig = (
+    cursorAnimation: CursorAnimation | undefined,
+    liquidCursorSettings?: Partial<LiquidCursorSettings>,
+  ): void => {
+    const nextSettings = configuredLiquidCursorSettings(liquidCursorSettings);
+    const nextAnimation = configuredCursorAnimation(cursorAnimation);
+    config.liquidCursor = nextSettings;
+    syncSettingsControls(nextSettings);
+    enabled.checked = nextAnimation === "liquid";
+    liquidCursor.setSettings(nextSettings);
+    inputShadow.setSettings(nextSettings);
+    applyCursorAnimation(terminal, config, liquidCursor, nextAnimation);
+    syncEnabledState();
+    syncShadowState();
+  };
   void listen<LiquidCursorConfigChanged>(
     "liquid-cursor-config-changed",
     ({ payload }) => {
       if (payload.sourceWindow === appWindow.label) return;
-      const nextSettings = configuredLiquidCursorSettings(payload.liquidCursor);
-      const nextAnimation = configuredCursorAnimation(payload.cursorAnimation);
-      config.liquidCursor = nextSettings;
-      overlayEnabled.checked = nextSettings.typingOverlay;
-      animationLength.value = String(nextSettings.animationLength);
-      shortAnimationLength.value = String(nextSettings.shortAnimationLength);
-      instantShortMoves.checked = nextSettings.instantShortMoves;
-      instantShortMoveDistance.value = String(nextSettings.instantShortMoveDistance);
-      instantShortMoveDelay.value = String(nextSettings.instantShortMoveDelay);
-      trail.value = String(nextSettings.trailSize);
-      shadowEnabled.checked = nextSettings.inputShadow;
-      shadowOpacity.value = String(nextSettings.inputShadowOpacity);
-      enabled.checked = nextAnimation === "liquid";
-      liquidCursor.setSettings(nextSettings);
-      inputShadow.setSettings(nextSettings);
-      applyCursorAnimation(terminal, config, liquidCursor, nextAnimation);
-      syncEnabledState();
-      syncShadowState();
+      synchronizeLiquidCursorConfig(payload.cursorAnimation, payload.liquidCursor);
     },
-  ).catch((error: unknown) => {
+  ).then(async () => {
+    const latestConfig = await invoke<AppConfig>("get_config");
+    synchronizeLiquidCursorConfig(latestConfig.cursorAnimation, latestConfig.liquidCursor);
+  }).catch((error: unknown) => {
     console.warn("Could not synchronize Liquid Cursor settings.", error);
   });
   document.addEventListener("click", (event) => {
