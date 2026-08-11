@@ -62,6 +62,7 @@ type MenuAction =
   | "new-window"
   | "new-window-here"
   | "new-window-here-command"
+  | "reset-session"
   | "close-app"
   | "open-config"
   | "copy"
@@ -121,6 +122,8 @@ let selectionShimmerId = 0;
 let terminalRevealed = false;
 let liquidCursorSaveQueue = Promise.resolve();
 let closingAfterCursorSave = false;
+let terminalConnectionVersion = 0;
+let resetSessionPromise: Promise<void> | null = null;
 const promptHuds: PromptHud[] = [];
 
 interface PromptHud {
@@ -654,9 +657,25 @@ function writeTerminalOutput(
 }
 
 async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Promise<void> {
+  const connectionVersion = ++terminalConnectionVersion;
   const output = new Channel<ArrayBuffer>();
-  output.onmessage = (data) => writeTerminalOutput(terminal, inputShadow, new Uint8Array(data));
+  output.onmessage = (data) => {
+    if (connectionVersion === terminalConnectionVersion) {
+      writeTerminalOutput(terminal, inputShadow, new Uint8Array(data));
+    }
+  };
 
+  const started = await invoke<TerminalStarted>("start_terminal", {
+    size: currentSize(terminal),
+    output,
+  });
+  activeSessionId = started.sessionId;
+  pendingStartupCommand = started.startupCommand ?? null;
+  runPendingStartupCommand(terminal);
+  terminal.focus();
+}
+
+async function setupTerminalSessionEvents(): Promise<void> {
   await Promise.all([
     listen<TerminalExit>("terminal:exit", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
@@ -674,15 +693,35 @@ async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Pr
       }
     }),
   ]);
+}
 
-  const started = await invoke<TerminalStarted>("start_terminal", {
-    size: currentSize(terminal),
-    output,
+async function resetTerminalSession(terminal: Terminal, inputShadow: InputShadow): Promise<void> {
+  if (resetSessionPromise) return resetSessionPromise;
+
+  resetSessionPromise = (async () => {
+    terminalConnectionVersion += 1;
+    activeSessionId = null;
+    acceptingShellCommand = false;
+    pendingStartupCommand = null;
+    currentCwd = "";
+    inputBuffer = "";
+    lastCommand = "";
+    shellTitle = null;
+    pendingExitCode = 0;
+    activeHud = null;
+    focusedHud = null;
+    for (const hud of [...promptHuds]) disposePromptHud(hud);
+    oscProgressRunning = false;
+    clearTitleProgress();
+    await invoke("stop_terminal");
+    terminal.reset();
+    clearError();
+    updateWindowTitle();
+    await connectTerminal(terminal, inputShadow);
+  })().finally(() => {
+    resetSessionPromise = null;
   });
-  activeSessionId = started.sessionId;
-  pendingStartupCommand = started.startupCommand ?? null;
-  runPendingStartupCommand(terminal);
-  terminal.focus();
+  return resetSessionPromise;
 }
 
 function runPendingStartupCommand(terminal: Terminal): void {
@@ -735,6 +774,20 @@ function setupTerminal(
     // Pi emits state 3 on agent_start and state 0 on agent_end.
     oscProgressRunning = state === "1" || state === "3";
     updateTerminalRunningState();
+    return true;
+  });
+  terminal.parser.registerOscHandler(52, async (payload) => {
+    const separator = payload.indexOf(";");
+    if (separator < 0 || payload.slice(separator + 1) === "?") return true;
+
+    try {
+      const encoded = payload.slice(separator + 1);
+      const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+      await navigator.clipboard.writeText(new TextDecoder().decode(bytes));
+      terminal.element?.dispatchEvent(new Event("pnex:copied"));
+    } catch (error: unknown) {
+      console.warn("Could not process OSC 52 clipboard data.", error);
+    }
     return true;
   });
   terminal.onData((data) => {
@@ -1119,6 +1172,9 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
           action: "new-window-here-command",
           disabled: !currentCwd || !lastCommand,
         },
+        { separator: true },
+        { label: "Reset Session", action: "reset-session" },
+        { separator: true },
         { label: "Close App", action: "close-app" },
       ];
     case "options": {
@@ -1166,6 +1222,7 @@ async function runMenuAction(
   terminal: Terminal,
   config: AppConfig,
   liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
   theme?: TerminalTheme,
   uiThemeName?: string,
 ): Promise<void> {
@@ -1181,6 +1238,9 @@ async function runMenuAction(
         inheritedDirectory: currentCwd,
         inheritedCommand: lastCommand,
       });
+      return;
+    case "reset-session":
+      await resetTerminalSession(terminal, inputShadow);
       return;
     case "close-app":
       await invoke("request_close_app");
@@ -1469,6 +1529,7 @@ function openMenu(
   terminal: Terminal,
   config: AppConfig,
   liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
 ): void {
   const menuName = trigger.dataset.menu;
   if (!menuName) return;
@@ -1518,6 +1579,7 @@ function openMenu(
         terminal,
         config,
         liquidCursor,
+        inputShadow,
         item.theme,
         item.uiThemeName,
       ).catch((error: unknown) => {
@@ -1613,12 +1675,12 @@ function setupTitlebar(
       if (trigger.getAttribute("aria-expanded") === "true") {
         closeMenu();
       } else {
-        openMenu(trigger, terminal, config, liquidCursor);
+        openMenu(trigger, terminal, config, liquidCursor, inputShadow);
       }
     });
     trigger.addEventListener("mouseenter", () => {
       if (!menuPopup.hidden && trigger.getAttribute("aria-expanded") !== "true") {
-        openMenu(trigger, terminal, config, liquidCursor);
+        openMenu(trigger, terminal, config, liquidCursor, inputShadow);
       }
     });
   });
@@ -1674,7 +1736,7 @@ function setupTitlebar(
     event.preventDefault();
     event.stopPropagation();
     showTitlebarMenu();
-    openMenu(trigger, terminal, config, liquidCursor);
+    openMenu(trigger, terminal, config, liquidCursor, inputShadow);
     trigger.focus();
   }, true);
   window.addEventListener("keyup", (event) => {
@@ -1732,7 +1794,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
-  await setupCloseAfterCursorSave();
+  await Promise.all([setupCloseAfterCursorSave(), setupTerminalSessionEvents()]);
   setupLoadingScreenDragging();
   const config = await invoke<AppConfig>("get_config");
   shellName = configuredShellName(config.shell);
