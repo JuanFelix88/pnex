@@ -34,8 +34,8 @@ body {
 #titlebar {
   position: relative;
   display: flex;
-  height: 34px;
-  flex: 0 0 34px;
+  height: 30px;
+  flex: 0 0 30px;
   align-items: stretch;
   overflow: hidden;
   background: var(--terminal-background);
@@ -61,9 +61,10 @@ body {
 #titlebar::after {
   left: 0;
   width: 40%;
+  height: 2px;
   opacity: 0;
   background: linear-gradient(90deg, transparent, var(--terminal-cursor), transparent);
-  filter: drop-shadow(0 0 2px var(--terminal-cursor));
+  filter: drop-shadow(0 0 3px var(--terminal-cursor));
   transform: translateX(-100%);
 }
 
@@ -75,7 +76,7 @@ body {
 #titlebar-toggle {
   display: grid;
   width: 28px;
-  height: 34px;
+  height: 30px;
   flex: 0 0 28px;
   place-items: center;
   border: 0;
@@ -111,11 +112,13 @@ body {
   padding: 0 8px;
   color: var(--terminal-foreground);
   font-size: 12px;
-  line-height: 33px;
+  line-height: 29px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+#titlebar-icon[hidden],
+#titlebar-toggle[hidden],
 #titlebar-title[hidden],
 #titlebar-menu[hidden] {
   display: none;
@@ -154,11 +157,11 @@ nav,
 }
 
 #titlebar-icon {
-  width: 12px;
-  height: 12px;
-  margin: auto 1px auto 12px;
+  width: 18px;
+  height: 18px;
+  margin: auto 1px auto 8px;
   flex: 0 0 auto;
-  color: var(--terminal-foreground);
+  object-fit: contain;
 }
 
 .menu-trigger,
@@ -225,13 +228,132 @@ nav,
 .liquid-cursor {
   position: absolute;
   z-index: 8;
-  inset: 0;
+  contain: strict;
   mix-blend-mode: difference;
   pointer-events: none;
 }
 
 .liquid-cursor[hidden] {
   display: none;
+}
+
+.input-shadow {
+  position: absolute;
+  z-index: 9;
+  inset: 0;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+}
+
+.input-shadow[hidden] {
+  display: none;
+}
+
+.input-shadow-text {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+  color: var(--terminal-foreground);
+  font-family: var(--terminal-font-family);
+  font-size: var(--terminal-font-size);
+  font-variant-ligatures: none;
+  white-space: pre;
+}
+
+.selection-shimmer {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  contain: strict;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.selection-shimmer[hidden] {
+  display: none;
+}
+
+.selection-shimmer-highlight {
+  stop-color: color-mix(in srgb, var(--terminal-selection) 45%, white);
+}
+
+.selection-shimmer-sweep {
+  transform-box: fill-box;
+  will-change: transform;
+  animation: selection-shimmer-sweep 850ms linear infinite;
+}
+
+.selection-shimmer-sweep-offset {
+  animation-delay: -425ms;
+}
+
+@keyframes selection-shimmer-sweep {
+  to { transform: translateX(242.857%); }
+}
+
+.selection-copy-tooltip {
+  position: absolute;
+  z-index: 9;
+  border: 1px solid color-mix(in srgb, var(--terminal-selection) 65%, var(--terminal-foreground));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--terminal-background) 92%, var(--terminal-selection));
+  box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
+  padding: 2px 6px;
+  color: var(--terminal-foreground);
+  font-family: var(--terminal-font-family);
+  font-size: var(--terminal-font-size);
+  line-height: 1;
+  white-space: nowrap;
+  isolation: isolate;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  animation: selection-copy-tooltip-enter 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.selection-copy-tooltip::before,
+.selection-copy-tooltip::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: -70%;
+  width: 70%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--terminal-selection) 45%, white), transparent);
+  opacity: 0.2;
+  will-change: transform;
+  animation: selection-shimmer-sweep 850ms linear infinite;
+}
+
+.selection-copy-tooltip::after {
+  animation-delay: -425ms;
+}
+
+.selection-copy-tooltip span {
+  position: relative;
+  z-index: 1;
+}
+
+.selection-copy-tooltip-copied span {
+  animation: selection-copy-tooltip-copied 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.selection-copy-tooltip[hidden] {
+  display: none;
+}
+
+@keyframes selection-copy-tooltip-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 0.95; transform: translateY(0); }
+}
+
+@keyframes selection-copy-tooltip-copied {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 #window-hover-overlay {
@@ -279,10 +401,10 @@ nav,
   scrollbar-color: var(--terminal-border) var(--terminal-menu);
   scrollbar-width: thin;
   border: 1px solid var(--terminal-border);
-  border-radius: 3px;
+  border-radius: 0 0 3px 3px;
   background: var(--terminal-menu);
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
 .menu-popup::-webkit-scrollbar {
@@ -304,7 +426,7 @@ nav,
 }
 
 .menu-label {
-  padding: 6px 12px 3px;
+  padding: 4px 10px 2px;
   color: var(--terminal-foreground);
   font: 11px/1.35 system-ui, sans-serif;
   opacity: 0.7;
@@ -316,23 +438,28 @@ nav,
   width: 100%;
   border: 0;
   background: transparent;
-  padding: 6px 12px;
+  padding: 4px 10px;
   color: var(--terminal-foreground);
   cursor: default;
   font: 12px/1.35 system-ui, sans-serif;
   text-align: left;
 }
 
-.menu-item:hover,
-.menu-item:focus-visible {
+.menu-item:not(:disabled):hover,
+.menu-item:not(:disabled):focus-visible {
   background: #094771;
   color: #ffffff;
   outline: none;
 }
 
+.menu-item:disabled {
+  color: var(--terminal-foreground);
+  opacity: 0.5;
+}
+
 .menu-separator {
   height: 1px;
-  margin: 4px 0;
+  margin: 3px 0;
   background: var(--terminal-border);
 }
 
@@ -341,6 +468,202 @@ nav,
   margin-left: 28px;
   color: var(--terminal-foreground);
   opacity: 0.7;
+}
+
+.settings-panel {
+  position: fixed;
+  z-index: 20;
+  width: min(328px, calc(100vw - 16px));
+  max-height: calc(100vh - 42px);
+  overflow-y: auto;
+  border: 1px solid var(--terminal-border);
+  border-radius: 6px;
+  background: var(--terminal-menu);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 42%);
+  padding: 16px;
+  color: var(--terminal-foreground);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  scrollbar-color: var(--terminal-border) var(--terminal-menu);
+  scrollbar-width: thin;
+  user-select: none;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel-header,
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-panel-header {
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.settings-panel h2,
+.settings-panel p {
+  margin: 0;
+}
+
+.settings-panel h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-panel p,
+.settings-panel small {
+  color: color-mix(in srgb, var(--terminal-foreground) 68%, transparent);
+  font-size: 11px;
+}
+
+.settings-panel p {
+  margin-top: 3px;
+}
+
+.settings-panel-close {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: 18px/1 system-ui, sans-serif;
+}
+
+.settings-panel-close:hover,
+.settings-panel-close:focus-visible {
+  background: color-mix(in srgb, var(--terminal-foreground) 14%, transparent);
+  outline: none;
+}
+
+.settings-switch-row {
+  gap: 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--terminal-border) 65%, transparent);
+  padding-bottom: 14px;
+}
+
+.settings-switch-row strong,
+.settings-switch-row small {
+  display: block;
+}
+
+.settings-switch-row strong,
+.settings-slider strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-switch-row small {
+  margin-top: 2px;
+}
+
+.settings-switch-row-secondary {
+  padding-top: 14px;
+}
+
+.settings-switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.settings-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.settings-switch span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--terminal-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--terminal-background) 80%, var(--terminal-border));
+  transition: background 120ms ease;
+}
+
+.settings-switch span::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--terminal-foreground);
+  content: "";
+  transition: transform 120ms ease;
+}
+
+.settings-switch input:checked + span {
+  border-color: var(--terminal-cursor);
+  background: color-mix(in srgb, var(--terminal-cursor) 78%, var(--terminal-background));
+}
+
+.settings-switch input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.settings-switch input:focus-visible + span {
+  outline: 1px solid var(--terminal-foreground);
+  outline-offset: 2px;
+}
+
+.settings-slider-group {
+  display: grid;
+  gap: 15px;
+  padding-top: 14px;
+  transition: opacity 120ms ease;
+}
+
+#liquid-cursor-controls,
+#input-shadow-controls {
+  transition: opacity 120ms ease;
+}
+
+#liquid-cursor-controls[aria-disabled="true"],
+#input-shadow-controls[aria-disabled="true"] {
+  opacity: 0.42;
+}
+
+.settings-slider {
+  display: grid;
+  gap: 7px;
+}
+
+.settings-slider input {
+  width: 100%;
+  height: 4px;
+  margin: 2px 0;
+  accent-color: var(--terminal-cursor);
+  cursor: default;
+}
+
+.settings-slider > span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.settings-reset {
+  width: 100%;
+  margin-top: 16px;
+  border: 1px solid var(--terminal-border);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  padding: 7px 10px;
+  font: 12px/1.35 system-ui, sans-serif;
+}
+
+.settings-reset:hover,
+.settings-reset:focus-visible {
+  background: color-mix(in srgb, var(--terminal-foreground) 14%, transparent);
+  outline: none;
 }
 
 .prompt-hud-decoration {
@@ -545,9 +868,9 @@ nav,
 }
 
 .loading-logo {
-  width: 40px;
-  height: 50px;
-  color: var(--terminal-foreground);
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
 }
 
 .loading-brand {

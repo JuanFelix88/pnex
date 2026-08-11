@@ -12,7 +12,7 @@ use std::{
 };
 use tauri::{
     ipc::{Channel, Response},
-    Emitter, WebviewWindow,
+    Emitter, EventTarget, WebviewWindow,
 };
 
 const TERMINAL_EXIT_EVENT: &str = "terminal:exit";
@@ -28,6 +28,8 @@ pub struct TerminalSize {
 #[serde(rename_all = "camelCase")]
 pub struct TerminalStarted {
     pub session_id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) startup_command: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -43,16 +45,20 @@ struct TerminalError {
     message: String,
 }
 
-struct ActiveTerminal {
-    id: u64,
+struct TerminalIo {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
-    child: Box<dyn Child + Send + Sync>,
+}
+
+struct ActiveTerminal {
+    id: u64,
+    io: Mutex<TerminalIo>,
+    child: Mutex<Box<dyn Child + Send + Sync>>,
 }
 
 #[derive(Clone, Default)]
 pub struct PtyState {
-    active: Arc<Mutex<HashMap<String, ActiveTerminal>>>,
+    active: Arc<Mutex<HashMap<String, Arc<ActiveTerminal>>>>,
     next_session_id: Arc<AtomicU64>,
 }
 
@@ -92,36 +98,35 @@ impl PtyState {
 
             active.insert(
                 window_label.clone(),
-                ActiveTerminal {
+                Arc::new(ActiveTerminal {
                     id: session_id,
-                    master: pair.master,
-                    writer,
-                    child,
-                },
+                    io: Mutex::new(TerminalIo {
+                        master: pair.master,
+                        writer,
+                    }),
+                    child: Mutex::new(child),
+                }),
             );
         }
 
         self.spawn_reader(window, output, session_id, reader);
-        Ok(TerminalStarted { session_id })
+        Ok(TerminalStarted {
+            session_id,
+            startup_command: None,
+        })
     }
 
     pub fn write(&self, window_label: &str, data: &[u8]) -> Result<(), String> {
-        let mut active = self.active.lock().map_err(lock_error)?;
-        let terminal = active
-            .get_mut(window_label)
-            .ok_or_else(|| "No terminal session is running.".to_owned())?;
-
-        terminal.writer.write_all(data).map_err(display_error)
+        let terminal = self.terminal(window_label)?;
+        let mut io = terminal.io.lock().map_err(session_lock_error)?;
+        io.writer.write_all(data).map_err(display_error)
     }
 
     pub fn resize(&self, window_label: &str, size: TerminalSize) -> Result<(), String> {
         let size = sanitize_size(size)?;
-        let active = self.active.lock().map_err(lock_error)?;
-        let terminal = active
-            .get(window_label)
-            .ok_or_else(|| "No terminal session is running.".to_owned())?;
-
-        terminal.master.resize(size).map_err(display_error)
+        let terminal = self.terminal(window_label)?;
+        let io = terminal.io.lock().map_err(session_lock_error)?;
+        io.master.resize(size).map_err(display_error)
     }
 
     pub fn stop(&self, window_label: &str) {
@@ -130,9 +135,20 @@ impl PtyState {
             .lock()
             .ok()
             .and_then(|mut active| active.remove(window_label));
-        if let Some(mut terminal) = terminal {
-            let _ = terminal.child.kill();
+        if let Some(terminal) = terminal {
+            if let Ok(mut child) = terminal.child.lock() {
+                let _ = child.kill();
+            }
         }
+    }
+
+    fn terminal(&self, window_label: &str) -> Result<Arc<ActiveTerminal>, String> {
+        self.active
+            .lock()
+            .map_err(lock_error)?
+            .get(window_label)
+            .cloned()
+            .ok_or_else(|| "No terminal session is running.".to_owned())
     }
 
     fn spawn_reader(
@@ -161,7 +177,8 @@ impl PtyState {
                     }
                     Err(error) => {
                         if state.is_current(&window_label, session_id) {
-                            let _ = window.emit(
+                            let _ = window.emit_to(
+                                EventTarget::webview_window(window.label()),
                                 TERMINAL_ERROR_EVENT,
                                 TerminalError {
                                     session_id,
@@ -175,7 +192,11 @@ impl PtyState {
             }
 
             if state.clear_if_current(&window_label, session_id) {
-                let _ = window.emit(TERMINAL_EXIT_EVENT, TerminalExit { session_id });
+                let _ = window.emit_to(
+                    EventTarget::webview_window(window.label()),
+                    TERMINAL_EXIT_EVENT,
+                    TerminalExit { session_id },
+                );
             }
         });
     }
@@ -255,10 +276,13 @@ fn prompt_initializer(shell: &str) -> &'static str {
     } else {
         shell.to_owned()
     };
-    if shell.to_ascii_lowercase().contains("powershell")
-        || shell.to_ascii_lowercase().contains("pwsh")
-    {
+    let shell = shell.to_ascii_lowercase();
+    if shell.contains("powershell") || shell.contains("pwsh") {
         "function prompt { $code = if ($?) { 0 } else { 1 }; $cwd = (Get-Location).Path; Write-Host -NoNewline (\"$([char]27)]7777;exit=${code}$([char]7)$([char]27)]7777;cwd=${cwd}$([char]7)\"); \"`n  \" }; cls\r\r"
+    } else if shell.contains("cmd.exe") || shell.trim() == "cmd" {
+        "cls\r"
+    } else if shell.contains("bash") {
+        "printf '\\033]0;Welcome to Pnex\\007'; __pnex_prompt(){ local exit_code=\"$?\" cwd=\"$(pwd)\"; printf '\\033]7777;exit=%s\\007\\033]7777;cwd=%s\\007' \"$exit_code\" \"$cwd\"; }; PROMPT_COMMAND=__pnex_prompt; PS1=\"\\n  \"; clear\r"
     } else {
         "__pnex_prompt(){ local exit_code=\"$?\" cwd=\"$(pwd)\"; printf '\\033]7777;exit=%s\\007\\033]7777;cwd=%s\\007' \"$exit_code\" \"$cwd\"; }; PROMPT_COMMAND=__pnex_prompt; PS1=\"\\n  \"; clear\r"
     }
@@ -299,6 +323,10 @@ fn display_error(error: impl std::fmt::Display) -> String {
 }
 
 fn lock_error<T>(_: std::sync::PoisonError<T>) -> String {
+    "The terminal session registry is unavailable.".to_owned()
+}
+
+fn session_lock_error<T>(_: std::sync::PoisonError<T>) -> String {
     "The terminal session lock is unavailable.".to_owned()
 }
 
@@ -330,12 +358,18 @@ mod tests {
     }
 
     #[test]
+    fn cmd_receives_only_valid_cmd_syntax() {
+        assert_eq!(prompt_initializer("cmd.exe"), "cls\r");
+    }
+
+    #[test]
     fn prompt_initializer_reserves_the_line_after_the_hud() {
         let powershell = prompt_initializer("powershell.exe");
         assert!(powershell.contains("Write-Host -NoNewline (\"$([char]27)]7777;"));
         assert!(powershell.contains("; \"`n  \" };"));
 
         let bash = prompt_initializer("/bin/bash");
+        assert!(bash.contains("printf '\\033]0;Welcome to Pnex\\007'"));
         assert!(bash.contains("printf '\\033]7777;"));
         assert!(bash.contains("PS1=\"\\n  \""));
     }

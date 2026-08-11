@@ -1,12 +1,19 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, ProgressBarStatus } from "@tauri-apps/api/window";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type IMarker } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { LiquidCursor, type CursorAnimation } from "./liquid-cursor";
+import { InputShadow } from "./input-shadow";
+import {
+  DEFAULT_LIQUID_CURSOR_SETTINGS,
+  LiquidCursor,
+  type CursorAnimation,
+  type LiquidCursorSettings,
+} from "./liquid-cursor";
+import { notify as sendSystemNotification } from "./notifications";
 import { builtinThemes, type TerminalTheme } from "./themes";
 import "./styles.css";
 
@@ -18,6 +25,13 @@ interface AppConfig {
   theme: unknown;
   uiThemeName?: string;
   cursorAnimation?: CursorAnimation;
+  liquidCursor?: Partial<LiquidCursorSettings>;
+}
+
+interface LiquidCursorConfigChanged {
+  sourceWindow: string;
+  cursorAnimation: CursorAnimation;
+  liquidCursor: LiquidCursorSettings;
 }
 
 interface TerminalSize {
@@ -27,6 +41,7 @@ interface TerminalSize {
 
 interface TerminalStarted {
   sessionId: number;
+  startupCommand?: string;
 }
 
 interface TerminalExit {
@@ -46,6 +61,7 @@ interface GitContext {
 type MenuAction =
   | "new-window"
   | "new-window-here"
+  | "new-window-here-command"
   | "close-app"
   | "open-config"
   | "copy"
@@ -53,7 +69,7 @@ type MenuAction =
   | "select-all"
   | "set-theme"
   | "set-ui-theme"
-  | "set-cursor-animation"
+  | "open-liquid-cursor"
   | "toggle-devtools"
   | "about";
 
@@ -63,9 +79,9 @@ interface MenuItem {
   hint?: string;
   separator?: true;
   disabled?: boolean;
+  heading?: true;
   theme?: TerminalTheme;
   uiThemeName?: string;
-  cursorAnimation?: CursorAnimation;
   checked?: boolean;
 }
 
@@ -83,17 +99,28 @@ let currentCwd = "";
 let pendingExitCode = 0;
 let inputBuffer = "";
 let lastCommand = "";
+let acceptingShellCommand = false;
+let pendingStartupCommand: string | null = null;
 let shellTitle: string | null = null;
+let shellName = "bash";
 let currentWindowTitle = "pnex";
-let commandRunning = false;
-let progressRunning = false;
+let oscProgressRunning = false;
+let titleProgressRunning = false;
+let terminalRunning = false;
+let terminalRunningStateVersion = 0;
+let lastTitleProgressFrame: string | null = null;
+let lastTitleProgressFrameAt = 0;
+let titleProgressTimer: number | null = null;
 let isWindowFocused = true;
 let isPointerInsideWindow = false;
 let isWindowHoverArmed = false;
 let inEscapeSequence = false;
 let activeHud: PromptHud | null = null;
 let focusedHud: PromptHud | null = null;
+let selectionShimmerId = 0;
 let terminalRevealed = false;
+let liquidCursorSaveQueue = Promise.resolve();
+let closingAfterCursorSave = false;
 const promptHuds: PromptHud[] = [];
 
 interface PromptHud {
@@ -159,8 +186,70 @@ function applyUiTheme(name?: string): void {
   document.documentElement.dataset.uiTheme = name === "Default Theme" ? name : "Default Theme";
 }
 
+function configuredShellName(shell: string): string {
+  const configured = shell.trim();
+  const executable = configured.match(/^"([^"]+)"/)?.[1] ?? configured.split(/\s+/, 1)[0];
+  return executable?.split(/[\\/]/).pop()?.replace(/\.exe$/i, "")
+    || (navigator.userAgent.includes("Windows") ? "powershell" : "bash");
+}
+
 function updateTerminalRunningState(): void {
-  document.documentElement.dataset.terminalRunning = String(commandRunning || progressRunning);
+  const running = oscProgressRunning || titleProgressRunning;
+  document.documentElement.dataset.terminalRunning = String(running);
+  if (running === terminalRunning) return;
+
+  terminalRunning = running;
+  const stateVersion = ++terminalRunningStateVersion;
+  void appWindow.setProgressBar({
+    status: running ? ProgressBarStatus.Indeterminate : ProgressBarStatus.None,
+  }).catch((error: unknown) => {
+    console.warn("Could not update taskbar progress.", error);
+  });
+  if (running) return;
+
+  queueMicrotask(() => {
+    if (terminalRunning || stateVersion !== terminalRunningStateVersion || isWindowFocused) return;
+
+    const title = currentWindowTitle;
+    void sendSystemNotification({
+      title,
+      body: "Terminal processing has stopped.",
+      activateWindowOnClick: true,
+    }).catch((error: unknown) => {
+      console.warn("Could not show terminal completion notification.", error);
+    });
+  });
+}
+
+function clearTitleProgress(): void {
+  if (titleProgressTimer !== null) window.clearTimeout(titleProgressTimer);
+  titleProgressTimer = null;
+  titleProgressRunning = false;
+  lastTitleProgressFrame = null;
+  lastTitleProgressFrameAt = 0;
+  updateTerminalRunningState();
+}
+
+function trackAgentTitleProgress(title: string): void {
+  // Codex emits successive braille frames in its OSC 0 title every 100 ms while pending.
+  const frame = title.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u)?.[0] ?? null;
+  if (frame === null) {
+    clearTitleProgress();
+    return;
+  }
+
+  const now = performance.now();
+  if (lastTitleProgressFrame !== null
+    && frame !== lastTitleProgressFrame
+    && now - lastTitleProgressFrameAt <= 500) {
+    titleProgressRunning = true;
+    updateTerminalRunningState();
+  }
+  lastTitleProgressFrame = frame;
+  lastTitleProgressFrameAt = now;
+
+  if (titleProgressTimer !== null) window.clearTimeout(titleProgressTimer);
+  titleProgressTimer = window.setTimeout(clearTitleProgress, 500);
 }
 
 function animateTitlebarTitle(): void {
@@ -174,22 +263,24 @@ function setWindowTitle(title: string): void {
   currentWindowTitle = title;
   windowHoverTitle.textContent = title;
   titlebarTitle.textContent = title;
-  if (changed) animateTitlebarTitle();
+  if (!changed) return;
+
+  animateTitlebarTitle();
   void appWindow.setTitle(title);
 }
 
-function updateWindowTitle(isRunning = false): void {
+function updateWindowTitle(isRunning = false, command = lastCommand): void {
   if (shellTitle !== null) {
     setWindowTitle(shellTitle);
     return;
   }
 
   const normalized = currentCwd.replace(/\\/g, "/").replace(/\/$/, "");
-  const folder = normalized.slice(normalized.lastIndexOf("/") + 1);
-  const base = folder ? `${folder} — pnex` : "pnex";
-  const title = isRunning && lastCommand
-    ? `● ${lastCommand} [${folder || "~"}] — pnex`
-    : isRunning ? `● ${base}` : base;
+  const folder = normalized.slice(normalized.lastIndexOf("/") + 1) || "~";
+  const idleTitle = `${shellName} - ${folder}`;
+  const title = isRunning && command
+    ? `● ${command} [${folder}] — pnex`
+    : isRunning ? `● ${idleTitle}` : idleTitle;
   setWindowTitle(title);
 }
 
@@ -198,7 +289,7 @@ function updateWindowHoverOverlay(): void {
   windowHoverOverlay.hidden = !isWindowHoverArmed || isWindowFocused || !isPointerInsideWindow;
 }
 
-async function setupWindowHoverOverlay(): Promise<void> {
+async function setupWindowHoverOverlay(onFocused: () => void): Promise<void> {
   document.body.addEventListener("pointerenter", (event) => {
     if (event.pointerType !== "mouse") return;
     isPointerInsideWindow = true;
@@ -216,19 +307,24 @@ async function setupWindowHoverOverlay(): Promise<void> {
   await appWindow.onFocusChanged(({ payload: focused }) => {
     isWindowFocused = focused;
     updateWindowHoverOverlay();
+    if (focused) onFocused();
   });
   isWindowFocused = await appWindow.isFocused();
   updateWindowHoverOverlay();
+  if (isWindowFocused) onFocused();
 }
 
 function createTerminal(config: AppConfig): {
   terminal: Terminal;
   fitAddon: FitAddon;
   liquidCursor: LiquidCursor;
+  inputShadow: InputShadow;
 } {
   const theme = configuredTheme(config.theme);
   const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
+  const liquidCursorSettings = configuredLiquidCursorSettings(config.liquidCursor);
   config.cursorAnimation = cursorAnimation;
+  config.liquidCursor = liquidCursorSettings;
   applyTheme(theme);
   document.documentElement.style.setProperty("--terminal-font-family", config.fontFamily);
   document.documentElement.style.setProperty("--terminal-font-size", `${config.fontSize}px`);
@@ -248,9 +344,158 @@ function createTerminal(config: AppConfig): {
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(new WebLinksAddon());
   terminal.open(terminalElement);
-  const liquidCursor = new LiquidCursor(terminal, cursorAnimation, theme.cursor);
+  const liquidCursor = new LiquidCursor(
+    terminal,
+    cursorAnimation,
+    theme.cursor,
+    theme.brightBlue,
+    liquidCursorSettings,
+  );
+  const inputShadow = new InputShadow(terminal, liquidCursorSettings);
+  setupSelectionShimmer(terminal);
   loadWebglRenderer(terminal);
-  return { terminal, fitAddon, liquidCursor };
+  return { terminal, fitAddon, liquidCursor, inputShadow };
+}
+
+function setupSelectionShimmer(terminal: Terminal): void {
+  const terminalHost = terminal.element;
+  const screen = terminalHost?.querySelector<HTMLElement>(".xterm-screen");
+  if (!terminalHost || !screen) return;
+
+  const id = `selection-shimmer-${selectionShimmerId++}`;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("selection-shimmer");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("hidden", "");
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="${id}-gradient">
+        <stop offset="0" stop-opacity="0" />
+        <stop class="selection-shimmer-highlight" offset="50%" stop-opacity="0.55" />
+        <stop offset="100%" stop-opacity="0" />
+      </linearGradient>
+      <clipPath id="${id}-clip" clipPathUnits="userSpaceOnUse">
+        <path shape-rendering="crispEdges" />
+      </clipPath>
+    </defs>
+    <g clip-path="url(#${id}-clip)">
+      <rect class="selection-shimmer-sweep" x="-70%" width="70%" height="100%" fill="url(#${id}-gradient)" />
+      <rect class="selection-shimmer-sweep selection-shimmer-sweep-offset" x="-70%" width="70%" height="100%" fill="url(#${id}-gradient)" />
+    </g>
+  `;
+  const path = svg.querySelector("clipPath path");
+  if (!path) return;
+
+  const tooltip = document.createElement("div");
+  const tooltipLabel = document.createElement("span");
+  tooltip.className = "selection-copy-tooltip";
+  tooltipLabel.textContent = "ctrl+intert";
+  tooltip.append(tooltipLabel);
+  tooltip.setAttribute("aria-hidden", "true");
+  tooltip.hidden = true;
+  screen.append(svg, tooltip);
+
+  let frame = 0;
+  let copied = false;
+  let copiedTimer = 0;
+  let columnSelection = false;
+  let controlPressed = false;
+  const render = (): void => {
+    frame = 0;
+    const range = terminal.getSelectionPosition();
+    const width = screen.clientWidth;
+    const height = screen.clientHeight;
+    if ((!controlPressed && !copied) || !range || !width || !height) {
+      svg.setAttribute("hidden", "");
+      tooltip.hidden = true;
+      return;
+    }
+
+    const viewportY = terminal.buffer.active.viewportY;
+    const firstRow = Math.max(range.start.y, viewportY);
+    const lastRow = Math.min(range.end.y, viewportY + terminal.rows - 1);
+    const cellWidth = width / terminal.cols;
+    const cellHeight = height / terminal.rows;
+    const columnStart = Math.min(range.start.x, range.end.x);
+    const columnEnd = Math.max(range.start.x, range.end.x);
+    const segments: string[] = [];
+    let anchorX = 0;
+    let anchorY = 0;
+
+    for (let row = firstRow; row <= lastRow; row++) {
+      const start = Math.max(0, columnSelection ? columnStart : row === range.start.y ? range.start.x : 0);
+      const end = Math.min(terminal.cols, columnSelection ? columnEnd : row === range.end.y ? range.end.x : terminal.cols);
+      if (end <= start) continue;
+
+      const x = start * cellWidth;
+      const y = (row - viewportY) * cellHeight;
+      const segmentWidth = (end - start) * cellWidth;
+      if (segments.length === 0) {
+        anchorX = x;
+        anchorY = y;
+      }
+      segments.push(`M${x} ${y}h${segmentWidth}v${cellHeight}h-${segmentWidth}Z`);
+    }
+
+    const visible = segments.length > 0;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    path.setAttribute("d", segments.join(""));
+    svg.toggleAttribute("hidden", !visible);
+    tooltip.hidden = !visible;
+    if (!visible) return;
+
+    const tooltipWidth = tooltip.offsetWidth;
+    const tooltipHeight = tooltip.offsetHeight;
+    const gap = 4;
+    const top = anchorY >= tooltipHeight + gap
+      ? anchorY - tooltipHeight - gap
+      : Math.min(height - tooltipHeight, anchorY + cellHeight + gap);
+    tooltip.style.left = `${Math.max(0, Math.min(anchorX, width - tooltipWidth))}px`;
+    tooltip.style.top = `${Math.max(0, top)}px`;
+  };
+  const scheduleRender = (): void => {
+    if (!frame) frame = requestAnimationFrame(render);
+  };
+
+  const setControlPressed = (pressed: boolean): void => {
+    if (controlPressed === pressed) return;
+    controlPressed = pressed;
+    scheduleRender();
+  };
+
+  terminalHost.addEventListener("pnex:copied", () => {
+    copied = true;
+    tooltipLabel.textContent = "copied!";
+    tooltip.classList.remove("selection-copy-tooltip-copied");
+    void tooltip.offsetWidth;
+    tooltip.classList.add("selection-copy-tooltip-copied");
+    scheduleRender();
+    window.clearTimeout(copiedTimer);
+    copiedTimer = window.setTimeout(() => {
+      copied = false;
+      tooltipLabel.textContent = "ctrl+intert";
+      tooltip.classList.remove("selection-copy-tooltip-copied");
+      scheduleRender();
+    }, 1_000);
+  });
+
+  screen.addEventListener("mousedown", (event) => {
+    columnSelection = event.altKey && event.detail === 1;
+    setControlPressed(event.ctrlKey);
+  }, { capture: true });
+  terminal.textarea?.addEventListener("keydown", () => {
+    columnSelection = false;
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Control") setControlPressed(true);
+  });
+  window.addEventListener("keyup", (event) => {
+    if (event.key === "Control") setControlPressed(false);
+  });
+  window.addEventListener("blur", () => setControlPressed(false));
+  terminal.onSelectionChange(scheduleRender);
+  terminal.onScroll(scheduleRender);
+  terminal.onResize(scheduleRender);
 }
 
 function loadWebglRenderer(terminal: Terminal): void {
@@ -278,6 +523,60 @@ function configuredTheme(value: unknown): TerminalTheme {
 
 function configuredCursorAnimation(value?: CursorAnimation): CursorAnimation {
   return value === "disabled" ? "disabled" : "liquid";
+}
+
+function configuredLiquidCursorSettings(
+  value?: Partial<LiquidCursorSettings>,
+): LiquidCursorSettings {
+  const clamp = (
+    candidate: unknown,
+    fallback: number,
+    maximum: number,
+    minimum = 0,
+  ): number => {
+    if (typeof candidate !== "number" || !Number.isFinite(candidate)) return fallback;
+    return Math.min(Math.max(Math.round(candidate), minimum), maximum);
+  };
+
+  return {
+    animationLength: clamp(
+      value?.animationLength,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.animationLength,
+      500,
+    ),
+    shortAnimationLength: clamp(
+      value?.shortAnimationLength,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.shortAnimationLength,
+      200,
+    ),
+    instantShortMoves: typeof value?.instantShortMoves === "boolean"
+      ? value.instantShortMoves
+      : DEFAULT_LIQUID_CURSOR_SETTINGS.instantShortMoves,
+    instantShortMoveDistance: clamp(
+      value?.instantShortMoveDistance,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.instantShortMoveDistance,
+      5,
+      1,
+    ),
+    instantShortMoveDelay: clamp(
+      value?.instantShortMoveDelay,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.instantShortMoveDelay,
+      100,
+    ),
+    trailSize: clamp(value?.trailSize, DEFAULT_LIQUID_CURSOR_SETTINGS.trailSize, 100),
+    typingOverlay: typeof value?.typingOverlay === "boolean"
+      ? value.typingOverlay
+      : DEFAULT_LIQUID_CURSOR_SETTINGS.typingOverlay,
+    inputShadow: typeof value?.inputShadow === "boolean"
+      ? value.inputShadow
+      : DEFAULT_LIQUID_CURSOR_SETTINGS.inputShadow,
+    inputShadowOpacity: clamp(
+      value?.inputShadowOpacity,
+      DEFAULT_LIQUID_CURSOR_SETTINGS.inputShadowOpacity,
+      100,
+      10,
+    ),
+  };
 }
 
 function toXtermTheme(theme: TerminalTheme, cursorAnimation: CursorAnimation) {
@@ -320,6 +619,7 @@ function applyTheme(theme: TerminalTheme): void {
   root.setProperty("--terminal-blue", theme.blue);
   root.setProperty("--terminal-white", theme.white);
   root.setProperty("--terminal-cursor", theme.cursor);
+  root.setProperty("--terminal-selection", theme.selection);
 }
 
 function currentSize(terminal: Terminal): TerminalSize {
@@ -344,29 +644,32 @@ function binaryStringToBytes(data: string): Uint8Array {
   return Uint8Array.from(data, (character) => character.charCodeAt(0));
 }
 
-function writeTerminalOutput(terminal: Terminal, data: Uint8Array): void {
-  terminal.write(data);
+function writeTerminalOutput(
+  terminal: Terminal,
+  inputShadow: InputShadow,
+  data: Uint8Array,
+): void {
+  const shadowRevision = inputShadow.currentRevision();
+  terminal.write(data, () => inputShadow.clearIfRevision(shadowRevision));
 }
 
-async function connectTerminal(terminal: Terminal): Promise<void> {
+async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Promise<void> {
   const output = new Channel<ArrayBuffer>();
-  output.onmessage = (data) => writeTerminalOutput(terminal, new Uint8Array(data));
+  output.onmessage = (data) => writeTerminalOutput(terminal, inputShadow, new Uint8Array(data));
 
   await Promise.all([
     listen<TerminalExit>("terminal:exit", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
         activeSessionId = null;
-        commandRunning = false;
-        progressRunning = false;
-        updateTerminalRunningState();
+        oscProgressRunning = false;
+        clearTitleProgress();
         showError("A sessão do terminal foi encerrada.");
       }
     }),
     listen<TerminalError>("terminal:error", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
-        commandRunning = false;
-        progressRunning = false;
-        updateTerminalRunningState();
+        oscProgressRunning = false;
+        clearTitleProgress();
         showError(`Erro do terminal: ${payload.message}`);
       }
     }),
@@ -377,10 +680,24 @@ async function connectTerminal(terminal: Terminal): Promise<void> {
     output,
   });
   activeSessionId = started.sessionId;
+  pendingStartupCommand = started.startupCommand ?? null;
+  runPendingStartupCommand(terminal);
   terminal.focus();
 }
 
-function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: LiquidCursor): void {
+function runPendingStartupCommand(terminal: Terminal): void {
+  if (!acceptingShellCommand || activeSessionId === null || !pendingStartupCommand) return;
+  const command = pendingStartupCommand;
+  pendingStartupCommand = null;
+  terminal.input(`${command}\r`);
+}
+
+function setupTerminal(
+  terminal: Terminal,
+  fitAddon: FitAddon,
+  liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
+): void {
   let queuedPtyResize: TerminalSize | null = null;
   let ptyResizeInFlight = false;
   let resizeTimer: number | null = null;
@@ -408,26 +725,26 @@ function setupTerminal(terminal: Terminal, fitAddon: FitAddon, liquidCursor: Liq
   setupPromptHud(terminal);
   terminal.onTitleChange((title) => {
     shellTitle = title.trim() || null;
+    trackAgentTitleProgress(title);
     updateWindowTitle();
   });
   terminal.parser.registerOscHandler(9, (payload) => {
     const [command, state] = payload.split(";", 3);
     if (command !== "4") return false;
 
-    // OSC 9;4 is the Windows Terminal/ConEmu progress protocol.
-    progressRunning = state === "1" || state === "3";
+    // Pi emits state 3 on agent_start and state 0 on agent_end.
+    oscProgressRunning = state === "1" || state === "3";
     updateTerminalRunningState();
     return true;
   });
   terminal.onData((data) => {
-    liquidCursor.wake();
-    const submitted = /\r|\n/.test(data);
-    trackCommand(data);
+    liquidCursor.pulseTyping();
+    inputShadow.show(data);
+    const submittedCommand = acceptingShellCommand ? trackCommand(data) : null;
 
-    if (submitted) {
-      commandRunning = true;
-      updateTerminalRunningState();
-      updateWindowTitle(true);
+    if (submittedCommand !== null) {
+      acceptingShellCommand = false;
+      updateWindowTitle(true, submittedCommand);
 
       if (activeHud) {
         activeHud.status = "running";
@@ -476,12 +793,15 @@ function setupPromptHud(terminal: Terminal): void {
       pendingExitCode = Number.isFinite(exitCode) ? exitCode : 1;
     } else if (key === "cwd") {
       finalizePromptHud();
-      commandRunning = false;
-      updateTerminalRunningState();
+      oscProgressRunning = false;
+      clearTitleProgress();
       currentCwd = value;
       activeHud = createPromptHud(terminal, value);
-      lastCommand = "";
+      inputBuffer = "";
+      inEscapeSequence = false;
+      acceptingShellCommand = true;
       updateWindowTitle();
+      runPendingStartupCommand(terminal);
     }
     return true;
   });
@@ -638,17 +958,24 @@ function formatCommandTime(hud: PromptHud): string | null {
   return minutes > 0 ? `${minutes}m and ${seconds % 60}s` : `(${seconds}s and ${elapsed % 1_000}ms)`;
 }
 
-function trackCommand(data: string): void {
+function trackCommand(data: string): string | null {
   for (const character of data) {
     if (inEscapeSequence) {
-      if (character >= "A" && character <= "z") inEscapeSequence = false;
+      if (character === "\x7f") {
+        inputBuffer = inputBuffer.trimEnd().replace(/\S+$/, "");
+        inEscapeSequence = false;
+      } else if (character >= "A" && character <= "z") {
+        inEscapeSequence = false;
+      }
       continue;
     }
     if (character === "\x1b") {
       inEscapeSequence = true;
     } else if (character === "\r" || character === "\n") {
-      lastCommand = inputBuffer.trim();
+      const command = inputBuffer.trim();
+      if (command) lastCommand = command;
       inputBuffer = "";
+      return command;
     } else if (character === "\x03" || character === "\x15") {
       inputBuffer = "";
     } else if (character === "\x7f" || character === "\b") {
@@ -657,6 +984,7 @@ function trackCommand(data: string): void {
       inputBuffer += character;
     }
   }
+  return null;
 }
 
 function focusPreviousPromptHud(terminal: Terminal): boolean {
@@ -680,6 +1008,7 @@ function focusPreviousPromptHud(terminal: Terminal): boolean {
 async function copyTerminal(terminal: Terminal): Promise<void> {
   if (terminal.hasSelection()) {
     await navigator.clipboard.writeText(terminal.getSelection());
+    terminal.element?.dispatchEvent(new Event("pnex:copied"));
   }
 }
 
@@ -699,9 +1028,29 @@ function setupShortcuts(terminal: Terminal): void {
       return true;
     }
 
+    if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      const sequence = event.key === "PageUp"
+        ? "\x1b[5;3~"
+        : event.key === "PageDown"
+          ? "\x1b[6;3~"
+          : undefined;
+
+      if (sequence) {
+        event.preventDefault();
+        terminal.input(sequence);
+        return false;
+      }
+    }
+
     if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       sendTerminalInput("\n");
+      return false;
+    }
+
+    if (event.key === "Backspace" && event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      terminal.input("\x1b\x7f");
       return false;
     }
 
@@ -725,6 +1074,14 @@ function setupShortcuts(terminal: Terminal): void {
           showError(`Não foi possível copiar: ${String(error)}`);
         });
         return false;
+      case "insert":
+        event.preventDefault();
+        if (terminal.hasSelection()) {
+          void copyTerminal(terminal).catch((error: unknown) => {
+            showError(`Não foi possível copiar: ${String(error)}`);
+          });
+        }
+        return false;
       default:
         return true;
     }
@@ -746,6 +1103,9 @@ function setupShortcuts(terminal: Terminal): void {
 function closeMenu(): void {
   menuPopup.hidden = true;
   menuPopup.replaceChildren();
+  document.querySelectorAll(".menu-trigger").forEach((trigger) => {
+    trigger.setAttribute("aria-expanded", "false");
+  });
 }
 
 function menuItems(menuName: string, config: AppConfig): MenuItem[] {
@@ -754,6 +1114,11 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
       return [
         { label: "New Window", action: "new-window" },
         { label: "New Window Here", action: "new-window-here", disabled: !currentCwd },
+        {
+          label: "New Window Here Command",
+          action: "new-window-here-command",
+          disabled: !currentCwd || !lastCommand,
+        },
         { label: "Close App", action: "close-app" },
       ];
     case "options": {
@@ -761,7 +1126,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
       return [
         { label: "Options JSON", action: "open-config" },
         { separator: true },
-        { label: "Themes", disabled: true },
+        { label: "Themes", heading: true },
         ...builtinThemes.map((theme) => ({
           label: theme.name,
           action: "set-theme" as const,
@@ -769,21 +1134,9 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
           checked: theme.name === selectedTheme.name,
         })),
         { separator: true },
-        { label: "Cursor Animation", disabled: true },
-        {
-          label: "Liquid",
-          action: "set-cursor-animation",
-          cursorAnimation: "liquid",
-          checked: configuredCursorAnimation(config.cursorAnimation) === "liquid",
-        },
-        {
-          label: "Disabled",
-          action: "set-cursor-animation",
-          cursorAnimation: "disabled",
-          checked: configuredCursorAnimation(config.cursorAnimation) === "disabled",
-        },
+        { label: "Liquid Cursor…", action: "open-liquid-cursor" },
         { separator: true },
-        { label: "UI Themes", disabled: true },
+        { label: "UI Themes", heading: true },
         {
           label: "Default Theme",
           action: "set-ui-theme",
@@ -815,7 +1168,6 @@ async function runMenuAction(
   liquidCursor: LiquidCursor,
   theme?: TerminalTheme,
   uiThemeName?: string,
-  cursorAnimation?: CursorAnimation,
 ): Promise<void> {
   switch (action) {
     case "new-window":
@@ -824,8 +1176,14 @@ async function runMenuAction(
     case "new-window-here":
       await invoke("new_window", { inheritedDirectory: currentCwd });
       return;
+    case "new-window-here-command":
+      await invoke("new_window", {
+        inheritedDirectory: currentCwd,
+        inheritedCommand: lastCommand,
+      });
+      return;
     case "close-app":
-      await invoke("close_app");
+      await invoke("request_close_app");
       return;
     case "open-config":
       await invoke("open_config");
@@ -843,7 +1201,7 @@ async function runMenuAction(
       if (!theme) return;
       config.theme = theme;
       terminal.options.theme = toXtermTheme(theme, configuredCursorAnimation(config.cursorAnimation));
-      liquidCursor.setColor(theme.cursor);
+      liquidCursor.setColors(theme.cursor, theme.brightBlue);
       applyTheme(theme);
       await invoke("save_config", { config });
       return;
@@ -852,22 +1210,258 @@ async function runMenuAction(
       applyUiTheme(config.uiThemeName);
       await invoke("save_config", { config });
       return;
-    case "set-cursor-animation": {
-      const nextAnimation = configuredCursorAnimation(cursorAnimation);
-      config.cursorAnimation = nextAnimation;
-      liquidCursor.setMode(nextAnimation);
-      terminal.options.cursorBlink = nextAnimation === "disabled";
-      terminal.options.cursorInactiveStyle = nextAnimation === "disabled" ? "outline" : "none";
-      terminal.options.theme = toXtermTheme(configuredTheme(config.theme), nextAnimation);
-      await invoke("save_config", { config });
+    case "open-liquid-cursor":
+      showLiquidCursorPanel();
       return;
-    }
     case "toggle-devtools":
       await invoke("toggle_devtools");
       return;
     case "about":
       window.alert("pnex\nTerminal workspace");
   }
+}
+
+function applyCursorAnimation(
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+  animation: CursorAnimation,
+): void {
+  config.cursorAnimation = animation;
+  liquidCursor.setMode(animation);
+  terminal.options.cursorBlink = animation === "disabled";
+  terminal.options.cursorInactiveStyle = animation === "disabled" ? "outline" : "none";
+  terminal.options.theme = toXtermTheme(configuredTheme(config.theme), animation);
+}
+
+function positionLiquidCursorPanel(panel: HTMLElement): void {
+  const trigger = document.querySelector<HTMLButtonElement>('.menu-trigger[data-menu="options"]');
+  const triggerBounds = trigger?.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(triggerBounds?.left ?? 8, 8),
+    Math.max(window.innerWidth - panel.offsetWidth - 8, 8),
+  );
+  panel.style.left = `${left}px`;
+  panel.style.top = `${triggerBounds?.bottom ?? 34}px`;
+}
+
+function showLiquidCursorPanel(): void {
+  const panel = requiredElement("#liquid-cursor-panel");
+  panel.hidden = false;
+  positionLiquidCursorPanel(panel);
+  requiredElement("#liquid-cursor-enabled").focus();
+}
+
+function setupLiquidCursorPanel(
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
+): void {
+  const panel = requiredElement("#liquid-cursor-panel");
+  const close = requiredElement("#liquid-cursor-close");
+  const reset = requiredElement("#liquid-cursor-reset") as HTMLButtonElement;
+  const enabled = requiredElement("#liquid-cursor-enabled") as HTMLInputElement;
+  const controls = requiredElement("#liquid-cursor-controls");
+  const overlayEnabled = requiredElement("#liquid-cursor-overlay-enabled") as HTMLInputElement;
+  const animationLength = requiredElement("#liquid-cursor-animation-length") as HTMLInputElement;
+  const shortAnimationLength = requiredElement(
+    "#liquid-cursor-short-animation-length",
+  ) as HTMLInputElement;
+  const instantShortMoves = requiredElement(
+    "#liquid-cursor-instant-short-moves",
+  ) as HTMLInputElement;
+  const instantShortMoveDistance = requiredElement(
+    "#liquid-cursor-instant-short-move-distance",
+  ) as HTMLInputElement;
+  const instantShortMoveDelay = requiredElement(
+    "#liquid-cursor-instant-short-move-delay",
+  ) as HTMLInputElement;
+  const trail = requiredElement("#liquid-cursor-trail") as HTMLInputElement;
+  const shadowControls = requiredElement("#input-shadow-controls");
+  const shadowEnabled = requiredElement("#input-shadow-enabled") as HTMLInputElement;
+  const shadowOpacity = requiredElement("#input-shadow-opacity") as HTMLInputElement;
+  const settings = configuredLiquidCursorSettings(config.liquidCursor);
+  config.liquidCursor = settings;
+
+  const persist = (): void => {
+    const cursorAnimation = configuredCursorAnimation(config.cursorAnimation);
+    const liquidCursorSettings = configuredLiquidCursorSettings(config.liquidCursor);
+    const save = liquidCursorSaveQueue
+      .catch(() => undefined)
+      .then(() => invoke<void>("save_liquid_cursor", {
+        cursorAnimation,
+        liquidCursor: liquidCursorSettings,
+      }));
+    liquidCursorSaveQueue = save;
+    void save.catch((error: unknown) => {
+      showError(`Não foi possível salvar o Liquid Cursor: ${String(error)}`);
+    });
+  };
+  const syncSettingsControls = (nextSettings: LiquidCursorSettings): void => {
+    overlayEnabled.checked = nextSettings.typingOverlay;
+    animationLength.value = String(nextSettings.animationLength);
+    shortAnimationLength.value = String(nextSettings.shortAnimationLength);
+    instantShortMoves.checked = nextSettings.instantShortMoves;
+    instantShortMoveDistance.value = String(nextSettings.instantShortMoveDistance);
+    instantShortMoveDelay.value = String(nextSettings.instantShortMoveDelay);
+    trail.value = String(nextSettings.trailSize);
+    shadowEnabled.checked = nextSettings.inputShadow;
+    shadowOpacity.value = String(nextSettings.inputShadowOpacity);
+  };
+  const syncEnabledState = (): void => {
+    const disabled = !enabled.checked;
+    overlayEnabled.disabled = disabled;
+    instantShortMoves.disabled = disabled;
+    animationLength.disabled = disabled;
+    trail.disabled = disabled;
+    controls.setAttribute("aria-disabled", String(disabled));
+    syncInstantShortMovesState();
+  };
+  const syncInstantShortMovesState = (): void => {
+    const disabled = !enabled.checked || !instantShortMoves.checked;
+    shortAnimationLength.disabled = disabled;
+    instantShortMoveDistance.disabled = disabled;
+    instantShortMoveDelay.disabled = disabled;
+  };
+  const syncShadowState = (): void => {
+    const disabled = !shadowEnabled.checked;
+    shadowOpacity.disabled = disabled;
+    shadowControls.setAttribute("aria-disabled", String(disabled));
+  };
+  const applySettings = (): void => {
+    const nextSettings = configuredLiquidCursorSettings({
+      animationLength: Number(animationLength.value),
+      shortAnimationLength: Number(shortAnimationLength.value),
+      instantShortMoves: instantShortMoves.checked,
+      instantShortMoveDistance: Number(instantShortMoveDistance.value),
+      instantShortMoveDelay: Number(instantShortMoveDelay.value),
+      trailSize: Number(trail.value),
+      typingOverlay: overlayEnabled.checked,
+      inputShadow: shadowEnabled.checked,
+      inputShadowOpacity: Number(shadowOpacity.value),
+    });
+    config.liquidCursor = nextSettings;
+    liquidCursor.setSettings(nextSettings);
+    inputShadow.setSettings(nextSettings);
+  };
+  const hidePanel = (restoreTerminalFocus: boolean): void => {
+    panel.hidden = true;
+    if (restoreTerminalFocus) terminal.focus();
+  };
+
+  syncSettingsControls(settings);
+  enabled.checked = configuredCursorAnimation(config.cursorAnimation) === "liquid";
+  syncEnabledState();
+  syncShadowState();
+  enabled.addEventListener("change", () => {
+    applyCursorAnimation(
+      terminal,
+      config,
+      liquidCursor,
+      enabled.checked ? "liquid" : "disabled",
+    );
+    syncEnabledState();
+    persist();
+  });
+  overlayEnabled.addEventListener("change", () => {
+    applySettings();
+    persist();
+  });
+  instantShortMoves.addEventListener("change", () => {
+    applySettings();
+    syncInstantShortMovesState();
+    persist();
+  });
+  shadowEnabled.addEventListener("change", () => {
+    applySettings();
+    syncShadowState();
+    persist();
+  });
+  shadowOpacity.addEventListener("input", applySettings);
+  shadowOpacity.addEventListener("change", persist);
+  for (const slider of [
+    animationLength,
+    shortAnimationLength,
+    instantShortMoveDistance,
+    instantShortMoveDelay,
+    trail,
+  ]) {
+    slider.addEventListener("input", applySettings);
+    slider.addEventListener("change", persist);
+  }
+  reset.addEventListener("click", () => {
+    const defaultSettings = configuredLiquidCursorSettings(DEFAULT_LIQUID_CURSOR_SETTINGS);
+    config.liquidCursor = defaultSettings;
+    syncSettingsControls(defaultSettings);
+    enabled.checked = true;
+    liquidCursor.setSettings(defaultSettings);
+    inputShadow.setSettings(defaultSettings);
+    applyCursorAnimation(terminal, config, liquidCursor, "liquid");
+    syncEnabledState();
+    syncShadowState();
+    persist();
+  });
+  close.addEventListener("click", () => hidePanel(true));
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const focusable = [...panel.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled])',
+    )];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  const synchronizeLiquidCursorConfig = (
+    cursorAnimation: CursorAnimation | undefined,
+    liquidCursorSettings?: Partial<LiquidCursorSettings>,
+  ): void => {
+    const nextSettings = configuredLiquidCursorSettings(liquidCursorSettings);
+    const nextAnimation = configuredCursorAnimation(cursorAnimation);
+    config.liquidCursor = nextSettings;
+    syncSettingsControls(nextSettings);
+    enabled.checked = nextAnimation === "liquid";
+    liquidCursor.setSettings(nextSettings);
+    inputShadow.setSettings(nextSettings);
+    applyCursorAnimation(terminal, config, liquidCursor, nextAnimation);
+    syncEnabledState();
+    syncShadowState();
+  };
+  void listen<LiquidCursorConfigChanged>(
+    "liquid-cursor-config-changed",
+    ({ payload }) => {
+      if (payload.sourceWindow === appWindow.label) return;
+      synchronizeLiquidCursorConfig(payload.cursorAnimation, payload.liquidCursor);
+    },
+  ).then(async () => {
+    const latestConfig = await invoke<AppConfig>("get_config");
+    synchronizeLiquidCursorConfig(latestConfig.cursorAnimation, latestConfig.liquidCursor);
+  }).catch((error: unknown) => {
+    console.warn("Could not synchronize Liquid Cursor settings.", error);
+  });
+  document.addEventListener("click", (event) => {
+    if (
+      panel.hidden
+      || !(event.target instanceof Node)
+      || menuPopup.contains(event.target)
+      || panel.contains(event.target)
+    ) return;
+    hidePanel(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) hidePanel(true);
+  });
+  window.addEventListener("resize", () => {
+    if (!panel.hidden) positionLiquidCursorPanel(panel);
+  });
 }
 
 function openMenu(
@@ -887,14 +1481,16 @@ function openMenu(
     if (item.separator) {
       const separator = document.createElement("div");
       separator.className = "menu-separator";
+      separator.setAttribute("role", "separator");
       menuPopup.append(separator);
       continue;
     }
 
     if (!item.label) continue;
-    if (item.disabled) {
+    if (item.heading) {
       const label = document.createElement("div");
       label.className = "menu-label";
+      label.setAttribute("role", "presentation");
       label.textContent = item.label;
       menuPopup.append(label);
       continue;
@@ -905,6 +1501,8 @@ function openMenu(
     const button = document.createElement("button");
     button.className = "menu-item";
     button.type = "button";
+    button.disabled = item.disabled ?? false;
+    button.setAttribute("role", "menuitem");
     button.textContent = item.checked ? `✓ ${item.label}` : item.label;
     if (item.hint) {
       const hint = document.createElement("span");
@@ -912,7 +1510,8 @@ function openMenu(
       hint.textContent = item.hint;
       button.append(hint);
     }
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
       closeMenu();
       void runMenuAction(
         action,
@@ -921,7 +1520,6 @@ function openMenu(
         liquidCursor,
         item.theme,
         item.uiThemeName,
-        item.cursorAnimation,
       ).catch((error: unknown) => {
         showError(`Não foi possível executar a ação: ${String(error)}`);
       });
@@ -929,15 +1527,25 @@ function openMenu(
     menuPopup.append(button);
   }
 
+  document.querySelectorAll(".menu-trigger").forEach((item) => {
+    item.setAttribute("aria-expanded", String(item === trigger));
+  });
   const bounds = trigger.getBoundingClientRect();
   menuPopup.style.left = `${bounds.left}px`;
-  menuPopup.style.top = `${bounds.bottom}px`;
+  menuPopup.style.top = `${bounds.bottom - 1}px`;
   menuPopup.hidden = false;
 }
 
-function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: LiquidCursor): void {
+function setupTitlebar(
+  terminal: Terminal,
+  config: AppConfig,
+  liquidCursor: LiquidCursor,
+  inputShadow: InputShadow,
+): () => void {
+  setupLiquidCursorPanel(terminal, config, liquidCursor, inputShadow);
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
+  const titlebarIcon = requiredElement("#titlebar-icon");
   const titlebarToggle = requiredElement("#titlebar-toggle") as HTMLButtonElement;
   const titlebarMenu = requiredElement("#titlebar-menu");
   const minimize = requiredElement("#window-minimize");
@@ -947,6 +1555,22 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
   titlebar.addEventListener("mousedown", (event) => {
     if (event.buttons !== 1) return;
     if (event.target instanceof Element && event.target.closest("button")) return;
+
+    if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      event.preventDefault();
+      if (!currentCwd) {
+        showError("Não foi possível clonar a janela antes de detectar o diretório atual.");
+        return;
+      }
+
+      void invoke("new_window", {
+        inheritedDirectory: currentCwd,
+        dragPosition: { x: event.screenX, y: event.screenY },
+      }).catch((error: unknown) => {
+        showError(`Não foi possível clonar a janela: ${String(error)}`);
+      });
+      return;
+    }
 
     if (event.detail === 2) {
       void appWindow.toggleMaximize();
@@ -960,29 +1584,40 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
 
   const closeTitlebarMenu = (): void => {
     const titleWasHidden = titlebarTitle.hidden;
+    titlebarIcon.setAttribute("hidden", "");
     titlebarMenu.hidden = true;
+    titlebarToggle.hidden = false;
     titlebarTitle.hidden = false;
     if (titleWasHidden) animateTitlebarTitle();
     titlebarToggle.setAttribute("aria-expanded", "false");
-    titlebarToggle.setAttribute("aria-label", "Mostrar menus");
+  };
+  const showTitlebarMenu = (): void => {
+    requiredElement("#liquid-cursor-panel").hidden = true;
+    titlebarIcon.removeAttribute("hidden");
+    titlebarMenu.hidden = false;
+    titlebarToggle.hidden = true;
+    titlebarTitle.hidden = true;
+    titlebarToggle.setAttribute("aria-expanded", "true");
   };
 
   titlebarToggle.addEventListener("click", (event) => {
     event.stopPropagation();
-    const willExpand = titlebarMenu.hidden;
-    titlebarMenu.hidden = !willExpand;
-    titlebarTitle.hidden = willExpand;
-    titlebarToggle.setAttribute("aria-expanded", String(willExpand));
-    titlebarToggle.setAttribute("aria-label", willExpand ? "Ocultar menus" : "Mostrar menus");
-    if (!willExpand) closeMenu();
+    showTitlebarMenu();
+    triggers[0]?.focus();
   });
 
   triggers.forEach((trigger) => {
     trigger.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (!menuPopup.hidden) {
+      requiredElement("#liquid-cursor-panel").hidden = true;
+      if (trigger.getAttribute("aria-expanded") === "true") {
         closeMenu();
       } else {
+        openMenu(trigger, terminal, config, liquidCursor);
+      }
+    });
+    trigger.addEventListener("mouseenter", () => {
+      if (!menuPopup.hidden && trigger.getAttribute("aria-expanded") !== "true") {
         openMenu(trigger, terminal, config, liquidCursor);
       }
     });
@@ -992,11 +1627,59 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
     closeMenu();
     if (event.target instanceof Node && !titlebar.contains(event.target)) closeTitlebarMenu();
   });
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
+  document.addEventListener("focusin", (event) => {
+    if (
+      titlebarMenu.hidden
+      || !(event.target instanceof Node)
+      || titlebarMenu.contains(event.target)
+      || menuPopup.contains(event.target)
+    ) return;
+
     closeMenu();
     closeTitlebarMenu();
   });
+  window.addEventListener("blur", () => {
+    closeMenu();
+    closeTitlebarMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !menuPopup.hidden) {
+      const items = [...menuPopup.querySelectorAll<HTMLButtonElement>(".menu-item:not(:disabled)")];
+      if (items.length === 0) return;
+      const current = items.indexOf(document.activeElement as HTMLButtonElement);
+      const offset = event.key === "ArrowDown" ? 1 : -1;
+      const next = current < 0
+        ? (offset > 0 ? 0 : items.length - 1)
+        : (current + offset + items.length) % items.length;
+      event.preventDefault();
+      items[next]?.focus();
+      return;
+    }
+    if (event.key !== "Escape") return;
+    closeMenu();
+    closeTitlebarMenu();
+    terminal.focus();
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Alt") {
+      event.preventDefault();
+      return;
+    }
+    if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
+
+    const trigger = document.querySelector<HTMLButtonElement>(
+      `.menu-trigger[data-menu="${({ f: "file", o: "options", e: "edit", h: "help" } as const)[event.key.toLowerCase() as "f" | "o" | "e" | "h"] ?? ""}"]`,
+    );
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    showTitlebarMenu();
+    openMenu(trigger, terminal, config, liquidCursor);
+    trigger.focus();
+  }, true);
+  window.addEventListener("keyup", (event) => {
+    if (event.key === "Alt") event.preventDefault();
+  }, true);
 
   minimize.addEventListener("click", () => {
     void appWindow.minimize();
@@ -1016,24 +1699,56 @@ function setupTitlebar(terminal: Terminal, config: AppConfig, liquidCursor: Liqu
   void appWindow.onResized(() => {
     void updateMaximizeGlyph();
   });
+
+  return () => {
+    requiredElement("#liquid-cursor-panel").hidden = true;
+    closeMenu();
+    closeTitlebarMenu();
+    terminal.focus();
+  };
+}
+
+async function setupCloseAfterCursorSave(): Promise<void> {
+  await Promise.all([
+    appWindow.onCloseRequested((event) => {
+      event.preventDefault();
+      if (closingAfterCursorSave) return;
+      closingAfterCursorSave = true;
+      void liquidCursorSaveQueue
+        .then(() => appWindow.destroy())
+        .catch((error: unknown) => {
+          closingAfterCursorSave = false;
+          showError(`Não foi possível fechar a janela: ${String(error)}`);
+        });
+    }),
+    listen("app-close-requested", () => {
+      void liquidCursorSaveQueue
+        .then(() => invoke("confirm_app_close"))
+        .catch((error: unknown) => {
+          showError(`Não foi possível fechar o aplicativo: ${String(error)}`);
+        });
+    }),
+  ]);
 }
 
 async function bootstrap(): Promise<void> {
+  await setupCloseAfterCursorSave();
   setupLoadingScreenDragging();
   const config = await invoke<AppConfig>("get_config");
+  shellName = configuredShellName(config.shell);
   applyUiTheme(config.uiThemeName);
-  const { terminal, fitAddon, liquidCursor } = createTerminal(config);
+  const { terminal, fitAddon, liquidCursor, inputShadow } = createTerminal(config);
 
-  setupTerminal(terminal, fitAddon, liquidCursor);
-  setupTitlebar(terminal, config, liquidCursor);
-  await setupWindowHoverOverlay();
+  setupTerminal(terminal, fitAddon, liquidCursor, inputShadow);
+  const restoreTerminalFocus = setupTitlebar(terminal, config, liquidCursor, inputShadow);
+  await setupWindowHoverOverlay(restoreTerminalFocus);
 
   // The shell prompt is customized at startup and can redraw several times.
   // Keep it behind the loading screen until its first HUD arrives.
   const minimumLoadingDelay = new Promise<void>((resolve) => window.setTimeout(resolve, 1_500));
   window.setTimeout(revealTerminal, 3_000);
 
-  await connectTerminal(terminal);
+  await connectTerminal(terminal, inputShadow);
   await minimumLoadingDelay;
   dismissLoadingScreen();
   clearError();

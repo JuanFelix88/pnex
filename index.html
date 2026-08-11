@@ -12,12 +12,7 @@
       <div class="loading-corner loading-corner--bl"></div>
       <div class="loading-corner loading-corner--br"></div>
       <div class="loading-content">
-        <svg class="loading-logo" viewBox="0 0 170 213" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-          <path d="M73.9804 36.4176C106.182 36.4178 97.0992 36.4173 108.989 36.4176C128.144 38.3992 130.126 48.9679 130.126 48.9679C130.126 48.9679 132.768 60.8574 122.2 72.0867C89.8333 72.0867 52.8433 72.0867 52.8433 72.0867C52.8433 72.0867 57.467 56.8941 73.9804 36.4176Z" fill="currentColor" fill-opacity=".8" />
-          <path d="M43.5955 103.792H85.8699L42.2744 143.425C42.2744 143.425 45.6347 145.026 39.6323 143.425C40.2927 127.572 43.5955 103.792 43.5955 103.792Z" fill="currentColor" fill-opacity=".8" />
-          <path d="M111.631.0879c31.706.6605 44.916 20.4765 44.916 20.4765s33.027 35.5935-5.944 77.9435c-36.99 29.724-56.807 45.577-77.944 62.09-1.321 21.138 5.284 52.183-5.284 52.183H43.595l-3.963-33.688v-35.008l81.907-72c0 .001 26.421-30.384-12.55-35.668H73.98c5.284-6.605 15.853-18.495 15.853-18.495S101.062 8.014 111.631.088Z" fill="currentColor" fill-opacity=".95" />
-          <path d="M21.007.1S1.976-1.417.661 7.354c1.321 32.365-.661 204.766-.661 204.766s23.119.661 43.595.661C31.706 99.17 48.88 48.968 111.631.1 64.072.1 41.613.748 21.007.1Z" fill="currentColor" />
-        </svg>
+        <img class="loading-logo" src="/src/assets/pnex-icon.png" alt="" aria-hidden="true" />
         <div class="loading-brand">
           <span class="loading-brand-name">PNEX</span>
           <span class="loading-brand-sub">terminal · workspace</span>
@@ -27,22 +22,17 @@
     </div>
     <main id="app" aria-label="Terminal pnex">
       <header id="titlebar">
-        <svg id="titlebar-icon" role="img" aria-label="pnex" viewBox="0 0 170 213" xmlns="http://www.w3.org/2000/svg">
-          <path d="M73.9804 36.4176C106.182 36.4178 97.0992 36.4173 108.989 36.4176C128.144 38.3992 130.126 48.9679 130.126 48.9679C130.126 48.9679 132.768 60.8574 122.2 72.0867C89.8333 72.0867 52.8433 72.0867 52.8433 72.0867C52.8433 72.0867 57.467 56.8941 73.9804 36.4176Z" fill="currentColor" fill-opacity="0.8" />
-          <path d="M43.5955 103.792H85.8699L42.2744 143.425C42.2744 143.425 45.6347 145.026 39.6323 143.425C40.2927 127.572 43.5955 103.792 43.5955 103.792Z" fill="currentColor" fill-opacity="0.8" />
-          <path d="M111.631 0.0878906C143.337 0.748428 156.547 20.5645 156.547 20.5645C156.547 20.5645 189.574 56.2335 150.603 98.5079C113.612 128.232 93.7963 144.085 72.6592 160.598C71.3381 181.736 77.9435 212.781 67.3749 212.781H43.5955L39.6323 179.093V144.085L121.539 72.0864C121.539 72.0864 147.96 41.7017 108.989 36.4174C98.4201 36.4174 88.5121 36.4174 73.9802 36.4174C79.2645 29.8121 89.8331 17.9224 89.8331 17.9224C89.8331 17.9224 101.062 8.01433 111.631 0.0878906Z" fill="currentColor" fill-opacity="0.95" />
-          <path d="M21.0073 0.10017C21.0073 0.10017 1.97607 -1.41655 0.660537 7.35372C1.98176 39.7198 0 212.12 0 212.12C0 212.12 23.1188 212.781 43.5954 212.781C31.7058 99.1694 48.8797 48.9681 111.631 0.10017C64.0721 0.100231 41.6138 0.747823 21.0073 0.10017Z" fill="currentColor" />
-        </svg>
-        <button id="titlebar-toggle" type="button" aria-label="Mostrar menus" aria-expanded="false">
+        <img id="titlebar-icon" src="/src/assets/pnex-sphere-icon.png" alt="pnex" hidden />
+        <button id="titlebar-toggle" type="button" aria-label="Mostrar menus" aria-controls="titlebar-menu" aria-expanded="false">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
         </button>
         <div class="titlebar-start">
           <span id="titlebar-title" class="titlebar-title-enter">pnex</span>
-          <nav id="titlebar-menu" aria-label="Menu principal" hidden>
-            <button class="menu-trigger" data-menu="file" type="button">File</button>
-            <button class="menu-trigger" data-menu="options" type="button">Options</button>
-            <button class="menu-trigger" data-menu="edit" type="button">Edit</button>
-            <button class="menu-trigger" data-menu="help" type="button">Help</button>
+          <nav id="titlebar-menu" role="menubar" aria-label="Menu principal" hidden>
+            <button class="menu-trigger" data-menu="file" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">File</button>
+            <button class="menu-trigger" data-menu="options" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">Options</button>
+            <button class="menu-trigger" data-menu="edit" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">Edit</button>
+            <button class="menu-trigger" data-menu="help" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">Help</button>
           </nav>
           <div id="window-drag-region" aria-hidden="true"></div>
         </div>
@@ -52,7 +42,95 @@
           <button id="window-close" class="window-control window-control-close" type="button" aria-label="Fechar">×</button>
         </div>
       </header>
-      <div id="menu-popup" class="menu-popup" hidden></div>
+      <div id="menu-popup" class="menu-popup" role="menu" aria-label="Menu" hidden></div>
+      <section id="liquid-cursor-panel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="liquid-cursor-title" aria-describedby="liquid-cursor-description" hidden>
+        <div class="settings-panel-header">
+          <div>
+            <h2 id="liquid-cursor-title">Liquid Cursor</h2>
+            <p id="liquid-cursor-description">Tune how the cursor follows your flow.</p>
+          </div>
+          <button id="liquid-cursor-close" class="settings-panel-close" type="button" aria-label="Close Liquid Cursor settings">×</button>
+        </div>
+        <label class="settings-switch-row" for="liquid-cursor-enabled">
+          <span>
+            <strong>Liquid motion</strong>
+            <small>Bring movement to every keystroke</small>
+          </span>
+          <span class="settings-switch">
+            <input id="liquid-cursor-enabled" type="checkbox" role="switch" />
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
+        <div id="liquid-cursor-controls">
+          <label class="settings-switch-row settings-switch-row-secondary" for="liquid-cursor-overlay-enabled">
+            <span>
+              <strong>Typing accent</strong>
+              <small>Color pulse on every keystroke</small>
+            </span>
+            <span class="settings-switch">
+              <input id="liquid-cursor-overlay-enabled" type="checkbox" role="switch" />
+              <span aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="settings-switch-row settings-switch-row-secondary" for="liquid-cursor-instant-short-moves">
+            <span>
+              <strong>Instant short moves</strong>
+              <small>Snap nearby moves while keeping their trail</small>
+            </span>
+            <span class="settings-switch">
+              <input id="liquid-cursor-instant-short-moves" type="checkbox" role="switch" />
+              <span aria-hidden="true"></span>
+            </span>
+          </label>
+          <div class="settings-slider-group">
+            <label class="settings-slider" for="liquid-cursor-animation-length">
+              <strong>Animation length</strong>
+              <input id="liquid-cursor-animation-length" type="range" min="0" max="500" step="5" />
+              <span><small>Instant</small><small>Smooth</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-short-animation-length">
+              <strong>Short moves</strong>
+              <input id="liquid-cursor-short-animation-length" type="range" min="0" max="200" step="5" />
+              <span><small>Instant</small><small>Smooth</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-instant-short-move-distance">
+              <strong>Instant distance</strong>
+              <input id="liquid-cursor-instant-short-move-distance" type="range" min="1" max="5" step="1" />
+              <span><small>1 cell</small><small>5 cells</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-instant-short-move-delay">
+              <strong>Trail delay</strong>
+              <input id="liquid-cursor-instant-short-move-delay" type="range" min="0" max="100" step="5" />
+              <span><small>Instant</small><small>100 ms</small></span>
+            </label>
+            <label class="settings-slider" for="liquid-cursor-trail">
+              <strong>Smear trail</strong>
+              <input id="liquid-cursor-trail" type="range" min="0" max="100" step="1" />
+              <span><small>Compact</small><small>Maximum</small></span>
+            </label>
+          </div>
+        </div>
+        <div id="input-shadow-controls">
+          <label class="settings-switch-row settings-switch-row-secondary" for="input-shadow-enabled">
+            <span>
+              <strong>Input shadow</strong>
+              <small>Show local input before the PTY responds</small>
+            </span>
+            <span class="settings-switch">
+              <input id="input-shadow-enabled" type="checkbox" role="switch" />
+              <span aria-hidden="true"></span>
+            </span>
+          </label>
+          <div class="settings-slider-group">
+            <label class="settings-slider" for="input-shadow-opacity">
+              <strong>Shadow opacity</strong>
+              <input id="input-shadow-opacity" type="range" min="10" max="100" step="5" />
+              <span><small>Subtle</small><small>Solid</small></span>
+            </label>
+          </div>
+        </div>
+        <button id="liquid-cursor-reset" class="settings-reset" type="button">Reset default values</button>
+      </section>
       <section id="terminal-container" aria-label="Terminal interativo">
         <div id="terminal"></div>
         <div id="window-hover-overlay" aria-hidden="true" hidden>
@@ -62,5 +140,6 @@
       <div id="terminal-error" role="alert" hidden></div>
     </main>
     <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/window-loading.ts"></script>
   </body>
 </html>
