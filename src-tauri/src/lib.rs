@@ -1,6 +1,7 @@
 mod config;
 pub mod notification;
 mod pty;
+mod terminal_output;
 
 use config::{AppConfig, ConfigStore, CursorAnimation, LiquidCursorSettings};
 use notification::{Notification, NotificationSystem};
@@ -21,6 +22,7 @@ use tauri::{
     WindowEvent,
 };
 use tauri_plugin_opener::OpenerExt;
+use terminal_output::{PendingTerminalOutputs, TerminalOutput};
 
 static NEXT_WINDOW_ID: AtomicUsize = AtomicUsize::new(1);
 const CLONED_WINDOW_CURSOR_OFFSET_X: f64 = 15.0;
@@ -171,6 +173,33 @@ async fn show_notification(
 }
 
 #[tauri::command]
+async fn prepare_terminal_output(window: WebviewWindow, token: String) -> Result<bool, String> {
+    window
+        .state::<PendingTerminalOutputs>()
+        .remove(window.label(), None);
+    match terminal_output::prepare_shared_terminal_output(window.clone(), token.clone()).await {
+        Ok(Some(output)) => window
+            .state::<PendingTerminalOutputs>()
+            .insert(window.label().to_owned(), token, output)
+            .map(|_| true),
+        Ok(None) => Ok(false),
+        Err(error) => {
+            eprintln!("Shared terminal output unavailable: {error}");
+            Ok(false)
+        }
+    }
+}
+
+#[tauri::command]
+fn discard_terminal_output(
+    window: WebviewWindow,
+    outputs: State<'_, PendingTerminalOutputs>,
+    token: String,
+) {
+    outputs.remove(window.label(), Some(&token));
+}
+
+#[tauri::command]
 fn start_terminal(
     window: WebviewWindow,
     state: State<'_, PtyState>,
@@ -178,6 +207,7 @@ fn start_terminal(
     directories: State<'_, WindowStartDirectories>,
     size: TerminalSize,
     output: Channel<Response>,
+    output_transport_token: Option<String>,
 ) -> Result<TerminalStarted, String> {
     let config = config_store.get()?;
     let inherited = directories.take(window.label())?;
@@ -185,9 +215,18 @@ fn start_terminal(
         .as_ref()
         .map(|(directory, _)| directory.as_str())
         .unwrap_or(&config.start_directory);
+    let terminal_output = TerminalOutput::channel(output);
+    #[cfg(target_os = "windows")]
+    let terminal_output = window
+        .state::<PendingTerminalOutputs>()
+        .take(window.label(), output_transport_token.as_deref())
+        .map(TerminalOutput::shared)
+        .unwrap_or(terminal_output);
+    #[cfg(not(target_os = "windows"))]
+    let _ = output_transport_token;
     let mut started = state.start(
         window,
-        output,
+        terminal_output,
         size,
         &config.shell,
         start_directory,
@@ -605,6 +644,7 @@ pub fn run() {
             Ok(())
         })
         .manage(PtyState::default())
+        .manage(PendingTerminalOutputs::default())
         .manage(WindowStartDirectories::default())
         .manage(AppCloseState::default())
         .invoke_handler(tauri::generate_handler![
@@ -614,6 +654,8 @@ pub fn run() {
             set_window_loading,
             open_config,
             show_notification,
+            prepare_terminal_output,
+            discard_terminal_output,
             start_terminal,
             write_terminal,
             resize_terminal,
@@ -630,6 +672,9 @@ pub fn run() {
                 window
                     .state::<WindowStartDirectories>()
                     .remove(window.label());
+                window
+                    .state::<PendingTerminalOutputs>()
+                    .remove(window.label(), None);
                 let should_exit = window
                     .state::<AppCloseState>()
                     .0

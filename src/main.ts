@@ -14,6 +14,7 @@ import {
   type LiquidCursorSettings,
 } from "./liquid-cursor";
 import { notify as sendSystemNotification } from "./notifications";
+import { prepareSharedTerminalOutput, type SharedTerminalOutput } from "./terminal-output";
 import { builtinThemes, type TerminalTheme } from "./themes";
 import "./styles.css";
 
@@ -42,6 +43,7 @@ interface TerminalSize {
 interface TerminalStarted {
   sessionId: number;
   startupCommand?: string;
+  outputMode: "channel" | "shared";
 }
 
 interface TerminalExit {
@@ -124,6 +126,7 @@ let liquidCursorSaveQueue = Promise.resolve();
 let closingAfterCursorSave = false;
 let terminalConnectionVersion = 0;
 let resetSessionPromise: Promise<void> | null = null;
+let activeSharedTerminalOutput: SharedTerminalOutput | null = null;
 const promptHuds: PromptHud[] = [];
 
 interface PromptHud {
@@ -651,9 +654,13 @@ function writeTerminalOutput(
   terminal: Terminal,
   inputShadow: InputShadow,
   data: Uint8Array,
+  onProcessed?: () => void,
 ): void {
   const shadowRevision = inputShadow.currentRevision();
-  terminal.write(data, () => inputShadow.clearIfRevision(shadowRevision));
+  terminal.write(data, () => {
+    inputShadow.clearIfRevision(shadowRevision);
+    onProcessed?.();
+  });
 }
 
 async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Promise<void> {
@@ -665,10 +672,32 @@ async function connectTerminal(terminal: Terminal, inputShadow: InputShadow): Pr
     }
   };
 
-  const started = await invoke<TerminalStarted>("start_terminal", {
-    size: currentSize(terminal),
-    output,
-  });
+  const sharedOutput = await prepareSharedTerminalOutput(
+    (data, onProcessed) => {
+      if (connectionVersion === terminalConnectionVersion) {
+        writeTerminalOutput(terminal, inputShadow, data, onProcessed);
+      } else {
+        onProcessed();
+      }
+    },
+    showError,
+  );
+  let started: TerminalStarted;
+  try {
+    started = await invoke<TerminalStarted>("start_terminal", {
+      size: currentSize(terminal),
+      output,
+      outputTransportToken: sharedOutput?.token,
+    });
+  } catch (error: unknown) {
+    sharedOutput?.dispose();
+    throw error;
+  }
+  if (started.outputMode === "shared") {
+    activeSharedTerminalOutput = sharedOutput;
+  } else {
+    sharedOutput?.dispose();
+  }
   activeSessionId = started.sessionId;
   pendingStartupCommand = started.startupCommand ?? null;
   runPendingStartupCommand(terminal);
@@ -679,6 +708,9 @@ async function setupTerminalSessionEvents(): Promise<void> {
   await Promise.all([
     listen<TerminalExit>("terminal:exit", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
+        const sharedOutput = activeSharedTerminalOutput;
+        activeSharedTerminalOutput = null;
+        sharedOutput?.closeAfterDrain();
         activeSessionId = null;
         oscProgressRunning = false;
         clearTitleProgress();
@@ -700,6 +732,8 @@ async function resetTerminalSession(terminal: Terminal, inputShadow: InputShadow
 
   resetSessionPromise = (async () => {
     terminalConnectionVersion += 1;
+    activeSharedTerminalOutput?.dispose();
+    activeSharedTerminalOutput = null;
     activeSessionId = null;
     acceptingShellCommand = false;
     pendingStartupCommand = null;
@@ -1817,6 +1851,8 @@ async function bootstrap(): Promise<void> {
 }
 
 window.addEventListener("beforeunload", () => {
+  activeSharedTerminalOutput?.dispose();
+  activeSharedTerminalOutput = null;
   void invoke("stop_terminal");
 });
 

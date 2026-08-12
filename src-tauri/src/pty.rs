@@ -1,3 +1,4 @@
+use crate::terminal_output::TerminalOutput;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -10,10 +11,7 @@ use std::{
         Arc, Mutex,
     },
 };
-use tauri::{
-    ipc::{Channel, Response},
-    Emitter, EventTarget, WebviewWindow,
-};
+use tauri::{Emitter, EventTarget, WebviewWindow};
 
 const TERMINAL_EXIT_EVENT: &str = "terminal:exit";
 const TERMINAL_ERROR_EVENT: &str = "terminal:error";
@@ -30,6 +28,7 @@ pub struct TerminalStarted {
     pub session_id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) startup_command: Option<String>,
+    pub(crate) output_mode: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -54,6 +53,7 @@ struct ActiveTerminal {
     id: u64,
     io: Mutex<TerminalIo>,
     child: Mutex<Box<dyn Child + Send + Sync>>,
+    output: TerminalOutput,
 }
 
 #[derive(Clone, Default)]
@@ -66,7 +66,7 @@ impl PtyState {
     pub fn start(
         &self,
         window: WebviewWindow,
-        output: Channel<Response>,
+        output: TerminalOutput,
         size: TerminalSize,
         shell: &str,
         start_directory: &str,
@@ -105,14 +105,17 @@ impl PtyState {
                         writer,
                     }),
                     child: Mutex::new(child),
+                    output: output.clone(),
                 }),
             );
         }
 
+        let output_mode = output.mode().to_owned();
         self.spawn_reader(window, output, session_id, reader);
         Ok(TerminalStarted {
             session_id,
             startup_command: None,
+            output_mode,
         })
     }
 
@@ -136,6 +139,7 @@ impl PtyState {
             .ok()
             .and_then(|mut active| active.remove(window_label));
         if let Some(terminal) = terminal {
+            terminal.output.close();
             if let Ok(mut child) = terminal.child.lock() {
                 let _ = child.kill();
             }
@@ -154,7 +158,7 @@ impl PtyState {
     fn spawn_reader(
         &self,
         window: WebviewWindow,
-        output: Channel<Response>,
+        output: TerminalOutput,
         session_id: u64,
         mut reader: Box<dyn Read + Send>,
     ) {
@@ -172,8 +176,19 @@ impl PtyState {
                             return;
                         }
 
-                        let data = buffer[..length].to_vec();
-                        let _ = output.send(Response::new(data));
+                        if let Err(error) = output.send(&buffer[..length]) {
+                            if state.is_current(&window_label, session_id) {
+                                let _ = window.emit_to(
+                                    EventTarget::webview_window(window.label()),
+                                    TERMINAL_ERROR_EVENT,
+                                    TerminalError {
+                                        session_id,
+                                        message: error,
+                                    },
+                                );
+                            }
+                            break;
+                        }
                     }
                     Err(error) => {
                         if state.is_current(&window_label, session_id) {
