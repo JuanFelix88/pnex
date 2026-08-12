@@ -122,7 +122,10 @@ impl PtyState {
     pub fn write(&self, window_label: &str, data: &[u8]) -> Result<(), String> {
         let terminal = self.terminal(window_label)?;
         let mut io = terminal.io.lock().map_err(session_lock_error)?;
-        io.writer.write_all(data).map_err(display_error)
+        io.writer
+            .write_all(data)
+            .and_then(|_| io.writer.flush())
+            .map_err(display_error)
     }
 
     pub fn resize(&self, window_label: &str, size: TerminalSize) -> Result<(), String> {

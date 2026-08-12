@@ -172,7 +172,7 @@ function setupLoadingScreenDragging(): void {
     if (event.button !== 0) return;
 
     void appWindow.startDragging().catch((error: unknown) => {
-      showError(`Não foi possível mover a janela: ${String(error)}`);
+      showError(`Could not move the window: ${String(error)}`);
     });
   });
 }
@@ -636,13 +636,21 @@ function currentSize(terminal: Terminal): TerminalSize {
 }
 
 const terminalInputEncoder = new TextEncoder();
+let terminalInputQueue = Promise.resolve();
 
 function sendTerminalInput(data: string | Uint8Array): void {
-  if (activeSessionId === null) return;
+  const sessionId = activeSessionId;
+  if (sessionId === null) return;
 
   const bytes = typeof data === "string" ? terminalInputEncoder.encode(data) : data;
-  void invoke("write_terminal", bytes.buffer as ArrayBuffer).catch((error: unknown) => {
-    showError(`Não foi possível enviar dados ao terminal: ${String(error)}`);
+  terminalInputQueue = terminalInputQueue.then(async () => {
+    if (activeSessionId !== sessionId) return;
+
+    try {
+      await invoke("write_terminal", bytes.buffer as ArrayBuffer);
+    } catch (error: unknown) {
+      showError(`Could not send data to the terminal: ${String(error)}`);
+    }
   });
 }
 
@@ -714,14 +722,14 @@ async function setupTerminalSessionEvents(): Promise<void> {
         activeSessionId = null;
         oscProgressRunning = false;
         clearTitleProgress();
-        showError("A sessão do terminal foi encerrada.");
+        showError("The terminal session has ended.");
       }
     }),
     listen<TerminalError>("terminal:error", ({ payload }) => {
       if (payload.sessionId === activeSessionId) {
         oscProgressRunning = false;
         clearTitleProgress();
-        showError(`Erro do terminal: ${payload.message}`);
+        showError(`Terminal error: ${payload.message}`);
       }
     }),
   ]);
@@ -786,7 +794,7 @@ function setupTerminal(
         try {
           await invoke("resize_terminal", { size });
         } catch (error: unknown) {
-          showError(`Não foi possível redimensionar o terminal: ${String(error)}`);
+          showError(`Could not resize the terminal: ${String(error)}`);
         }
       }
     } finally {
@@ -1147,7 +1155,7 @@ function setupShortcuts(terminal: Terminal): void {
       case "v":
         event.preventDefault();
         void pasteTerminal().catch((error: unknown) => {
-          showError(`Não foi possível colar: ${String(error)}`);
+          showError(`Could not paste: ${String(error)}`);
         });
         return false;
       case "a":
@@ -1158,14 +1166,14 @@ function setupShortcuts(terminal: Terminal): void {
         if (!terminal.hasSelection()) return true;
         event.preventDefault();
         void copyTerminal(terminal).catch((error: unknown) => {
-          showError(`Não foi possível copiar: ${String(error)}`);
+          showError(`Could not copy: ${String(error)}`);
         });
         return false;
       case "insert":
         event.preventDefault();
         if (terminal.hasSelection()) {
           void copyTerminal(terminal).catch((error: unknown) => {
-            showError(`Não foi possível copiar: ${String(error)}`);
+            showError(`Could not copy: ${String(error)}`);
           });
         }
         return false;
@@ -1180,7 +1188,7 @@ function setupShortcuts(terminal: Terminal): void {
       if (event.key !== "F12") return;
       event.preventDefault();
       void invoke("toggle_devtools").catch((error: unknown) => {
-        showError(`Não foi possível abrir as ferramentas de desenvolvimento: ${String(error)}`);
+        showError(`Could not open Developer Tools: ${String(error)}`);
       });
     },
     true,
@@ -1389,7 +1397,7 @@ function setupLiquidCursorPanel(
       }));
     liquidCursorSaveQueue = save;
     void save.catch((error: unknown) => {
-      showError(`Não foi possível salvar o Liquid Cursor: ${String(error)}`);
+      showError(`Could not save Liquid Cursor settings: ${String(error)}`);
     });
   };
   const syncSettingsControls = (nextSettings: LiquidCursorSettings): void => {
@@ -1617,7 +1625,7 @@ function openMenu(
         item.theme,
         item.uiThemeName,
       ).catch((error: unknown) => {
-        showError(`Não foi possível executar a ação: ${String(error)}`);
+        showError(`Could not perform the action: ${String(error)}`);
       });
     });
     menuPopup.append(button);
@@ -1655,7 +1663,7 @@ function setupTitlebar(
     if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
       event.preventDefault();
       if (!currentCwd) {
-        showError("Não foi possível clonar a janela antes de detectar o diretório atual.");
+        showError("Could not clone the window before detecting the current directory.");
         return;
       }
 
@@ -1663,7 +1671,7 @@ function setupTitlebar(
         inheritedDirectory: currentCwd,
         dragPosition: { x: event.screenX, y: event.screenY },
       }).catch((error: unknown) => {
-        showError(`Não foi possível clonar a janela: ${String(error)}`);
+        showError(`Could not clone the window: ${String(error)}`);
       });
       return;
     }
@@ -1674,7 +1682,7 @@ function setupTitlebar(
     }
 
     void appWindow.startDragging().catch((error: unknown) => {
-      showError(`Não foi possível mover a janela: ${String(error)}`);
+      showError(`Could not move the window: ${String(error)}`);
     });
   });
 
@@ -1814,14 +1822,14 @@ async function setupCloseAfterCursorSave(): Promise<void> {
         .then(() => appWindow.destroy())
         .catch((error: unknown) => {
           closingAfterCursorSave = false;
-          showError(`Não foi possível fechar a janela: ${String(error)}`);
+          showError(`Could not close the window: ${String(error)}`);
         });
     }),
     listen("app-close-requested", () => {
       void liquidCursorSaveQueue
         .then(() => invoke("confirm_app_close"))
         .catch((error: unknown) => {
-          showError(`Não foi possível fechar o aplicativo: ${String(error)}`);
+          showError(`Could not close the app: ${String(error)}`);
         });
     }),
   ]);
@@ -1859,5 +1867,5 @@ window.addEventListener("beforeunload", () => {
 void bootstrap().catch((error: unknown) => {
   revealTerminal();
   dismissLoadingScreen();
-  showError(`Não foi possível iniciar o terminal: ${String(error)}`);
+  showError(`Could not start the terminal: ${String(error)}`);
 });

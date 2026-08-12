@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,15 +20,15 @@
         <div class="loading-spinner" aria-hidden="true"></div>
       </div>
     </div>
-    <main id="app" aria-label="Terminal pnex">
+    <main id="app" aria-label="pnex terminal">
       <header id="titlebar">
         <img id="titlebar-icon" src="/src/assets/pnex-sphere-icon.png" alt="pnex" hidden />
-        <button id="titlebar-toggle" type="button" aria-label="Mostrar menus" aria-controls="titlebar-menu" aria-expanded="false">
+        <button id="titlebar-toggle" type="button" aria-label="Show menus" aria-controls="titlebar-menu" aria-expanded="false">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
         </button>
         <div class="titlebar-start">
           <span id="titlebar-title" class="titlebar-title-enter">pnex</span>
-          <nav id="titlebar-menu" role="menubar" aria-label="Menu principal" hidden>
+          <nav id="titlebar-menu" role="menubar" aria-label="Main menu" hidden>
             <button class="menu-trigger" data-menu="file" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">File</button>
             <button class="menu-trigger" data-menu="options" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">Options</button>
             <button class="menu-trigger" data-menu="edit" type="button" role="menuitem" aria-haspopup="menu" aria-controls="menu-popup" aria-expanded="false">Edit</button>
@@ -36,10 +36,10 @@
           </nav>
           <div id="window-drag-region" aria-hidden="true"></div>
         </div>
-        <div class="window-controls" aria-label="Controles da janela">
-          <button id="window-minimize" class="window-control" type="button" aria-label="Minimizar">−</button>
-          <button id="window-maximize" class="window-control" type="button" aria-label="Maximizar">□</button>
-          <button id="window-close" class="window-control window-control-close" type="button" aria-label="Fechar">×</button>
+        <div class="window-controls" aria-label="Window controls">
+          <button id="window-minimize" class="window-control" type="button" aria-label="Minimize">−</button>
+          <button id="window-maximize" class="window-control" type="button" aria-label="Maximize">□</button>
+          <button id="window-close" class="window-control window-control-close" type="button" aria-label="Close">×</button>
         </div>
       </header>
       <div id="menu-popup" class="menu-popup" role="menu" aria-label="Menu" hidden></div>
@@ -131,7 +131,7 @@
         </div>
         <button id="liquid-cursor-reset" class="settings-reset" type="button">Reset default values</button>
       </section>
-      <section id="terminal-container" aria-label="Terminal interativo">
+      <section id="terminal-container" aria-label="Interactive terminal">
         <div id="terminal"></div>
         <div id="window-hover-overlay" aria-hidden="true" hidden>
           <span id="window-hover-title">pnex</span>
