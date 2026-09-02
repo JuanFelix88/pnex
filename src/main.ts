@@ -4,7 +4,7 @@ import { getCurrentWindow, ProgressBarStatus } from "@tauri-apps/api/window";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { Terminal, type IMarker } from "@xterm/xterm";
+import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { InputShadow } from "./input-shadow";
 import {
@@ -88,6 +88,10 @@ interface MenuItem {
   checked?: boolean;
 }
 
+const PROMPT_HUD_SENTINEL_PATTERN = /\uE000(\d+)\uE001/;
+const PROMPT_HUD_SENTINELS_PATTERN = /\uE000\d+\uE001/g;
+const MAX_PROMPT_HUDS = 2_000;
+
 const appWindow = getCurrentWindow();
 const terminalElement = requiredElement("#terminal");
 const terminalContainer = requiredElement("#terminal-container");
@@ -128,8 +132,10 @@ let terminalConnectionVersion = 0;
 let resetSessionPromise: Promise<void> | null = null;
 let activeSharedTerminalOutput: SharedTerminalOutput | null = null;
 const promptHuds: PromptHud[] = [];
+const promptHudsById = new Map<string, PromptHud>();
 
 interface PromptHud {
+  promptId: string;
   cwd: string;
   gitBranch: string;
   gitUser: string;
@@ -137,7 +143,6 @@ interface PromptHud {
   status: "ready" | "running" | "success" | "error";
   commandStartedAt: Date | null;
   commandEndedAt: Date | null;
-  marker: IMarker;
   element: HTMLElement;
   disposed: boolean;
 }
@@ -877,21 +882,69 @@ function setupTerminal(
 }
 
 function setupPromptHud(terminal: Terminal): void {
+  const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
+  if (!screen) return;
+
+  const layer = document.createElement("div");
+  layer.className = "prompt-hud-layer";
+  layer.setAttribute("aria-hidden", "true");
+  screen.append(layer);
+
+  let pendingPromptId: string | null = null;
+  const syncHudLayer = (): void => {
+    const visiblePromptIds = new Set<string>();
+    const buffer = terminal.buffer.active;
+    const screenHeight = screen.getBoundingClientRect().height;
+
+    if (buffer.type === "normal" && screenHeight > 0 && terminal.rows > 0) {
+      const cellHeight = screenHeight / terminal.rows;
+      for (let viewportRow = 0; viewportRow < terminal.rows; viewportRow += 1) {
+        const line = buffer.getLine(buffer.viewportY + viewportRow);
+        const match = line?.translateToString(true).match(PROMPT_HUD_SENTINEL_PATTERN);
+        const promptId = match?.[1];
+        if (!promptId) continue;
+
+        const hud = promptHudsById.get(promptId);
+        if (!hud || hud.disposed) continue;
+
+        visiblePromptIds.add(promptId);
+        hud.element.style.transform = `translateY(${viewportRow * cellHeight}px)`;
+        if (hud.element.parentElement !== layer) layer.append(hud.element);
+      }
+    }
+
+    for (const hud of promptHuds) {
+      if (!visiblePromptIds.has(hud.promptId)) hud.element.remove();
+    }
+  };
+
+  terminal.onRender(syncHudLayer);
+  terminal.onScroll(syncHudLayer);
+  terminal.onResize(syncHudLayer);
+
   terminal.parser.registerOscHandler(7777, (payload) => {
     const separator = payload.indexOf("=");
     if (separator < 0) return true;
 
     const key = payload.slice(0, separator);
     const value = payload.slice(separator + 1);
-    if (key === "exit") {
+    if (key === "anchor") {
+      pendingPromptId = /^\d+$/.test(value) ? value : null;
+    } else if (key === "exit") {
       const exitCode = Number.parseInt(value, 10);
       pendingExitCode = Number.isFinite(exitCode) ? exitCode : 1;
     } else if (key === "cwd") {
+      const promptId = pendingPromptId;
+      pendingPromptId = null;
+
+      // A repeated PS1 redraw leaves the same sentinel in the xterm buffer.
+      if (promptId !== null && activeHud?.promptId === promptId) return true;
+
       finalizePromptHud();
       oscProgressRunning = false;
       clearTitleProgress();
       currentCwd = value;
-      activeHud = createPromptHud(terminal, value);
+      activeHud = promptId === null ? null : createPromptHud(value, promptId);
       inputBuffer = "";
       inEscapeSequence = false;
       acceptingShellCommand = true;
@@ -902,13 +955,12 @@ function setupPromptHud(terminal: Terminal): void {
   });
 }
 
-function createPromptHud(terminal: Terminal, cwd: string): PromptHud | null {
-  // The shell emits this OSC on the reserved HUD row itself.
-  const marker = terminal.registerMarker(0);
-  const decoration = terminal.registerDecoration({ marker, x: 0, width: 1, height: 1 });
-  if (!decoration) return null;
+function createPromptHud(cwd: string, promptId: string): PromptHud {
+  const existing = promptHudsById.get(promptId);
+  if (existing && !existing.disposed) return existing;
 
   const hud: PromptHud = {
+    promptId,
     cwd,
     gitBranch: "",
     gitUser: "",
@@ -916,23 +968,17 @@ function createPromptHud(terminal: Terminal, cwd: string): PromptHud | null {
     status: "ready",
     commandStartedAt: null,
     commandEndedAt: null,
-    marker,
     element: document.createElement("div"),
     disposed: false,
   };
   hud.element.className = "prompt-hud-frame";
-  decoration.onRender((host) => {
-    host.classList.add("prompt-hud-decoration");
-    host.style.overflow = "visible";
-    host.style.width = "0";
-    host.style.height = "0";
-    host.style.pointerEvents = "none";
-    host.style.zIndex = "20";
-    if (hud.element.parentElement !== host) host.replaceChildren(hud.element);
-  });
-  decoration.onDispose(() => disposePromptHud(hud));
-  marker.onDispose(() => disposePromptHud(hud));
   promptHuds.push(hud);
+  promptHudsById.set(promptId, hud);
+  while (promptHuds.length > MAX_PROMPT_HUDS) {
+    const oldestHud = promptHuds[0];
+    if (!oldestHud) break;
+    disposePromptHud(oldestHud);
+  }
   renderPromptHud(hud);
   void loadGitContext(hud);
   revealTerminal();
@@ -965,6 +1011,7 @@ function disposePromptHud(hud: PromptHud): void {
   if (hud.disposed) return;
   hud.disposed = true;
   hud.element.remove();
+  if (promptHudsById.get(hud.promptId) === hud) promptHudsById.delete(hud.promptId);
   const index = promptHuds.indexOf(hud);
   if (index >= 0) promptHuds.splice(index, 1);
   if (activeHud === hud) activeHud = null;
@@ -1083,26 +1130,34 @@ function trackCommand(data: string): string | null {
 }
 
 function focusPreviousPromptHud(terminal: Terminal): boolean {
-  const viewportLine = terminal.buffer.active.viewportY;
-  const target = promptHuds.reduce<PromptHud | null>((previous, hud) => {
-    if (hud.disposed || hud.marker.line < 0 || hud.marker.line >= viewportLine) return previous;
-    return !previous || hud.marker.line > previous.marker.line ? hud : previous;
-  }, null);
+  const buffer = terminal.buffer.active;
+  if (buffer.type !== "normal") return false;
+
+  let target: { hud: PromptHud; line: number } | null = null;
+  for (let lineIndex = 0; lineIndex < buffer.viewportY; lineIndex += 1) {
+    const line = buffer.getLine(lineIndex);
+    const promptId = line?.translateToString(true).match(PROMPT_HUD_SENTINEL_PATTERN)?.[1];
+    if (!promptId) continue;
+
+    const hud = promptHudsById.get(promptId);
+    if (hud && !hud.disposed && (!target || lineIndex > target.line)) {
+      target = { hud, line: lineIndex };
+    }
+  }
   if (!target) return false;
 
-  if (focusedHud) {
-    focusedHud.element.dataset.focused = "false";
-  }
-  focusedHud = target;
-  target.element.dataset.focused = "true";
-  terminal.scrollToLine(Math.max(target.marker.line - 2, 0));
+  if (focusedHud) focusedHud.element.dataset.focused = "false";
+  focusedHud = target.hud;
+  target.hud.element.dataset.focused = "true";
+  terminal.scrollToLine(Math.max(target.line - 2, 0));
   terminal.focus();
   return true;
 }
 
 async function copyTerminal(terminal: Terminal): Promise<void> {
   if (terminal.hasSelection()) {
-    await navigator.clipboard.writeText(terminal.getSelection());
+    const text = terminal.getSelection().replace(PROMPT_HUD_SENTINELS_PATTERN, "");
+    await navigator.clipboard.writeText(text);
     terminal.element?.dispatchEvent(new Event("pnex:copied"));
   }
 }

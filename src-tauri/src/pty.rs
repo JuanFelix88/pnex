@@ -296,13 +296,13 @@ fn prompt_initializer(shell: &str) -> &'static str {
     };
     let shell = shell.to_ascii_lowercase();
     if shell.contains("powershell") || shell.contains("pwsh") {
-        "function prompt { $code = if ($?) { 0 } else { 1 }; $cwd = (Get-Location).Path; Write-Host -NoNewline (\"$([char]27)]7777;exit=${code}$([char]7)$([char]27)]7777;cwd=${cwd}$([char]7)\"); \"`n  \" }; cls\r\r"
+        "$global:__pnex_prompt_id = 0; function prompt { $code = if ($?) { 0 } else { 1 }; $cwd = (Get-Location).Path; $global:__pnex_prompt_id += 1; Write-Host -NoNewline (\"$([char]27)]7777;anchor=$($global:__pnex_prompt_id)$([char]7)$([char]27)]7777;exit=${code}$([char]7)$([char]27)]7777;cwd=${cwd}$([char]7)$([char]27)[8m$([char]0xE000)$($global:__pnex_prompt_id)$([char]0xE001)$([char]27)[28m\"); \"`n  \" }; cls\r\r"
     } else if shell.contains("cmd.exe") || shell.trim() == "cmd" {
         "cls\r"
     } else if shell.contains("bash") {
-        "printf '\\033]0;Welcome to Pnex\\007'; __pnex_prompt(){ local exit_code=\"$?\" cwd=\"$(pwd)\"; printf '\\033]7777;exit=%s\\007\\033]7777;cwd=%s\\007' \"$exit_code\" \"$cwd\"; }; PROMPT_COMMAND=__pnex_prompt; PS1=\"\\n  \"; clear\r"
+        "printf '\\033]0;Welcome to Pnex\\007'; __pnex_prompt_id=0; __pnex_prompt_context(){ __pnex_exit_code=\"$?\"; __pnex_cwd=\"$PWD\"; __pnex_prompt_id=$((__pnex_prompt_id + 1)); }; PROMPT_COMMAND=__pnex_prompt_context; PS1='\\[\\e]7777;anchor=${__pnex_prompt_id}\\a\\e]7777;exit=${__pnex_exit_code}\\a\\e]7777;cwd=${__pnex_cwd}\\a\\e[8m\\]\u{e000}${__pnex_prompt_id}\u{e001}\\[\\e[28m\\]\\n  '; clear\r"
     } else {
-        "__pnex_prompt(){ local exit_code=\"$?\" cwd=\"$(pwd)\"; printf '\\033]7777;exit=%s\\007\\033]7777;cwd=%s\\007' \"$exit_code\" \"$cwd\"; }; PROMPT_COMMAND=__pnex_prompt; PS1=\"\\n  \"; clear\r"
+        "__pnex_prompt_id=0; __pnex_prompt_context(){ __pnex_exit_code=\"$?\"; __pnex_cwd=\"$PWD\"; __pnex_prompt_id=$((__pnex_prompt_id + 1)); }; PROMPT_COMMAND=__pnex_prompt_context; PS1='\\[\\e]7777;anchor=${__pnex_prompt_id}\\a\\e]7777;exit=${__pnex_exit_code}\\a\\e]7777;cwd=${__pnex_cwd}\\a\\e[8m\\]\u{e000}${__pnex_prompt_id}\u{e001}\\[\\e[28m\\]\\n  '; clear\r"
     }
 }
 
@@ -384,11 +384,16 @@ mod tests {
     fn prompt_initializer_reserves_the_line_after_the_hud() {
         let powershell = prompt_initializer("powershell.exe");
         assert!(powershell.contains("Write-Host -NoNewline (\"$([char]27)]7777;"));
+        assert!(powershell.contains("anchor=$($global:__pnex_prompt_id)"));
+        assert!(powershell.contains("$([char]0xE000)$($global:__pnex_prompt_id)$([char]0xE001)"));
         assert!(powershell.contains("; \"`n  \" };"));
 
         let bash = prompt_initializer("/bin/bash");
         assert!(bash.contains("printf '\\033]0;Welcome to Pnex\\007'"));
-        assert!(bash.contains("printf '\\033]7777;"));
-        assert!(bash.contains("PS1=\"\\n  \""));
+        assert!(bash.contains("__pnex_prompt_context(){ __pnex_exit_code=\"$?\";"));
+        assert!(bash.contains("PROMPT_COMMAND=__pnex_prompt_context"));
+        assert!(bash.contains("PS1='\\[\\e]7777;anchor=${__pnex_prompt_id}"));
+        assert!(bash.contains("\u{e000}${__pnex_prompt_id}\u{e001}"));
+        assert!(bash.contains("\\[\\e[28m\\]\\n  '"));
     }
 }

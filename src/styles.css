@@ -666,7 +666,12 @@ nav,
   outline: none;
 }
 
-.prompt-hud-decoration {
+.prompt-hud-layer {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  contain: strict;
+  overflow: hidden;
   pointer-events: none;
 }
 
