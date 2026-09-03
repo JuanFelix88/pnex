@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pnex — propostas de logo</title>
+<style>
+  :root{
+    --page:#0b0d10; --card:#111418; --line:#1f242b;
+    --txt:#e6e8eb; --muted:#8b939e;
+    --fg-dark:#e8eaed; --bg-dark:#0e1013;
+    --fg-light:#15181d; --bg-light:#f6f7f8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--txt);
+       font-family:Inter,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  header{padding:56px 40px 24px;max-width:1200px;margin:0 auto}
+  header h1{font-size:28px;font-weight:600;margin:0 0 8px;letter-spacing:-.02em}
+  header p{color:var(--muted);margin:0;max-width:640px;line-height:1.55}
+  section{max-width:1200px;margin:0 auto;padding:32px 40px 56px;border-top:1px solid var(--line)}
+  .head{display:flex;align-items:baseline;gap:16px;margin-bottom:6px}
+  .head span{font-family:"JetBrains Mono","Cascadia Code",Consolas,monospace;color:var(--muted);font-size:13px}
+  .head h2{font-size:22px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .concept{color:var(--muted);line-height:1.55;max-width:720px;margin:0 0 24px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .tile{border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;
+        flex-direction:column;justify-content:space-between;min-height:180px;position:relative}
+  .tile small{position:absolute;top:12px;left:16px;font-size:11px;letter-spacing:.06em;
+              text-transform:uppercase;color:inherit;opacity:.5;font-family:"JetBrains Mono",Consolas,monospace}
+  .center{align-items:center;justify-content:center}
+  .c4{grid-column:span 4}.c3{grid-column:span 3}.c6{grid-column:span 6}.c8{grid-column:span 8}.c12{grid-column:span 12}
+
+  /* modos de cor — o símbolo usa currentColor + --accent */
+  .dark {background:var(--bg-dark); color:var(--fg-dark); --accent:var(--acc-dark)}
+  .light{background:var(--bg-light);color:var(--fg-light);--accent:var(--acc-light);border-color:#e3e5e8}
+  .mono {--accent:currentColor}
+
+  .row{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
+  .row figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .row figcaption{font-size:10px;opacity:.5;font-family:"JetBrains Mono",Consolas,monospace}
+  .apps{display:flex;gap:18px;align-items:center}
+  .app{border-radius:22%;display:grid;place-items:center}
+  .app.d{background:#16191e;box-shadow:inset 0 0 0 1px #262b33}
+  .app.l{background:#fff;box-shadow:inset 0 0 0 1px #e3e5e8}
+  svg{display:block}
+  @media (max-width:900px){.c4,.c3,.c6,.c8{grid-column:span 12}}
+</style>
+</head>
+<body>
+
+<!-- ============ SPRITE COM OS TRÊS SÍMBOLOS ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+
+    <!-- 01 · PROMPT — "p" formado por cursor vertical + chevron de prompt -->
+    <symbol id="sym-1" viewBox="0 0 64 64">
+      <path d="M20 14v40" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+      <path d="M20 20l22 10-22 10" fill="none" style="stroke:var(--accent)" stroke-width="8"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <!-- 02 · SALTO — "n" formado por dois blocos de cursor e o rastro do movimento -->
+    <symbol id="sym-2" viewBox="0 0 64 64">
+      <path d="M16 36V30a16 16 0 0 1 32 0v6" fill="none" style="stroke:var(--accent)" stroke-width="6" stroke-linecap="round"/>
+      <rect x="10" y="34" width="12" height="20" rx="3" fill="currentColor"/>
+      <rect x="42" y="34" width="12" height="20" rx="3" fill="currentColor"/>
+    </symbol>
+
+    <!-- 03 · BLOCO — cursor de bloco sobre o "p", letra em negativo -->
+    <symbol id="sym-3" viewBox="0 0 64 64">
+      <mask id="m3">
+        <rect width="64" height="64" fill="#fff"/>
+        <rect x="20" y="18" width="7" height="32" rx="2" fill="#000"/>
+        <circle cx="31.5" cy="29.5" r="8" fill="none" stroke="#000" stroke-width="7"/>
+      </mask>
+      <rect x="8" y="8" width="48" height="48" rx="13" style="fill:var(--accent)" mask="url(#m3)"/>
+    </symbol>
+
+    <!-- Wordmarks -->
+    <symbol id="wm-1" viewBox="0 0 250 64">
+      <use href="#sym-1" width="64" height="64"/>
+      <text x="74" y="44" font-family="Inter,'SF Pro Text','Segoe UI',system-ui,sans-serif"
+            font-size="40" font-weight="600" letter-spacing="-1.2" fill="currentColor">pnex</text>
+    </symbol>
+    <symbol id="wm-2" viewBox="0 0 250 64">
+      <use href="#sym-2" width="64" height="64"/>
+      <text x="76" y="54" font-family="'JetBrains Mono','Cascadia Code',Consolas,monospace"
+            font-size="36" font-weight="600" fill="currentColor">pnex</text>
+    </symbol>
+    <symbol id="wm-3" viewBox="0 0 250 64">
+      <use href="#sym-3" width="64" height="64"/>
+      <text x="76" y="50" font-family="Inter,'SF Pro Text','Segoe UI',system-ui,sans-serif"
+            font-size="34" font-weight="500" letter-spacing="3" fill="currentColor">pnex</text>
+    </symbol>
+
+  </defs>
+</svg>
+
+<header>
+  <h1>pnex — três propostas de logo</h1>
+  <p>Todas partem de letras do nome tratadas como elementos de terminal: cursor, prompt e bloco.
+     Cada símbolo é construído com formas geométricas simples, funciona em monocromia
+     e mantém legibilidade de 16 px a 512 px.</p>
+</header>
+
+<!-- ============================================================ -->
+<!-- OPÇÃO 01 — PROMPT                                             -->
+<!-- ============================================================ -->
+<section style="--acc-dark:#5eead4;--acc-light:#0f9c8a">
+  <div class="head"><span>01</span><h2>Prompt</h2></div>
+  <p class="concept">
+    O <strong>p</strong> de pnex é desenhado com apenas dois traços: a haste é o cursor vertical
+    e a “barriga” da letra é o chevron <code>&gt;</code> do prompt. O símbolo lê como <em>p</em>
+    e como <em>&gt;|</em> ao mesmo tempo — a linha de comando pronta para receber o próximo comando.
+  </p>
+  <div class="grid">
+    <div class="tile dark center c4"><small>símbolo</small>
+      <svg width="140" height="140"><use href="#sym-1"/></svg></div>
+    <div class="tile dark center c4"><small>wordmark · fundo escuro</small>
+      <svg width="240" height="62"><use href="#wm-1"/></svg></div>
+    <div class="tile light center c4"><small>wordmark · fundo claro</small>
+      <svg width="240" height="62"><use href="#wm-1"/></svg></div>
+
+    <div class="tile dark mono center c3"><small>mono · escuro</small>
+      <svg width="110" height="110"><use href="#sym-1"/></svg></div>
+    <div class="tile light mono center c3"><small>mono · claro</small>
+      <svg width="110" height="110"><use href="#sym-1"/></svg></div>
+    <div class="tile dark c6"><small>escala</small>
+      <div class="row" style="margin-top:28px">
+        <figure><svg width="16" height="16"><use href="#sym-1"/></svg><figcaption>16</figcaption></figure>
+        <figure><svg width="24" height="24"><use href="#sym-1"/></svg><figcaption>24</figcaption></figure>
+        <figure><svg width="32" height="32"><use href="#sym-1"/></svg><figcaption>32</figcaption></figure>
+        <figure><svg width="48" height="48"><use href="#sym-1"/></svg><figcaption>48</figcaption></figure>
+        <figure><svg width="64" height="64"><use href="#sym-1"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg width="128" height="128"><use href="#sym-1"/></svg><figcaption>128</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="tile dark c12"><small>ícone de app · barra de tarefas</small>
+      <div class="apps" style="margin-top:28px">
+        <div class="app d" style="width:96px;height:96px"><svg width="68" height="68"><use href="#sym-1"/></svg></div>
+        <div class="app d" style="width:56px;height:56px"><svg width="40" height="40"><use href="#sym-1"/></svg></div>
+        <div class="app d" style="width:32px;height:32px"><svg width="22" height="22"><use href="#sym-1"/></svg></div>
+        <div class="app l light" style="width:96px;height:96px"><svg width="68" height="68"><use href="#sym-1"/></svg></div>
+        <div class="app l light" style="width:56px;height:56px"><svg width="40" height="40"><use href="#sym-1"/></svg></div>
+        <div class="app l light" style="width:32px;height:32px"><svg width="22" height="22"><use href="#sym-1"/></svg></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- OPÇÃO 02 — SALTO                                              -->
+<!-- ============================================================ -->
+<section style="--acc-dark:#7dd3fc;--acc-light:#0284c7">
+  <div class="head"><span>02</span><h2>Salto</h2></div>
+  <p class="concept">
+    O <strong>n</strong> nasce do cursor líquido do pnex: dois blocos de cursor — a célula de origem e a
+    célula de destino — ligados pelo arco do movimento. É “terminal em movimento” de forma literal:
+    o cursor saltando de um caractere para o próximo, deixando um rastro fluido.
+  </p>
+  <div class="grid">
+    <div class="tile dark center c4"><small>símbolo</small>
+      <svg width="140" height="140"><use href="#sym-2"/></svg></div>
+    <div class="tile dark center c4"><small>wordmark · fundo escuro</small>
+      <svg width="240" height="62"><use href="#wm-2"/></svg></div>
+    <div class="tile light center c4"><small>wordmark · fundo claro</small>
+      <svg width="240" height="62"><use href="#wm-2"/></svg></div>
+
+    <div class="tile dark mono center c3"><small>mono · escuro</small>
+      <svg width="110" height="110"><use href="#sym-2"/></svg></div>
+    <div class="tile light mono center c3"><small>mono · claro</small>
+      <svg width="110" height="110"><use href="#sym-2"/></svg></div>
+    <div class="tile dark c6"><small>escala</small>
+      <div class="row" style="margin-top:28px">
+        <figure><svg width="16" height="16"><use href="#sym-2"/></svg><figcaption>16</figcaption></figure>
+        <figure><svg width="24" height="24"><use href="#sym-2"/></svg><figcaption>24</figcaption></figure>
+        <figure><svg width="32" height="32"><use href="#sym-2"/></svg><figcaption>32</figcaption></figure>
+        <figure><svg width="48" height="48"><use href="#sym-2"/></svg><figcaption>48</figcaption></figure>
+        <figure><svg width="64" height="64"><use href="#sym-2"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg width="128" height="128"><use href="#sym-2"/></svg><figcaption>128</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="tile dark c12"><small>ícone de app · barra de tarefas</small>
+      <div class="apps" style="margin-top:28px">
+        <div class="app d" style="width:96px;height:96px"><svg width="68" height="68"><use href="#sym-2"/></svg></div>
+        <div class="app d" style="width:56px;height:56px"><svg width="40" height="40"><use href="#sym-2"/></svg></div>
+        <div class="app d" style="width:32px;height:32px"><svg width="22" height="22"><use href="#sym-2"/></svg></div>
+        <div class="app l light" style="width:96px;height:96px"><svg width="68" height="68"><use href="#sym-2"/></svg></div>
+        <div class="app l light" style="width:56px;height:56px"><svg width="40" height="40"><use href="#sym-2"/></svg></div>
+        <div class="app l light" style="width:32px;height:32px"><svg width="22" height="22"><use href="#sym-2"/></svg></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- OPÇÃO 03 — BLOCO                                              -->
+<!-- ============================================================ -->
+<section style="--acc-dark:#a3e635;--acc-light:#4d7c0f">
+  <div class="head"><span>03</span><h2>Bloco</h2></div>
+  <p class="concept">
+    Quem usa terminal reconhece: quando o cursor de bloco passa sobre uma letra, ela aparece invertida.
+    Aqui o cursor está parado sobre o <strong>p</strong>, que surge em negativo dentro do bloco.
+    É a janela de terminal reduzida à sua menor unidade — uma célula — e funciona muito bem como ícone
+    de app por já ter uma forma sólida.
+  </p>
+  <div class="grid">
+    <div class="tile dark center c4"><small>símbolo</small>
+      <svg width="140" height="140"><use href="#sym-3"/></svg></div>
+    <div class="tile dark center c4"><small>wordmark · fundo escuro</small>
+      <svg width="240" height="62"><use href="#wm-3"/></svg></div>
+    <div class="tile light center c4"><small>wordmark · fundo claro</small>
+      <svg width="240" height="62"><use href="#wm-3"/></svg></div>
+
+    <div class="tile dark mono center c3"><small>mono · escuro</small>
+      <svg width="110" height="110"><use href="#sym-3"/></svg></div>
+    <div class="tile light mono center c3"><small>mono · claro</small>
+      <svg width="110" height="110"><use href="#sym-3"/></svg></div>
+    <div class="tile dark c6"><small>escala</small>
+      <div class="row" style="margin-top:28px">
+        <figure><svg width="16" height="16"><use href="#sym-3"/></svg><figcaption>16</figcaption></figure>
+        <figure><svg width="24" height="24"><use href="#sym-3"/></svg><figcaption>24</figcaption></figure>
+        <figure><svg width="32" height="32"><use href="#sym-3"/></svg><figcaption>32</figcaption></figure>
+        <figure><svg width="48" height="48"><use href="#sym-3"/></svg><figcaption>48</figcaption></figure>
+        <figure><svg width="64" height="64"><use href="#sym-3"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg width="128" height="128"><use href="#sym-3"/></svg><figcaption>128</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="tile dark c12"><small>ícone de app · barra de tarefas</small>
+      <div class="apps" style="margin-top:28px">
+        <div class="app d" style="width:96px;height:96px"><svg width="68" height="68"><use href="#sym-3"/></svg></div>
+        <div class="app d" style="width:56px;height:56px"><svg width="40" height="40"><use href="#sym-3"/></svg></div>
+        <div class="app d" style="width:32px;height:32px"><svg width="22" height="22"><use href="#sym-3"/></svg></div>
+        <div class="app l light" style="width:96px;height:96px"><svg width="68" height="68"><use href="#sym-3"/></svg></div>
+        <div class="app l light" style="width:56px;height:56px"><svg width="40" height="40"><use href="#sym-3"/></svg></div>
+        <div class="app l light" style="width:32px;height:32px"><svg width="22" height="22"><use href="#sym-3"/></svg></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

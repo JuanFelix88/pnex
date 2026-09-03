@@ -12,6 +12,13 @@
     "core:window:allow-set-title",
     "core:window:allow-set-progress-bar",
     "core:window:allow-toggle-maximize",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "http://*" },
+        { "url": "https://*" }
+      ]
+    }
   ]
 }

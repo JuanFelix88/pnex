@@ -1,6 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, ProgressBarStatus } from "@tauri-apps/api/window";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -353,7 +354,11 @@ function createTerminal(config: AppConfig): {
   const fitAddon = new FitAddon();
 
   terminal.loadAddon(fitAddon);
-  terminal.loadAddon(new WebLinksAddon());
+  terminal.loadAddon(new WebLinksAddon((_event, uri) => {
+    void openUrl(uri).catch((error: unknown) => {
+      console.error(`Could not open terminal link: ${uri}`, error);
+    });
+  }));
   terminal.open(terminalElement);
   const liquidCursor = new LiquidCursor(
     terminal,
@@ -1912,6 +1917,10 @@ async function bootstrap(): Promise<void> {
   dismissLoadingScreen();
   clearError();
 }
+
+window.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
 
 window.addEventListener("beforeunload", () => {
   activeSharedTerminalOutput?.dispose();
