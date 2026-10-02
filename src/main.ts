@@ -101,6 +101,7 @@ const menuPopup = requiredElement("#menu-popup");
 const windowHoverOverlay = requiredElement("#window-hover-overlay");
 const windowHoverTitle = requiredElement("#window-hover-title");
 const titlebarTitle = requiredElement("#titlebar-title");
+const loadingScreen = requiredElement("#loading-screen");
 
 let activeSessionId: number | null = null;
 let currentCwd = "";
@@ -127,6 +128,7 @@ let activeHud: PromptHud | null = null;
 let focusedHud: PromptHud | null = null;
 let selectionShimmerId = 0;
 let terminalRevealed = false;
+let waitingForResetHud = false;
 let liquidCursorSaveQueue = Promise.resolve();
 let closingAfterCursorSave = false;
 let terminalConnectionVersion = 0;
@@ -156,18 +158,28 @@ function requiredElement(selector: string): HTMLElement {
   return element;
 }
 
-function dismissLoadingScreen(): void {
-  const screen = document.querySelector<HTMLElement>("#loading-screen");
-  if (!screen) return;
+function showLoadingScreen(): void {
+  terminalRevealed = false;
+  terminalContainer.classList.remove("terminal-revealed");
+  loadingScreen.classList.remove("loading-screen-dismissed");
+  document.body.append(loadingScreen);
+}
 
-  screen.classList.add("loading-screen-dismissed");
-  screen.addEventListener("transitionend", () => screen.remove(), { once: true });
+function dismissLoadingScreen(): void {
+  loadingScreen.classList.add("loading-screen-dismissed");
+  loadingScreen.addEventListener("transitionend", () => {
+    if (loadingScreen.classList.contains("loading-screen-dismissed")) loadingScreen.remove();
+  }, { once: true });
 }
 
 function revealTerminal(): void {
   if (terminalRevealed) return;
   terminalRevealed = true;
   terminalContainer.classList.add("terminal-revealed");
+  if (waitingForResetHud) {
+    waitingForResetHud = false;
+    dismissLoadingScreen();
+  }
 }
 
 function setupLoadingScreenDragging(): void {
@@ -749,6 +761,8 @@ async function resetTerminalSession(terminal: Terminal, inputShadow: InputShadow
   if (resetSessionPromise) return resetSessionPromise;
 
   resetSessionPromise = (async () => {
+    waitingForResetHud = true;
+    showLoadingScreen();
     terminalConnectionVersion += 1;
     activeSharedTerminalOutput?.dispose();
     activeSharedTerminalOutput = null;
@@ -770,7 +784,10 @@ async function resetTerminalSession(terminal: Terminal, inputShadow: InputShadow
     clearError();
     updateWindowTitle();
     await connectTerminal(terminal, inputShadow);
-  })().finally(() => {
+  })().catch((error: unknown) => {
+    revealTerminal();
+    throw error;
+  }).finally(() => {
     resetSessionPromise = null;
   });
   return resetSessionPromise;
@@ -1910,7 +1927,9 @@ async function bootstrap(): Promise<void> {
   // The shell prompt is customized at startup and can redraw several times.
   // Keep it behind the loading screen until its first HUD arrives.
   const minimumLoadingDelay = new Promise<void>((resolve) => window.setTimeout(resolve, 1_500));
-  window.setTimeout(revealTerminal, 3_000);
+  window.setTimeout(() => {
+    if (!waitingForResetHud) revealTerminal();
+  }, 3_000);
 
   await connectTerminal(terminal, inputShadow);
   await minimumLoadingDelay;
