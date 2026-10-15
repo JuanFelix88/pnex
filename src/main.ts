@@ -1259,17 +1259,19 @@ function setupShortcuts(terminal: Terminal): void {
     }
   });
 
-  window.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.key !== "F12") return;
-      event.preventDefault();
-      void invoke("toggle_devtools").catch((error: unknown) => {
-        showError(`Could not open Developer Tools: ${String(error)}`);
-      });
-    },
-    true,
-  );
+  if (import.meta.env.DEV) {
+    window.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "F12") return;
+        event.preventDefault();
+        void invoke("toggle_devtools").catch((error: unknown) => {
+          showError(`Could not open Developer Tools: ${String(error)}`);
+        });
+      },
+      true,
+    );
+  }
 }
 
 function closeMenu(): void {
@@ -1328,7 +1330,9 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
       ];
     case "help":
       return [
-        { label: "Toggle DevTools", action: "toggle-devtools", hint: "F12" },
+        ...(import.meta.env.DEV
+          ? [{ label: "Toggle DevTools", action: "toggle-devtools" as const, hint: "F12" }]
+          : []),
         { label: "About pnex", action: "about" },
       ];
     default:
@@ -1393,7 +1397,7 @@ async function runMenuAction(
       showLiquidCursorPanel();
       return;
     case "toggle-devtools":
-      await invoke("toggle_devtools");
+      if (import.meta.env.DEV) await invoke("toggle_devtools");
       return;
     case "about":
       window.alert("pnex\nTerminal workspace");

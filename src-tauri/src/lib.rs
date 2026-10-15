@@ -476,6 +476,7 @@ fn confirm_app_close(
     Ok(())
 }
 
+#[cfg(debug_assertions)]
 #[tauri::command]
 fn toggle_devtools(window: WebviewWindow) {
     if window.is_devtools_open() {
@@ -660,6 +661,7 @@ pub fn run() {
             write_terminal,
             resize_terminal,
             stop_terminal,
+            #[cfg(debug_assertions)]
             toggle_devtools,
             new_window,
             request_close_app,
