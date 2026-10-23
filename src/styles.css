@@ -3,6 +3,8 @@
   --terminal-foreground: #cccccc;
   --terminal-border: #666666;
   --terminal-menu: #1e1e1e;
+  --header-loading-color: var(--terminal-green);
+  --header-loading-mask-opacity: 10%;
   color: var(--terminal-foreground);
   background: var(--terminal-background);
   font-family: Consolas, "Courier New", monospace;
@@ -63,9 +65,13 @@ body {
   width: 40%;
   height: 2px;
   opacity: 0;
-  background: linear-gradient(90deg, transparent, var(--terminal-cursor), transparent);
-  filter: drop-shadow(0 0 3px var(--terminal-cursor));
+  background: linear-gradient(90deg, transparent, var(--header-loading-color), transparent);
+  filter: blur(1px) drop-shadow(0 0 10px var(--header-loading-color));
   transform: translateX(-100%);
+}
+
+:root[data-terminal-running="true"] #titlebar {
+  background: color-mix(in srgb, var(--header-loading-color) var(--header-loading-mask-opacity), var(--terminal-background));
 }
 
 :root[data-terminal-running="true"] #titlebar::after {
@@ -470,6 +476,19 @@ nav,
   opacity: 0.7;
 }
 
+.menu-view-icon {
+  float: right;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  margin-left: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
 .settings-panel {
   position: fixed;
   z-index: 20;
@@ -647,6 +666,27 @@ nav,
 .settings-slider > span {
   display: flex;
   justify-content: space-between;
+}
+
+.settings-slider select {
+  width: 100%;
+  border: 1px solid var(--terminal-border);
+  border-radius: 3px;
+  background: var(--terminal-menu);
+  padding: 7px 10px;
+  color: var(--terminal-foreground);
+  font: 12px/1.35 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+}
+
+.settings-slider select:focus-visible {
+  outline: 1px solid var(--terminal-foreground);
+  outline-offset: 2px;
+}
+
+.settings-slider output {
+  float: right;
+  color: var(--header-loading-color);
+  font-variant-numeric: tabular-nums;
 }
 
 .settings-reset {

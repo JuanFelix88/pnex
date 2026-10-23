@@ -3,7 +3,9 @@ pub mod notification;
 mod pty;
 mod terminal_output;
 
-use config::{AppConfig, ConfigStore, CursorAnimation, LiquidCursorSettings};
+use config::{
+    AppConfig, ConfigStore, CursorAnimation, HeaderLoadingSettings, LiquidCursorSettings,
+};
 use notification::{Notification, NotificationSystem};
 use pty::{PtyState, TerminalSize, TerminalStarted};
 use serde::{Deserialize, Serialize};
@@ -108,6 +110,30 @@ fn save_liquid_cursor(
     .map_err(|error| error.to_string())
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeaderLoadingConfigChanged {
+    source_window: String,
+    header_loading: HeaderLoadingSettings,
+}
+
+#[tauri::command]
+fn save_header_loading(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, ConfigStore>,
+    header_loading: HeaderLoadingSettings,
+) -> Result<(), String> {
+    state.save_header_loading(header_loading.clone())?;
+    app.emit(
+        "header-loading-config-changed",
+        HeaderLoadingConfigChanged {
+            source_window: window.label().to_owned(),
+            header_loading,
+        },
+    )
+    .map_err(|error| error.to_string())
+}
 #[tauri::command]
 fn set_window_loading(window: WebviewWindow, loading: bool) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -652,6 +678,7 @@ pub fn run() {
             get_config,
             save_config,
             save_liquid_cursor,
+            save_header_loading,
             set_window_loading,
             open_config,
             show_notification,

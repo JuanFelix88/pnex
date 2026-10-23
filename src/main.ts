@@ -28,12 +28,25 @@ interface AppConfig {
   uiThemeName?: string;
   cursorAnimation?: CursorAnimation;
   liquidCursor?: Partial<LiquidCursorSettings>;
+  headerLoading?: Partial<HeaderLoadingSettings>;
 }
 
 interface LiquidCursorConfigChanged {
   sourceWindow: string;
   cursorAnimation: CursorAnimation;
   liquidCursor: LiquidCursorSettings;
+}
+
+const HEADER_LOADING_COLORS = ["blue", "cyan", "yellow", "green", "red", "white"] as const;
+
+interface HeaderLoadingSettings {
+  color: typeof HEADER_LOADING_COLORS[number];
+  maskOpacity: number;
+}
+
+interface HeaderLoadingConfigChanged {
+  sourceWindow: string;
+  headerLoading: HeaderLoadingSettings;
 }
 
 interface TerminalSize {
@@ -74,6 +87,7 @@ type MenuAction =
   | "set-theme"
   | "set-ui-theme"
   | "open-liquid-cursor"
+  | "open-header-loading"
   | "toggle-devtools"
   | "about";
 
@@ -87,6 +101,7 @@ interface MenuItem {
   theme?: TerminalTheme;
   uiThemeName?: string;
   checked?: boolean;
+  opensView?: true;
 }
 
 const PROMPT_HUD_SENTINEL_PATTERN = /\uE000(\d+)\uE001/;
@@ -130,6 +145,7 @@ let selectionShimmerId = 0;
 let terminalRevealed = false;
 let waitingForResetHud = false;
 let liquidCursorSaveQueue = Promise.resolve();
+let headerLoadingSaveQueue = Promise.resolve();
 let closingAfterCursorSave = false;
 let terminalConnectionVersion = 0;
 let resetSessionPromise: Promise<void> | null = null;
@@ -1311,7 +1327,8 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
           checked: theme.name === selectedTheme.name,
         })),
         { separator: true },
-        { label: "Liquid Cursor…", action: "open-liquid-cursor" },
+        { label: "Liquid Cursor", action: "open-liquid-cursor", opensView: true },
+        { label: "Header Loading", action: "open-header-loading", opensView: true },
         { separator: true },
         { label: "UI Themes", heading: true },
         {
@@ -1396,6 +1413,9 @@ async function runMenuAction(
     case "open-liquid-cursor":
       showLiquidCursorPanel();
       return;
+    case "open-header-loading":
+      showHeaderLoadingPanel();
+      return;
     case "toggle-devtools":
       if (import.meta.env.DEV) await invoke("toggle_devtools");
       return;
@@ -1417,7 +1437,7 @@ function applyCursorAnimation(
   terminal.options.theme = toXtermTheme(configuredTheme(config.theme), animation);
 }
 
-function positionLiquidCursorPanel(panel: HTMLElement): void {
+function positionSettingsPanel(panel: HTMLElement): void {
   const trigger = document.querySelector<HTMLButtonElement>('.menu-trigger[data-menu="options"]');
   const triggerBounds = trigger?.getBoundingClientRect();
   const left = Math.min(
@@ -1428,10 +1448,130 @@ function positionLiquidCursorPanel(panel: HTMLElement): void {
   panel.style.top = `${triggerBounds?.bottom ?? 34}px`;
 }
 
+function closeSettingsPanels(): void {
+  document.querySelectorAll<HTMLElement>(".settings-panel").forEach((panel) => {
+    panel.hidden = true;
+  });
+}
+
+function configuredHeaderLoadingSettings(
+  value?: { color?: string; maskOpacity?: number },
+): HeaderLoadingSettings {
+  const color = HEADER_LOADING_COLORS.find((color) => color === value?.color) ?? "green";
+  const opacity = value?.maskOpacity;
+  const maskOpacity = typeof opacity === "number" && Number.isFinite(opacity)
+    ? Math.min(100, Math.max(0, Math.round(opacity)))
+    : 10;
+  return { color, maskOpacity };
+}
+
+function applyHeaderLoadingSettings(settings: HeaderLoadingSettings): void {
+  const root = document.documentElement.style;
+  root.setProperty("--header-loading-color", `var(--terminal-${settings.color})`);
+  root.setProperty("--header-loading-mask-opacity", `${settings.maskOpacity}%`);
+}
+
+function showHeaderLoadingPanel(): void {
+  closeSettingsPanels();
+  const panel = requiredElement("#header-loading-panel");
+  panel.hidden = false;
+  positionSettingsPanel(panel);
+  requiredElement("#header-loading-color").focus();
+}
+
+function setupHeaderLoadingPanel(terminal: Terminal, config: AppConfig): void {
+  const panel = requiredElement("#header-loading-panel");
+  const color = requiredElement("#header-loading-color") as HTMLSelectElement;
+  const opacity = requiredElement("#header-loading-opacity") as HTMLInputElement;
+  const opacityValue = requiredElement("#header-loading-opacity-value");
+  let revision = 0;
+
+  const synchronize = (value?: Partial<HeaderLoadingSettings>): void => {
+    revision++;
+    const settings = configuredHeaderLoadingSettings(value);
+    config.headerLoading = settings;
+    color.value = settings.color;
+    opacity.value = String(settings.maskOpacity);
+    opacityValue.textContent = `${settings.maskOpacity}%`;
+    applyHeaderLoadingSettings(settings);
+  };
+  const applySettings = (): void => {
+    synchronize(configuredHeaderLoadingSettings({
+      color: color.value,
+      maskOpacity: Number(opacity.value),
+    }));
+  };
+  const persist = (): void => {
+    const headerLoading = configuredHeaderLoadingSettings(config.headerLoading);
+    const save = headerLoadingSaveQueue
+      .catch(() => undefined)
+      .then(() => invoke<void>("save_header_loading", { headerLoading }));
+    headerLoadingSaveQueue = save;
+    void save.catch((error: unknown) => {
+      showError(`Could not save Header Loading settings: ${String(error)}`);
+    });
+  };
+  const hidePanel = (restoreTerminalFocus: boolean): void => {
+    panel.hidden = true;
+    if (restoreTerminalFocus) terminal.focus();
+  };
+
+  synchronize(config.headerLoading);
+  color.addEventListener("change", () => {
+    applySettings();
+    persist();
+  });
+  opacity.addEventListener("input", applySettings);
+  opacity.addEventListener("change", () => {
+    applySettings();
+    persist();
+  });
+  requiredElement("#header-loading-reset").addEventListener("click", () => {
+    synchronize();
+    persist();
+  });
+  requiredElement("#header-loading-close").addEventListener("click", () => hidePanel(true));
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const focusable = [...panel.querySelectorAll<HTMLElement>("button, input, select")];
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (panel.hidden || !(event.target instanceof Node)
+      || menuPopup.contains(event.target) || panel.contains(event.target)) return;
+    hidePanel(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) hidePanel(true);
+  });
+  window.addEventListener("resize", () => {
+    if (!panel.hidden) positionSettingsPanel(panel);
+  });
+  void listen<HeaderLoadingConfigChanged>("header-loading-config-changed", ({ payload }) => {
+    if (payload.sourceWindow !== appWindow.label) synchronize(payload.headerLoading);
+  }).then(async () => {
+    const initialRevision = revision;
+    const latestConfig = await invoke<AppConfig>("get_config");
+    if (revision === initialRevision) synchronize(latestConfig.headerLoading);
+  }).catch((error: unknown) => {
+    console.warn("Could not synchronize Header Loading settings.", error);
+  });
+}
+
 function showLiquidCursorPanel(): void {
+  closeSettingsPanels();
   const panel = requiredElement("#liquid-cursor-panel");
   panel.hidden = false;
-  positionLiquidCursorPanel(panel);
+  positionSettingsPanel(panel);
   requiredElement("#liquid-cursor-enabled").focus();
 }
 
@@ -1643,7 +1783,7 @@ function setupLiquidCursorPanel(
     if (event.key === "Escape" && !panel.hidden) hidePanel(true);
   });
   window.addEventListener("resize", () => {
-    if (!panel.hidden) positionLiquidCursorPanel(panel);
+    if (!panel.hidden) positionSettingsPanel(panel);
   });
 }
 
@@ -1688,6 +1828,16 @@ function openMenu(
     button.disabled = item.disabled ?? false;
     button.setAttribute("role", "menuitem");
     button.textContent = item.checked ? `✓ ${item.label}` : item.label;
+    if (item.opensView) {
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      icon.setAttribute("class", "menu-view-icon");
+      icon.setAttribute("viewBox", "0 0 16 16");
+      icon.setAttribute("aria-hidden", "true");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "m6 4 4 4-4 4");
+      icon.append(path);
+      button.append(icon);
+    }
     if (item.hint) {
       const hint = document.createElement("span");
       hint.className = "menu-hint";
@@ -1728,6 +1878,7 @@ function setupTitlebar(
   inputShadow: InputShadow,
 ): () => void {
   setupLiquidCursorPanel(terminal, config, liquidCursor, inputShadow);
+  setupHeaderLoadingPanel(terminal, config);
   const triggers = document.querySelectorAll<HTMLButtonElement>(".menu-trigger");
   const titlebar = requiredElement("#titlebar");
   const titlebarIcon = requiredElement("#titlebar-icon");
@@ -1777,7 +1928,7 @@ function setupTitlebar(
     titlebarToggle.setAttribute("aria-expanded", "false");
   };
   const showTitlebarMenu = (): void => {
-    requiredElement("#liquid-cursor-panel").hidden = true;
+    closeSettingsPanels();
     titlebarIcon.removeAttribute("hidden");
     titlebarMenu.hidden = false;
     titlebarToggle.hidden = true;
@@ -1794,7 +1945,7 @@ function setupTitlebar(
   triggers.forEach((trigger) => {
     trigger.addEventListener("click", (event) => {
       event.stopPropagation();
-      requiredElement("#liquid-cursor-panel").hidden = true;
+      closeSettingsPanels();
       if (trigger.getAttribute("aria-expanded") === "true") {
         closeMenu();
       } else {
@@ -1886,7 +2037,7 @@ function setupTitlebar(
   });
 
   return () => {
-    requiredElement("#liquid-cursor-panel").hidden = true;
+    closeSettingsPanels();
     closeMenu();
     closeTitlebarMenu();
     terminal.focus();
@@ -1899,7 +2050,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
       event.preventDefault();
       if (closingAfterCursorSave) return;
       closingAfterCursorSave = true;
-      void liquidCursorSaveQueue
+      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue])
         .then(() => appWindow.destroy())
         .catch((error: unknown) => {
           closingAfterCursorSave = false;
@@ -1907,7 +2058,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
         });
     }),
     listen("app-close-requested", () => {
-      void liquidCursorSaveQueue
+      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue])
         .then(() => invoke("confirm_app_close"))
         .catch((error: unknown) => {
           showError(`Could not close the app: ${String(error)}`);

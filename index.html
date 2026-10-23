@@ -132,6 +132,35 @@
         </div>
         <button id="liquid-cursor-reset" class="settings-reset" type="button">Reset default values</button>
       </section>
+      <section id="header-loading-panel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="header-loading-title" aria-describedby="header-loading-description" hidden>
+        <div class="settings-panel-header">
+          <div>
+            <h2 id="header-loading-title">Header Loading</h2>
+            <p id="header-loading-description">Highlight the header while the terminal is busy.</p>
+          </div>
+          <button id="header-loading-close" class="settings-panel-close" type="button" aria-label="Close Header Loading settings">×</button>
+        </div>
+        <div class="settings-slider-group">
+          <label class="settings-slider" for="header-loading-color">
+            <strong>Theme color</strong>
+            <select id="header-loading-color">
+              <option value="blue">Blue (blue)</option>
+              <option value="cyan">Cyan (cyan)</option>
+              <option value="yellow">Yellow (yellow)</option>
+              <option value="green">Green (brightGreen)</option>
+              <option value="red">Red (brightRed)</option>
+              <option value="white">White (white)</option>
+            </select>
+            <small>Shimmer and tint follow the selected theme.</small>
+          </label>
+          <label class="settings-slider" for="header-loading-opacity">
+            <strong>Header tint <output id="header-loading-opacity-value" for="header-loading-opacity">10%</output></strong>
+            <input id="header-loading-opacity" type="range" min="0" max="100" step="1" />
+            <span><small>0%</small><small>100%</small></span>
+          </label>
+        </div>
+        <button id="header-loading-reset" class="settings-reset" type="button">Reset default values</button>
+      </section>
       <section id="terminal-container" aria-label="Interactive terminal">
         <div id="terminal"></div>
         <div id="window-hover-overlay" aria-hidden="true" hidden>

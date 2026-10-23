@@ -52,6 +52,33 @@ impl Default for LiquidCursorSettings {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HeaderLoadingColor {
+    Blue,
+    Cyan,
+    Yellow,
+    #[default]
+    Green,
+    Red,
+    White,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct HeaderLoadingSettings {
+    pub color: HeaderLoadingColor,
+    pub mask_opacity: u8,
+}
+
+impl Default for HeaderLoadingSettings {
+    fn default() -> Self {
+        Self {
+            color: HeaderLoadingColor::Green,
+            mask_opacity: 10,
+        }
+    }
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
@@ -62,6 +89,7 @@ pub struct AppConfig {
     pub theme: Value,
     pub cursor_animation: CursorAnimation,
     pub liquid_cursor: LiquidCursorSettings,
+    pub header_loading: HeaderLoadingSettings,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -76,6 +104,7 @@ impl Default for AppConfig {
             theme: default_theme(),
             cursor_animation: CursorAnimation::Liquid,
             liquid_cursor: LiquidCursorSettings::default(),
+            header_loading: HeaderLoadingSettings::default(),
             extra: BTreeMap::new(),
         }
     }
@@ -214,10 +243,11 @@ impl ConfigStore {
 
     pub fn save(&self, mut config: AppConfig) -> Result<(), String> {
         let mut current = self.config.lock().map_err(lock_error)?;
-        // Liquid Cursor has a dedicated patch command. Preserve its latest values when
-        // another window saves an older full configuration.
+        // Dedicated settings commands own these fields. Preserve their latest values
+        // when another window saves an older full configuration.
         config.cursor_animation = current.cursor_animation.clone();
         config.liquid_cursor = current.liquid_cursor.clone();
+        config.header_loading = current.header_loading.clone();
         validate(&config)?;
         persist(&self.path, &config)?;
         *current = config;
@@ -239,6 +269,15 @@ impl ConfigStore {
         Ok(())
     }
 
+    pub fn save_header_loading(&self, header_loading: HeaderLoadingSettings) -> Result<(), String> {
+        let mut current = self.config.lock().map_err(lock_error)?;
+        let mut next = current.clone();
+        next.header_loading = header_loading;
+        validate(&next)?;
+        persist(&self.path, &next)?;
+        *current = next;
+        Ok(())
+    }
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -291,6 +330,9 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("fontSize must be between 6 and 72.".to_owned());
     }
 
+    if config.header_loading.mask_opacity > 100 {
+        return Err("headerLoading.maskOpacity must be between 0 and 100.".to_owned());
+    }
     if config.liquid_cursor.animation_length > 500 {
         return Err("liquidCursor.animationLength must be between 0 and 500.".to_owned());
     }
@@ -359,6 +401,7 @@ mod tests {
         assert!(!config.liquid_cursor.typing_overlay);
         assert!(config.liquid_cursor.input_shadow);
         assert_eq!(config.liquid_cursor.input_shadow_opacity, 45);
+        assert_eq!(config.header_loading, Default::default());
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -428,6 +471,7 @@ mod tests {
         assert_eq!(config.theme["background"], "#282a36");
         assert_eq!(config.cursor_animation, CursorAnimation::Liquid);
         assert_eq!(config.liquid_cursor, Default::default());
+        assert_eq!(config.header_loading, Default::default());
 
         fs::remove_dir_all(directory).expect("remove test directory");
     }
@@ -472,6 +516,73 @@ mod tests {
         assert_eq!(saved.liquid_cursor.input_shadow_opacity, 70);
 
         fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[test]
+    fn header_loading_settings_persist_and_survive_stale_full_saves() {
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+        let mut stale_config = store.get().expect("stale config");
+        let settings = super::HeaderLoadingSettings {
+            color: super::HeaderLoadingColor::Cyan,
+            mask_opacity: 35,
+        };
+
+        store
+            .save_header_loading(settings.clone())
+            .expect("save header loading");
+        stale_config.font_size = 18;
+        store.save(stale_config).expect("save stale config");
+        let reloaded = ConfigStore::load(directory.clone()).expect("reload config");
+        let saved = reloaded.get().expect("saved config");
+        assert_eq!(saved.header_loading, settings);
+        assert_eq!(saved.font_size, 18);
+        assert_eq!(saved.liquid_cursor, Default::default());
+        fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[test]
+    fn header_loading_opacity_is_validated_and_supports_endpoints() {
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+        for mask_opacity in [0, 100] {
+            store
+                .save_header_loading(super::HeaderLoadingSettings {
+                    mask_opacity,
+                    ..Default::default()
+                })
+                .expect("valid opacity");
+        }
+        assert!(store
+            .save_header_loading(super::HeaderLoadingSettings {
+                mask_opacity: 101,
+                ..Default::default()
+            })
+            .is_err());
+        assert_eq!(
+            store.get().expect("config").header_loading.mask_opacity,
+            100
+        );
+        let reloaded = ConfigStore::load(directory.clone()).expect("reload config");
+        assert_eq!(
+            reloaded.get().expect("config").header_loading.mask_opacity,
+            100
+        );
+        fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[test]
+    fn header_loading_colors_are_theme_references_only() {
+        assert!(serde_json::from_str::<super::HeaderLoadingSettings>(
+            r##"{"color":"#00ff00","maskOpacity":10}"##
+        )
+        .is_err());
+        let settings: super::HeaderLoadingSettings =
+            serde_json::from_str(r#"{"color":"red"}"#).expect("theme color reference");
+        assert_eq!(settings.color, super::HeaderLoadingColor::Red);
+        assert_eq!(settings.mask_opacity, 10);
     }
 
     #[test]
