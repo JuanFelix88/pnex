@@ -362,35 +362,6 @@ nav,
   to { opacity: 1; transform: translateY(0); }
 }
 
-#window-hover-overlay {
-  position: absolute;
-  z-index: 30;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--terminal-background) 58%, transparent);
-  color: var(--terminal-foreground);
-  font-family: var(--terminal-font-family);
-}
-
-#window-hover-overlay[hidden] {
-  display: none;
-}
-
-#window-hover-title {
-  max-width: min(94%, 1100px);
-  overflow: hidden;
-  border: 1px solid var(--terminal-border);
-  background: color-mix(in srgb, var(--terminal-background) 88%, transparent);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
-  padding: 8px 12px;
-  font-size: clamp(13px, 2vw, 22px);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 #terminal .xterm-viewport {
   overflow-x: hidden;
   background-color: var(--terminal-background) !important;

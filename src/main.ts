@@ -113,8 +113,6 @@ const terminalElement = requiredElement("#terminal");
 const terminalContainer = requiredElement("#terminal-container");
 const errorElement = requiredElement("#terminal-error");
 const menuPopup = requiredElement("#menu-popup");
-const windowHoverOverlay = requiredElement("#window-hover-overlay");
-const windowHoverTitle = requiredElement("#window-hover-title");
 const titlebarTitle = requiredElement("#titlebar-title");
 const loadingScreen = requiredElement("#loading-screen");
 
@@ -136,8 +134,6 @@ let lastTitleProgressFrame: string | null = null;
 let lastTitleProgressFrameAt = 0;
 let titleProgressTimer: number | null = null;
 let isWindowFocused = true;
-let isPointerInsideWindow = false;
-let isWindowHoverArmed = false;
 let inEscapeSequence = false;
 let activeHud: PromptHud | null = null;
 let focusedHud: PromptHud | null = null;
@@ -301,7 +297,6 @@ function animateTitlebarTitle(): void {
 function setWindowTitle(title: string): void {
   const changed = titlebarTitle.textContent !== title;
   currentWindowTitle = title;
-  windowHoverTitle.textContent = title;
   titlebarTitle.textContent = title;
   if (!changed) return;
 
@@ -324,33 +319,12 @@ function updateWindowTitle(isRunning = false, command = lastCommand): void {
   setWindowTitle(title);
 }
 
-function updateWindowHoverOverlay(): void {
-  windowHoverTitle.textContent = currentWindowTitle;
-  windowHoverOverlay.hidden = !isWindowHoverArmed || isWindowFocused || !isPointerInsideWindow;
-}
-
-async function setupWindowHoverOverlay(onFocused: () => void): Promise<void> {
-  document.body.addEventListener("pointerenter", (event) => {
-    if (event.pointerType !== "mouse") return;
-    isPointerInsideWindow = true;
-    updateWindowHoverOverlay();
-  });
-  document.body.addEventListener("pointerleave", (event) => {
-    if (event.pointerType !== "mouse") return;
-    isPointerInsideWindow = false;
-    // Do not treat the pointer already inside a newly focused window as hover.
-    // A leave followed by a new entry is an intentional hover.
-    isWindowHoverArmed = true;
-    updateWindowHoverOverlay();
-  });
-
+async function setupWindowFocus(onFocused: () => void): Promise<void> {
   await appWindow.onFocusChanged(({ payload: focused }) => {
     isWindowFocused = focused;
-    updateWindowHoverOverlay();
     if (focused) onFocused();
   });
   isWindowFocused = await appWindow.isFocused();
-  updateWindowHoverOverlay();
   if (isWindowFocused) onFocused();
 }
 
@@ -2077,7 +2051,7 @@ async function bootstrap(): Promise<void> {
 
   setupTerminal(terminal, fitAddon, liquidCursor, inputShadow);
   const restoreTerminalFocus = setupTitlebar(terminal, config, liquidCursor, inputShadow);
-  await setupWindowHoverOverlay(restoreTerminalFocus);
+  await setupWindowFocus(restoreTerminalFocus);
 
   // The shell prompt is customized at startup and can redraw several times.
   // Keep it behind the loading screen until its first HUD arrives.
