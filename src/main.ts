@@ -16,6 +16,7 @@ import {
 } from "./liquid-cursor";
 import { notify as sendSystemNotification } from "./notifications";
 import { prepareSharedTerminalOutput, type SharedTerminalOutput } from "./terminal-output";
+import { TerminalMotion, configuredTerminalMotionSettings, createHudMotionGlow, type TerminalMotionSettings } from "./terminal-motion";
 import { builtinThemes, type TerminalTheme } from "./themes";
 import "./styles.css";
 
@@ -29,6 +30,7 @@ interface AppConfig {
   cursorAnimation?: CursorAnimation;
   liquidCursor?: Partial<LiquidCursorSettings>;
   headerLoading?: Partial<HeaderLoadingSettings>;
+  terminalMotion?: Partial<TerminalMotionSettings>;
 }
 
 interface LiquidCursorConfigChanged {
@@ -47,6 +49,11 @@ interface HeaderLoadingSettings {
 interface HeaderLoadingConfigChanged {
   sourceWindow: string;
   headerLoading: HeaderLoadingSettings;
+}
+
+interface TerminalMotionConfigChanged {
+  sourceWindow: string;
+  terminalMotion: TerminalMotionSettings;
 }
 
 interface TerminalSize {
@@ -88,6 +95,7 @@ type MenuAction =
   | "set-ui-theme"
   | "open-liquid-cursor"
   | "open-header-loading"
+  | "open-terminal-motion"
   | "toggle-devtools"
   | "about";
 
@@ -142,6 +150,7 @@ let terminalRevealed = false;
 let waitingForResetHud = false;
 let liquidCursorSaveQueue = Promise.resolve();
 let headerLoadingSaveQueue = Promise.resolve();
+let terminalMotionSaveQueue = Promise.resolve();
 let closingAfterCursorSave = false;
 let terminalConnectionVersion = 0;
 let resetSessionPromise: Promise<void> | null = null;
@@ -160,6 +169,7 @@ interface PromptHud {
   commandEndedAt: Date | null;
   element: HTMLElement;
   disposed: boolean;
+  hasAppeared: boolean;
 }
 
 function requiredElement(selector: string): HTMLElement {
@@ -795,6 +805,7 @@ function setupTerminal(
   fitAddon: FitAddon,
   liquidCursor: LiquidCursor,
   inputShadow: InputShadow,
+  terminalMotion: TerminalMotion,
 ): void {
   let queuedPtyResize: TerminalSize | null = null;
   let ptyResizeInFlight = false;
@@ -852,6 +863,7 @@ function setupTerminal(
   terminal.onData((data) => {
     liquidCursor.pulseTyping();
     inputShadow.show(data);
+    terminalMotion.pulseTyping(data, activeHud?.element.querySelector<HTMLElement>(".prompt-hud-glow") ?? null);
     const submittedCommand = acceptingShellCommand ? trackCommand(data) : null;
 
     if (submittedCommand !== null) {
@@ -922,6 +934,15 @@ function setupPromptHud(terminal: Terminal): void {
         visiblePromptIds.add(promptId);
         hud.element.style.transform = `translateY(${viewportRow * cellHeight}px)`;
         if (hud.element.parentElement !== layer) layer.append(hud.element);
+        if (!hud.hasAppeared) {
+          hud.hasAppeared = true;
+          if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            hud.element.firstElementChild?.animate([
+              { opacity: 0, transform: "translateX(-3px)" },
+              { opacity: 1, transform: "translateX(0)" },
+            ], { duration: 130, easing: "ease-in-out" });
+          }
+        }
       }
     }
 
@@ -982,6 +1003,7 @@ function createPromptHud(cwd: string, promptId: string): PromptHud {
     commandEndedAt: null,
     element: document.createElement("div"),
     disposed: false,
+    hasAppeared: false,
   };
   hud.element.className = "prompt-hud-frame";
   promptHuds.push(hud);
@@ -1033,7 +1055,9 @@ function disposePromptHud(hud: PromptHud): void {
 function updatePromptHudState(hud: PromptHud): void {
   hud.element.dataset.status = hud.status;
   hud.element.dataset.focused = String(focusedHud === hud);
-  hud.element.firstElementChild?.setAttribute("data-status", hud.status);
+  hud.element.querySelectorAll<HTMLElement>(".prompt-hud").forEach((content) => {
+    content.dataset.status = hud.status;
+  });
 }
 
 function renderPromptHud(hud: PromptHud): void {
@@ -1090,7 +1114,11 @@ function renderPromptHud(hud: PromptHud): void {
     content.append(time);
   }
 
-  hud.element.replaceChildren(content);
+  // Keep the entry wrapper stable across Git/status updates so its first entrance is not replayed.
+  const entry = hud.element.firstElementChild ?? document.createElement("div");
+  entry.className = "prompt-hud-entry";
+  entry.replaceChildren(content, createHudMotionGlow(content));
+  if (!entry.parentElement) hud.element.append(entry);
 }
 
 function createHudIcon(name: "branch" | "earth" | "home"): HTMLElement {
@@ -1303,6 +1331,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
         { separator: true },
         { label: "Liquid Cursor", action: "open-liquid-cursor", opensView: true },
         { label: "Header Loading", action: "open-header-loading", opensView: true },
+        { label: "Terminal Motion", action: "open-terminal-motion", opensView: true },
         { separator: true },
         { label: "UI Themes", heading: true },
         {
@@ -1390,6 +1419,14 @@ async function runMenuAction(
     case "open-header-loading":
       showHeaderLoadingPanel();
       return;
+    case "open-terminal-motion": {
+      closeSettingsPanels();
+      const panel = requiredElement("#terminal-motion-panel");
+      panel.hidden = false;
+      positionSettingsPanel(panel);
+      requiredElement("#terminal-motion-enabled").focus();
+      return;
+    }
     case "toggle-devtools":
       if (import.meta.env.DEV) await invoke("toggle_devtools");
       return;
@@ -1539,6 +1576,78 @@ function setupHeaderLoadingPanel(terminal: Terminal, config: AppConfig): void {
   }).catch((error: unknown) => {
     console.warn("Could not synchronize Header Loading settings.", error);
   });
+}
+
+function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion: TerminalMotion): void {
+  const panel = requiredElement("#terminal-motion-panel");
+  const enabled = requiredElement("#terminal-motion-enabled") as HTMLInputElement;
+  const level = requiredElement("#terminal-motion-level") as HTMLInputElement;
+  const reactive = requiredElement("#terminal-motion-reactive") as HTMLInputElement;
+  const value = requiredElement("#terminal-motion-value");
+  let revision = 0;
+  const synchronize = (settings?: Partial<TerminalMotionSettings>): void => {
+    revision++;
+    const normalized = configuredTerminalMotionSettings(settings);
+    config.terminalMotion = normalized;
+    enabled.checked = normalized.enabled;
+    level.disabled = !normalized.enabled;
+    reactive.checked = normalized.reactiveGlow;
+    reactive.disabled = !normalized.enabled;
+    level.value = String(normalized.motion);
+    value.textContent = String(normalized.motion);
+    motion.setSettings(normalized);
+  };
+  const apply = (): void => synchronize({
+    enabled: enabled.checked, motion: Number(level.value), reactiveGlow: reactive.checked,
+  });
+  const persist = (): void => {
+    const terminalMotion = configuredTerminalMotionSettings(config.terminalMotion);
+    const save = terminalMotionSaveQueue.catch(() => undefined)
+      .then(() => invoke<void>("save_terminal_motion", { terminalMotion }));
+    terminalMotionSaveQueue = save;
+    void save.catch((error: unknown) => showError(`Could not save Terminal Motion settings: ${String(error)}`));
+  };
+  const hide = (focus: boolean): void => {
+    panel.hidden = true;
+    if (focus) terminal.focus();
+  };
+  synchronize(config.terminalMotion);
+  enabled.addEventListener("change", () => { apply(); persist(); });
+  reactive.addEventListener("change", () => { apply(); persist(); });
+  level.addEventListener("input", apply);
+  level.addEventListener("change", () => { apply(); persist(); });
+  requiredElement("#terminal-motion-reset").addEventListener("click", () => { synchronize(); persist(); });
+  requiredElement("#terminal-motion-close").addEventListener("click", () => hide(true));
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const controls = [...panel.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)")];
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!panel.hidden && event.target instanceof Node
+      && !menuPopup.contains(event.target) && !panel.contains(event.target)) hide(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) hide(true);
+  });
+  window.addEventListener("resize", () => { if (!panel.hidden) positionSettingsPanel(panel); });
+  window.addEventListener("beforeunload", () => motion.dispose(), { once: true });
+  void listen<TerminalMotionConfigChanged>("terminal-motion-config-changed", ({ payload }) => {
+    if (payload.sourceWindow !== appWindow.label) synchronize(payload.terminalMotion);
+  }).then(async () => {
+    const initialRevision = revision;
+    const latest = await invoke<AppConfig>("get_config");
+    if (revision === initialRevision) synchronize(latest.terminalMotion);
+  }).catch((error: unknown) => console.warn("Could not synchronize Terminal Motion settings.", error));
 }
 
 function showLiquidCursorPanel(): void {
@@ -2024,7 +2133,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
       event.preventDefault();
       if (closingAfterCursorSave) return;
       closingAfterCursorSave = true;
-      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue])
+      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue, terminalMotionSaveQueue])
         .then(() => appWindow.destroy())
         .catch((error: unknown) => {
           closingAfterCursorSave = false;
@@ -2032,7 +2141,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
         });
     }),
     listen("app-close-requested", () => {
-      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue])
+      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue, terminalMotionSaveQueue])
         .then(() => invoke("confirm_app_close"))
         .catch((error: unknown) => {
           showError(`Could not close the app: ${String(error)}`);
@@ -2048,8 +2157,10 @@ async function bootstrap(): Promise<void> {
   shellName = configuredShellName(config.shell);
   applyUiTheme(config.uiThemeName);
   const { terminal, fitAddon, liquidCursor, inputShadow } = createTerminal(config);
+  const terminalMotion = new TerminalMotion(terminal, config.terminalMotion);
+  setupTerminalMotionPanel(terminal, config, terminalMotion);
 
-  setupTerminal(terminal, fitAddon, liquidCursor, inputShadow);
+  setupTerminal(terminal, fitAddon, liquidCursor, inputShadow, terminalMotion);
   const restoreTerminalFocus = setupTitlebar(terminal, config, liquidCursor, inputShadow);
   await setupWindowFocus(restoreTerminalFocus);
 

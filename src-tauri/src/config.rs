@@ -79,6 +79,25 @@ impl Default for HeaderLoadingSettings {
         }
     }
 }
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TerminalMotionSettings {
+    pub enabled: bool,
+    pub motion: u8,
+    pub reactive_glow: bool,
+}
+
+impl Default for TerminalMotionSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            motion: 2,
+            reactive_glow: true,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
@@ -90,6 +109,7 @@ pub struct AppConfig {
     pub cursor_animation: CursorAnimation,
     pub liquid_cursor: LiquidCursorSettings,
     pub header_loading: HeaderLoadingSettings,
+    pub terminal_motion: TerminalMotionSettings,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -105,6 +125,7 @@ impl Default for AppConfig {
             cursor_animation: CursorAnimation::Liquid,
             liquid_cursor: LiquidCursorSettings::default(),
             header_loading: HeaderLoadingSettings::default(),
+            terminal_motion: TerminalMotionSettings::default(),
             extra: BTreeMap::new(),
         }
     }
@@ -248,6 +269,7 @@ impl ConfigStore {
         config.cursor_animation = current.cursor_animation.clone();
         config.liquid_cursor = current.liquid_cursor.clone();
         config.header_loading = current.header_loading.clone();
+        config.terminal_motion = current.terminal_motion.clone();
         validate(&config)?;
         persist(&self.path, &config)?;
         *current = config;
@@ -278,6 +300,20 @@ impl ConfigStore {
         *current = next;
         Ok(())
     }
+
+    pub fn save_terminal_motion(
+        &self,
+        terminal_motion: TerminalMotionSettings,
+    ) -> Result<(), String> {
+        let mut current = self.config.lock().map_err(lock_error)?;
+        let mut next = current.clone();
+        next.terminal_motion = terminal_motion;
+        validate(&next)?;
+        persist(&self.path, &next)?;
+        *current = next;
+        Ok(())
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -330,6 +366,9 @@ fn validate(config: &AppConfig) -> Result<(), String> {
         return Err("fontSize must be between 6 and 72.".to_owned());
     }
 
+    if !(1..=5).contains(&config.terminal_motion.motion) {
+        return Err("terminalMotion.motion must be between 1 and 5.".to_owned());
+    }
     if config.header_loading.mask_opacity > 100 {
         return Err("headerLoading.maskOpacity must be between 0 and 100.".to_owned());
     }

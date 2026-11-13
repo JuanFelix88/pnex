@@ -161,6 +161,40 @@
         </div>
         <button id="header-loading-reset" class="settings-reset" type="button">Reset default values</button>
       </section>
+      <section id="terminal-motion-panel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="terminal-motion-title" hidden>
+        <div class="settings-panel-header">
+          <h2 id="terminal-motion-title">Terminal Motion</h2>
+          <button id="terminal-motion-close" class="settings-panel-close" type="button" aria-label="Close Terminal Motion settings">×</button>
+        </div>
+        <label class="settings-switch-row" for="terminal-motion-enabled">
+          <span>
+            <strong>Enable</strong>
+            <small>Color shadows on terminal text and HUD</small>
+          </span>
+          <span class="settings-switch">
+            <input id="terminal-motion-enabled" type="checkbox" role="switch" checked />
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
+        <label class="settings-switch-row settings-switch-row-secondary" for="terminal-motion-reactive">
+          <span>
+            <strong>Reactive glow</strong>
+            <small>Subtle pulses while typing</small>
+          </span>
+          <span class="settings-switch">
+            <input id="terminal-motion-reactive" type="checkbox" role="switch" checked />
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
+        <div class="settings-slider-group">
+          <label class="settings-slider" for="terminal-motion-level">
+            <strong>Motion <output id="terminal-motion-value" for="terminal-motion-level">2</output></strong>
+            <input id="terminal-motion-level" type="range" min="1" max="5" step="1" value="2" />
+            <span><small>1</small><small>5</small></span>
+          </label>
+        </div>
+        <button id="terminal-motion-reset" class="settings-reset" type="button">Reset default values</button>
+      </section>
       <section id="terminal-container" aria-label="Interactive terminal">
         <div id="terminal"></div>
       </section>

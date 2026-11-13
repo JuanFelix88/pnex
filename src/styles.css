@@ -231,6 +231,18 @@ nav,
   height: 100%;
 }
 
+.terminal-motion {
+  z-index: 2;
+  pointer-events: none;
+  filter: blur(15px);
+  transform: translate(2px, 3px);
+  transition: opacity 140ms ease;
+}
+
+.terminal-motion[hidden] {
+  display: none;
+}
+
 .liquid-cursor {
   position: absolute;
   z-index: 8;
@@ -701,6 +713,74 @@ nav,
   opacity: 0.92;
 }
 
+.prompt-hud-entry {
+  position: relative;
+}
+
+.prompt-hud-entry > .prompt-hud:not(.prompt-hud-glow) {
+  position: relative;
+  z-index: 1;
+}
+
+.prompt-hud-glow {
+  --hud-motion-color-strength: var(--motion-foreground-strength, 0.025);
+  position: absolute;
+  top: 0;
+  left: 0;
+  filter: blur(15px);
+  transform: translate(2px, 3px);
+  opacity: var(--terminal-hud-motion-intensity, 0.48);
+  transition: opacity 140ms ease;
+}
+
+.xterm-screen[data-terminal-motion="false"] .prompt-hud-glow {
+  display: none;
+}
+
+.prompt-hud-glow .hud-motion-ink,
+.prompt-hud-glow .prompt-hud-icon {
+  opacity: var(--hud-motion-color-strength);
+}
+
+.prompt-hud-glow .prompt-hud-cwd {
+  --hud-motion-color-strength: var(--motion-yellow-strength, 0);
+}
+
+.prompt-hud-glow .prompt-hud-git {
+  --hud-motion-color-strength: var(--motion-cyan-strength, 0);
+}
+
+.prompt-hud-glow .prompt-hud-git-user,
+.prompt-hud-glow[data-status="success"] .prompt-hud-status {
+  --hud-motion-color-strength: var(--motion-green-strength, 0);
+}
+
+.prompt-hud-glow .prompt-hud-status {
+  --hud-motion-color-strength: var(--motion-border-strength, 0);
+}
+
+.prompt-hud-glow[data-status="running"] .prompt-hud-status {
+  --hud-motion-color-strength: var(--motion-yellow-strength, 0);
+}
+
+.prompt-hud-glow[data-status="error"] .prompt-hud-status {
+  --hud-motion-color-strength: var(--motion-red-strength, 0);
+}
+
+.prompt-hud-glow :is(.prompt-hud-icon-earth, .prompt-hud-icon-home) {
+  --hud-motion-color-strength: var(--motion-blue-strength, 0);
+}
+
+.prompt-hud-frame .prompt-hud.prompt-hud-glow .prompt-hud-icon > svg {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-motion,
+  .prompt-hud-glow {
+    transition: none;
+  }
+}
 .prompt-hud {
   display: flex;
   align-items: flex-end;

@@ -5,6 +5,7 @@ mod terminal_output;
 
 use config::{
     AppConfig, ConfigStore, CursorAnimation, HeaderLoadingSettings, LiquidCursorSettings,
+    TerminalMotionSettings,
 };
 use notification::{Notification, NotificationSystem};
 use pty::{PtyState, TerminalSize, TerminalStarted};
@@ -134,6 +135,32 @@ fn save_header_loading(
     )
     .map_err(|error| error.to_string())
 }
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalMotionConfigChanged {
+    source_window: String,
+    terminal_motion: TerminalMotionSettings,
+}
+
+#[tauri::command]
+fn save_terminal_motion(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, ConfigStore>,
+    terminal_motion: TerminalMotionSettings,
+) -> Result<(), String> {
+    state.save_terminal_motion(terminal_motion.clone())?;
+    app.emit(
+        "terminal-motion-config-changed",
+        TerminalMotionConfigChanged {
+            source_window: window.label().to_owned(),
+            terminal_motion,
+        },
+    )
+    .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn set_window_loading(window: WebviewWindow, loading: bool) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -679,6 +706,7 @@ pub fn run() {
             save_config,
             save_liquid_cursor,
             save_header_loading,
+            save_terminal_motion,
             set_window_loading,
             open_config,
             show_notification,
