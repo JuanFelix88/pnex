@@ -936,12 +936,10 @@ function setupPromptHud(terminal: Terminal): void {
         if (hud.element.parentElement !== layer) layer.append(hud.element);
         if (!hud.hasAppeared) {
           hud.hasAppeared = true;
-          if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            hud.element.firstElementChild?.animate([
-              { opacity: 0, transform: "translateX(-3px)" },
-              { opacity: 1, transform: "translateX(0)" },
-            ], { duration: 130, easing: "ease-in-out" });
-          }
+          hud.element.firstElementChild?.animate([
+            { opacity: 0, transform: "translateX(-3px)" },
+            { opacity: 1, transform: "translateX(0)" },
+          ], { duration: 130, easing: "ease-in-out" });
         }
       }
     }

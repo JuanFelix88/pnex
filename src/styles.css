@@ -243,6 +243,23 @@ nav,
   display: none;
 }
 
+.terminal-motion-shimmer {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.hud-motion-shimmer {
+  background-image:
+    linear-gradient(90deg, transparent 35%, rgb(255 255 255 / var(--terminal-shimmer-opacity, 0.21)) 50%, transparent 65%),
+    linear-gradient(currentColor, currentColor);
+  background-size: 300% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .liquid-cursor {
   position: absolute;
   z-index: 8;
@@ -775,12 +792,6 @@ nav,
   animation: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .terminal-motion,
-  .prompt-hud-glow {
-    transition: none;
-  }
-}
 .prompt-hud {
   display: flex;
   align-items: flex-end;
