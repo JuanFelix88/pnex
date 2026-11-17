@@ -1,9 +1,11 @@
 import type { IBufferCell, IDisposable, ITheme, Terminal } from "@xterm/xterm";
+import { TerminalParticles, type ParticleEmitter } from "./terminal-particles";
 
 export interface TerminalMotionSettings {
   enabled: boolean;
   motion: number;
   reactiveGlow: boolean;
+  particleCount: number;
 }
 
 export function configuredTerminalMotionSettings(
@@ -14,6 +16,8 @@ export function configuredTerminalMotionSettings(
     motion: typeof value?.motion === "number" && Number.isFinite(value.motion)
       ? Math.min(5, Math.max(1, Math.round(value.motion))) : 2,
     reactiveGlow: typeof value?.reactiveGlow === "boolean" ? value.reactiveGlow : true,
+    particleCount: typeof value?.particleCount === "number" && Number.isFinite(value.particleCount)
+      ? Math.min(80, Math.max(0, Math.round(value.particleCount))) : 12,
   };
 }
 
@@ -25,20 +29,6 @@ const ANSI_COLORS = [
 const INTENSITY = [0.18, 0.3, 0.45, 0.65, 0.9];
 const HUD_INTENSITY = [0.3, 0.48, 0.64, 0.8, 0.95];
 const SCALE = 0.5;
-const SHIMMER_DURATION = 500;
-
-interface ShimmerText {
-  text: string;
-  font: string;
-  row: number;
-  x: number;
-  width: number;
-}
-
-interface ShimmerEffect {
-  target: ShimmerText | HTMLElement;
-  cancel: () => void;
-}
 
 export function createHudMotionGlow(content: HTMLElement): HTMLElement {
   const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
@@ -66,14 +56,12 @@ export function createHudMotionGlow(content: HTMLElement): HTMLElement {
 export class TerminalMotion {
   private readonly canvas = document.createElement("canvas");
   private readonly context: CanvasRenderingContext2D;
-  private readonly shimmerTexts = new Map<number, ShimmerText[]>();
-  private readonly shimmerEffects = new Set<ShimmerEffect>();
-  private readonly shimmerDelays = new Set<number>();
-  private shimmerTimer?: number;
-  private readonly syncShimmer = (): void => {
-    this.stopShimmer();
-    this.scheduleShimmer();
-  };
+  private readonly particles: TerminalParticles;
+  private readonly emitterRows = new Map<number, ParticleEmitter[]>();
+  private hudEmitters: ParticleEmitter[] = [];
+  private hudDirty = true;
+  private emitterFrame?: number;
+  private readonly hudObserver: MutationObserver;
   private readonly screen: HTMLElement;
   private readonly observer: ResizeObserver;
   private readonly cell: IBufferCell;
@@ -82,12 +70,13 @@ export class TerminalMotion {
   private theme: ITheme | undefined;
   private foreground = 0xffffff;
   private background = 0;
-  private settings: TerminalMotionSettings = { enabled: false, motion: 2, reactiveGlow: true };
+  private settings = configuredTerminalMotionSettings({ enabled: false, particleCount: 0 });
   private renderListener?: IDisposable;
   private viewportY = -1;
   private buffer?: Terminal["buffer"]["active"];
   private width = 0;
   private height = 0;
+  private fontSize = 0;
   private pulses: Animation[] = [];
   private lastPulseAt = Number.NEGATIVE_INFINITY;
   private readonly stopPulse = (): void => {
@@ -105,38 +94,52 @@ export class TerminalMotion {
     this.canvas.className = "terminal-motion";
     this.canvas.setAttribute("aria-hidden", "true");
     screen.append(this.canvas);
+    this.particles = new TerminalParticles(screen);
+    this.hudObserver = new MutationObserver((records) => {
+      if (records.some((record) => {
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        return target?.closest(".prompt-hud-layer")
+          || [...record.addedNodes].some((node) => node instanceof Element && node.matches(".prompt-hud-layer"));
+      })) {
+        this.hudDirty = true;
+        this.scheduleEmitters();
+      }
+    });
+    this.hudObserver.observe(screen, { subtree: true, childList: true, attributes: true,
+      attributeFilter: ["style", "class", "data-status"], characterData: true });
     this.observer = new ResizeObserver(() => {
       if (this.settings.enabled && this.resize()) this.render(0, terminal.rows - 1);
     });
     this.observer.observe(screen);
     window.addEventListener("blur", this.stopPulse);
     document.addEventListener("visibilitychange", this.stopPulse);
-    window.addEventListener("blur", this.syncShimmer);
-    window.addEventListener("focus", this.syncShimmer);
-    document.addEventListener("visibilitychange", this.syncShimmer);
     this.setSettings(configuredTerminalMotionSettings(settings));
   }
 
   setSettings(settings: TerminalMotionSettings): void {
     this.stopPulse();
     this.settings = settings;
-    this.syncShimmer();
+    this.particles.configure(settings.enabled ? settings.particleCount : 0);
     this.canvas.hidden = !settings.enabled;
     this.canvas.style.opacity = String(INTENSITY[settings.motion - 1]);
     this.screen.dataset.terminalMotion = String(settings.enabled);
     this.screen.style.setProperty("--terminal-hud-motion-intensity", String(HUD_INTENSITY[settings.motion - 1]));
-    this.screen.style.setProperty("--terminal-shimmer-opacity", String(0.16 + settings.motion * 0.025));
+    this.hudDirty = true;
     if (!settings.enabled) {
       this.renderListener?.dispose();
       this.renderListener = undefined;
-      this.shimmerTexts.clear();
+      this.emitterRows.clear();
+      this.hudEmitters = [];
+      if (this.emitterFrame !== undefined) cancelAnimationFrame(this.emitterFrame);
+      this.emitterFrame = undefined;
+      this.particles.setEmitters([]);
       return;
     }
     if (!this.renderListener) {
       this.renderListener = this.terminal.onRender(({ start, end }) => this.render(start, end));
-      this.resize();
-      this.render(0, this.terminal.rows - 1);
     }
+    this.resize();
+    this.render(0, this.terminal.rows - 1);
   }
 
   pulseTyping(data: string, hudGlow: HTMLElement | null): void {
@@ -162,158 +165,60 @@ export class TerminalMotion {
 
   dispose(): void {
     this.stopPulse();
-    this.stopShimmer();
-    window.removeEventListener("blur", this.syncShimmer);
-    window.removeEventListener("focus", this.syncShimmer);
-    document.removeEventListener("visibilitychange", this.syncShimmer);
+    this.particles.dispose();
+    if (this.emitterFrame !== undefined) cancelAnimationFrame(this.emitterFrame);
+    this.hudObserver.disconnect();
     window.removeEventListener("blur", this.stopPulse);
     document.removeEventListener("visibilitychange", this.stopPulse);
     this.renderListener?.dispose();
     this.observer.disconnect();
     this.canvas.remove();
-    this.shimmerTexts.clear();
+    this.emitterRows.clear();
+    this.hudEmitters = [];
   }
 
-  private stopShimmer(): void {
-    window.clearTimeout(this.shimmerTimer);
-    this.shimmerTimer = undefined;
-    for (const timer of this.shimmerDelays) window.clearTimeout(timer);
-    this.shimmerDelays.clear();
-    for (const effect of this.shimmerEffects) effect.cancel();
-  }
-
-  private isShimmerTargetVisible(target: ShimmerText | HTMLElement): boolean {
-    if (target instanceof HTMLElement) {
-      if (!target.isConnected) return false;
-      const bounds = this.screen.getBoundingClientRect();
-      const rect = target.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && rect.top >= bounds.top && rect.bottom <= bounds.bottom
-        && rect.left >= bounds.left && rect.right <= bounds.right;
-    }
-    return this.shimmerTexts.get(target.row)?.some((run) =>
-      run.text === target.text && run.x === target.x && run.width === target.width && run.font === target.font) ?? false;
-  }
-
-  private scheduleShimmer(): void {
-    // Motion is explicitly controlled in-app, independently of OS animation preferences.
-    if (!this.settings.enabled || document.hidden || !document.hasFocus()) return;
-    // No animation frames run between bursts; each sweep has its own finite lifetime.
-    this.shimmerTimer = window.setTimeout(() => {
-      this.shimmerTimer = undefined;
-      const hudTexts = [...this.screen.querySelectorAll<HTMLElement>(
-        ".prompt-hud:not(.prompt-hud-glow) :is(.prompt-hud-cwd, .prompt-hud-git, .prompt-hud-git-user) > .hud-motion-ink",
-      )].filter((ink) => /[\p{L}\p{N}]/u.test(ink.textContent ?? "") && this.isShimmerTargetVisible(ink)
-        && this.colorStyle(this.readColor(getComputedStyle(ink).color, this.foreground)).alpha >= 0.18);
-      this.startShimmerBurst([...this.shimmerTexts.values()].flat(), hudTexts);
-      this.scheduleShimmer();
-    }, 6000 + Math.random() * 4000);
-  }
-
-  private startShimmerBurst(terminalTexts: ShimmerText[], hudTexts: HTMLElement[]): void {
-    const texts: (ShimmerText | HTMLElement)[] = [...terminalTexts, ...hudTexts];
-    const count = Math.min(texts.length, 1 + Math.floor(Math.random() * 7));
-    let delay = 0;
-    for (let i = 0; i < count; i++) {
-      // Sample without replacement so concurrent sweeps never restart the same text.
-      const target = texts.splice(Math.floor(Math.random() * texts.length), 1)[0];
-      if (i > 0) delay += Math.floor(Math.random() * 151);
-      const start = (): void => {
-        if (!this.isShimmerTargetVisible(target)) return;
-        if (target instanceof HTMLElement) this.startHudShimmer(target);
-        else this.startShimmer(target);
-      };
-      if (delay === 0) start();
-      else {
-        const timer = window.setTimeout(() => {
-          this.shimmerDelays.delete(timer);
-          start();
-        }, delay);
-        this.shimmerDelays.add(timer);
+  private scheduleEmitters(): void {
+    if (!this.settings.enabled || !this.settings.particleCount || this.emitterFrame !== undefined) return;
+    // Coalesce output/HUD updates. No buffer scans or DOM measurements in the particle loop.
+    this.emitterFrame = requestAnimationFrame(() => {
+      this.emitterFrame = undefined;
+      if (this.hudDirty) {
+        this.hudDirty = false;
+        this.hudEmitters = this.readHudEmitters();
       }
+      this.particles.setEmitters([...this.emitterRows.values()].flat().concat(this.hudEmitters));
+    });
+  }
+
+  private readHudEmitters(): ParticleEmitter[] {
+    const bounds = this.screen.getBoundingClientRect();
+    const emitters: ParticleEmitter[] = [];
+    const elements = this.screen.querySelectorAll<HTMLElement>(".prompt-hud:not(.prompt-hud-glow) .hud-motion-ink");
+    for (const element of elements) {
+      if (!/[\p{L}\p{N}]/u.test(element.textContent ?? "")) continue;
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.top < bounds.top || rect.bottom > bounds.bottom
+        || rect.left < bounds.left || rect.right > bounds.right) continue;
+      const computed = getComputedStyle(element);
+      const style = this.colorStyle(this.readColor(computed.color, this.foreground));
+      if (style.alpha < 0.18) continue;
+      const x = rect.left - bounds.left;
+      const y = rect.top - bounds.top + rect.height * 0.65;
+      const fontSize = Number.parseFloat(computed.fontSize) || this.terminal.options.fontSize || 14;
+      emitters.push({ key: `hud:${x}:${y}:${rect.width}:${style.css}:${fontSize}:${element.textContent}`,
+        x, y, width: rect.width, color: style.css, fontSize });
     }
-  }
-
-  private startHudShimmer(element: HTMLElement): void {
-    element.classList.add("hud-motion-shimmer");
-    const animation = element.animate([
-      { backgroundPosition: "100% 0, 0 0" },
-      { backgroundPosition: "0% 0, 0 0" },
-    ], { duration: SHIMMER_DURATION, easing: "linear" });
-    const effect: ShimmerEffect = {
-      target: element,
-      cancel: () => {
-        animation.cancel();
-        element.classList.remove("hud-motion-shimmer");
-        this.shimmerEffects.delete(effect);
-      },
-    };
-    this.shimmerEffects.add(effect);
-    void animation.finished.then(effect.cancel, effect.cancel);
-  }
-
-  private startShimmer(target: ShimmerText): void {
-    const height = this.height / this.terminal.rows;
-    const width = Math.min(target.width, this.width - target.x);
-    if (width <= 0 || height <= 0) return;
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    const ratio = window.devicePixelRatio || 1;
-    canvas.className = "terminal-motion-shimmer";
-    canvas.setAttribute("aria-hidden", "true");
-    canvas.width = Math.ceil(width * ratio);
-    canvas.height = Math.ceil(height * ratio);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    canvas.style.left = `${target.x}px`;
-    canvas.style.top = `${target.row * height}px`;
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.font = target.font;
-    context.textBaseline = "middle";
-    this.screen.append(canvas);
-    let frameId: number | undefined;
-    const effect: ShimmerEffect = {
-      target,
-      cancel: () => {
-        if (frameId !== undefined) cancelAnimationFrame(frameId);
-        canvas.remove();
-        this.shimmerEffects.delete(effect);
-      },
-    };
-    this.shimmerEffects.add(effect);
-    const startedAt = performance.now();
-    const frame = (now: number): void => {
-      const progress = (now - startedAt) / SHIMMER_DURATION;
-      if (progress >= 1) {
-        effect.cancel();
-        return;
-      }
-      const band = Math.max(12, Math.min(80, width * 0.3));
-      const center = -band + (width + 2 * band) * progress;
-      const gradient = context.createLinearGradient(center - band, 0, center + band, 0);
-      gradient.addColorStop(0, "transparent");
-      gradient.addColorStop(0.5, `rgba(255, 255, 255, ${0.16 + this.settings.motion * 0.025})`);
-      gradient.addColorStop(1, "transparent");
-      context.clearRect(0, 0, width, height);
-      context.globalCompositeOperation = "source-over";
-      context.fillStyle = "white";
-      context.fillText(target.text, 0, height / 2);
-      context.globalCompositeOperation = "source-in";
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, width, height);
-      frameId = requestAnimationFrame(frame);
-    };
-    frameId = requestAnimationFrame(frame);
+    return emitters;
   }
 
   private resize(): boolean {
     const width = this.screen.clientWidth;
     const height = this.screen.clientHeight;
     if (!width || !height || (width === this.width && height === this.height)) return false;
-    this.stopShimmer();
-    this.scheduleShimmer();
     this.width = width;
     this.height = height;
+    this.particles.resize(width, height);
+    this.hudDirty = true;
     this.canvas.width = Math.ceil(width * SCALE);
     this.canvas.height = Math.ceil(height * SCALE);
     this.canvas.style.width = `${width}px`;
@@ -353,6 +258,8 @@ export class TerminalMotion {
     for (const [name, rgb] of Object.entries(hudColors)) {
       this.screen.style.setProperty(`--motion-${name}-strength`, String(this.colorStyle(rgb).alpha));
     }
+    this.hudDirty = true;
+    this.particles.clear();
   }
 
   private cellColor(cell: IBufferCell): number {
@@ -395,22 +302,27 @@ export class TerminalMotion {
       end = terminal.rows - 1;
     }
     if (buffer !== this.buffer || buffer.viewportY !== this.viewportY) {
-      this.stopShimmer();
-      this.scheduleShimmer();
+      this.particles.clear();
+      this.hudDirty = true;
       start = 0;
       end = terminal.rows - 1;
       this.buffer = buffer;
       this.viewportY = buffer.viewportY;
     }
-    if (start === 0 && end === terminal.rows - 1) this.shimmerTexts.clear();
+    if (start === 0 && end === terminal.rows - 1) this.emitterRows.clear();
     const context = this.context;
     const cellWidth = this.width / terminal.cols;
     const cellHeight = this.height / terminal.rows;
+    const fontSize = terminal.options.fontSize || 14;
+    if (fontSize !== this.fontSize) {
+      this.fontSize = fontSize;
+      this.hudDirty = true;
+    }
     context.clearRect(0, start * cellHeight, this.width, (end - start + 1) * cellHeight);
     // Only dirty visible rows are scanned; runs share a draw call and a cached color.
     for (let row = start; row <= end; row++) {
-      const shimmerTexts: ShimmerText[] = [];
-      this.shimmerTexts.set(row, shimmerTexts);
+      const emitters: ParticleEmitter[] = [];
+      this.emitterRows.set(row, emitters);
       const line = buffer.getLine(buffer.viewportY + row);
       if (!line) continue;
       context.save();
@@ -421,21 +333,31 @@ export class TerminalMotion {
       let runX = 0;
       let runColor = -1;
       let runFlags = -1;
+      let word = "";
+      let wordX = 0;
+      let wordEnd = 0;
+      const flushWord = (): void => {
+        if (!word) return;
+        if (this.settings.particleCount && !(runFlags & 1) && /[\p{L}\p{N}]/u.test(word)) {
+          const style = this.colorStyle(runColor);
+          if (style.alpha >= 0.18) {
+            const x = wordX * cellWidth;
+            const y = (row + 0.65) * cellHeight;
+            const width = (wordEnd - wordX) * cellWidth;
+            emitters.push({ key: `${row}:${x}:${y}:${width}:${style.css}:${fontSize}:${word}`,
+              x, y, width, color: style.css, fontSize });
+          }
+        }
+        word = "";
+      };
       const flush = (): void => {
+        flushWord();
         if (!text.trim()) return;
         const style = this.colorStyle(runColor);
         context.fillStyle = style.css;
         context.globalAlpha = style.alpha * (runFlags & 1 ? 0.5 : 1);
-        context.font = `${runFlags & 2 ? "italic " : ""}${runFlags & 4 ? "bold " : ""}${terminal.options.fontSize}px ${terminal.options.fontFamily}`;
+        context.font = `${runFlags & 2 ? "italic " : ""}${runFlags & 4 ? "bold " : ""}${fontSize}px ${terminal.options.fontFamily}`;
         context.fillText(text, runX * cellWidth, (row + 0.5) * cellHeight);
-        const trimmed = text.trim();
-        if (style.alpha >= 0.18 && !(runFlags & 1) && /[\p{L}\p{N}]/u.test(trimmed)) {
-          shimmerTexts.push({
-            text: trimmed, font: context.font, row,
-            x: (runX + text.length - text.trimStart().length) * cellWidth,
-            width: context.measureText(trimmed).width,
-          });
-        }
       };
       for (let column = 0; column < terminal.cols; column++) {
         const cell = line.getCell(column, this.cell);
@@ -451,6 +373,13 @@ export class TerminalMotion {
           runFlags = flags;
         }
         text += chars;
+        if (this.settings.particleCount) {
+          if (chars.trim()) {
+            if (!word) wordX = column;
+            word += chars;
+            wordEnd = column + cell.getWidth();
+          } else flushWord();
+        }
         if (cell.getWidth() !== 1) {
           flush();
           text = "";
@@ -460,8 +389,6 @@ export class TerminalMotion {
       flush();
       context.restore();
     }
-    for (const effect of this.shimmerEffects) {
-      if (!this.isShimmerTargetVisible(effect.target)) effect.cancel();
-    }
+    this.scheduleEmitters();
   }
 }

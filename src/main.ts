@@ -1582,6 +1582,8 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
   const level = requiredElement("#terminal-motion-level") as HTMLInputElement;
   const reactive = requiredElement("#terminal-motion-reactive") as HTMLInputElement;
   const value = requiredElement("#terminal-motion-value");
+  const particles = requiredElement("#terminal-motion-particles") as HTMLInputElement;
+  const particleValue = requiredElement("#terminal-motion-particles-value");
   let revision = 0;
   const synchronize = (settings?: Partial<TerminalMotionSettings>): void => {
     revision++;
@@ -1593,10 +1595,14 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
     reactive.disabled = !normalized.enabled;
     level.value = String(normalized.motion);
     value.textContent = String(normalized.motion);
+    particles.disabled = !normalized.enabled;
+    particles.value = String(normalized.particleCount);
+    particleValue.textContent = normalized.particleCount ? `${normalized.particleCount}/s` : "Off";
     motion.setSettings(normalized);
   };
   const apply = (): void => synchronize({
     enabled: enabled.checked, motion: Number(level.value), reactiveGlow: reactive.checked,
+    particleCount: Number(particles.value),
   });
   const persist = (): void => {
     const terminalMotion = configuredTerminalMotionSettings(config.terminalMotion);
@@ -1614,6 +1620,8 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
   reactive.addEventListener("change", () => { apply(); persist(); });
   level.addEventListener("input", apply);
   level.addEventListener("change", () => { apply(); persist(); });
+  particles.addEventListener("input", apply);
+  particles.addEventListener("change", () => { apply(); persist(); });
   requiredElement("#terminal-motion-reset").addEventListener("click", () => { synchronize(); persist(); });
   requiredElement("#terminal-motion-close").addEventListener("click", () => hide(true));
   panel.addEventListener("click", (event) => event.stopPropagation());

@@ -86,6 +86,7 @@ pub struct TerminalMotionSettings {
     pub enabled: bool,
     pub motion: u8,
     pub reactive_glow: bool,
+    pub particle_count: u8,
 }
 
 impl Default for TerminalMotionSettings {
@@ -94,6 +95,7 @@ impl Default for TerminalMotionSettings {
             enabled: true,
             motion: 2,
             reactive_glow: true,
+            particle_count: 12,
         }
     }
 }
@@ -369,6 +371,9 @@ fn validate(config: &AppConfig) -> Result<(), String> {
     if !(1..=5).contains(&config.terminal_motion.motion) {
         return Err("terminalMotion.motion must be between 1 and 5.".to_owned());
     }
+    if config.terminal_motion.particle_count > 80 {
+        return Err("terminalMotion.particleCount must be between 0 and 80.".to_owned());
+    }
     if config.header_loading.mask_opacity > 100 {
         return Err("headerLoading.maskOpacity must be between 0 and 100.".to_owned());
     }
@@ -622,6 +627,50 @@ mod tests {
             serde_json::from_str(r#"{"color":"red"}"#).expect("theme color reference");
         assert_eq!(settings.color, super::HeaderLoadingColor::Red);
         assert_eq!(settings.mask_opacity, 10);
+    }
+
+    #[test]
+    fn terminal_particles_default_for_legacy_settings() {
+        let config: AppConfig = serde_json::from_str(
+            r#"{"terminalMotion":{"enabled":true,"motion":3,"reactiveGlow":false}}"#,
+        )
+        .expect("legacy motion settings");
+        assert_eq!(config.terminal_motion.particle_count, 12);
+        assert_eq!(config.terminal_motion.motion, 3);
+        assert!(!config.terminal_motion.reactive_glow);
+    }
+
+    #[test]
+    fn terminal_particle_budget_is_validated_persisted_and_preserved() {
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+        let stale_config = store.get().expect("stale config");
+        for particle_count in [0, 80] {
+            store
+                .save_terminal_motion(super::TerminalMotionSettings {
+                    particle_count,
+                    ..Default::default()
+                })
+                .expect("valid particle budget");
+        }
+        assert!(store
+            .save_terminal_motion(super::TerminalMotionSettings {
+                particle_count: 81,
+                ..Default::default()
+            })
+            .is_err());
+        store.save(stale_config).expect("save stale config");
+        let reloaded = ConfigStore::load(directory.clone()).expect("reload config");
+        assert_eq!(
+            reloaded
+                .get()
+                .expect("config")
+                .terminal_motion
+                .particle_count,
+            80
+        );
+        fs::remove_dir_all(directory).expect("remove test directory");
     }
 
     #[test]
