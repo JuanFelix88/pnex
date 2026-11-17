@@ -1,5 +1,4 @@
 export interface ParticleEmitter {
-  key: string;
   x: number;
   y: number;
   width: number;
@@ -8,8 +7,10 @@ export interface ParticleEmitter {
 }
 
 interface Particle {
-  source: ParticleEmitter;
   x: number;
+  y: number;
+  color: string;
+  fontSize: number;
   age: number;
   lifetime: number;
   radius: number;
@@ -73,12 +74,9 @@ export class TerminalParticles {
 
   setEmitters(emitters: ParticleEmitter[]): void {
     this.emitters = emitters;
-    // Drop bubbles whose text was erased/recolored, without restarting unchanged words.
-    const keys = new Set(emitters.map((emitter) => emitter.key));
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      if (!keys.has(this.particles[i].source.key)) this.recycle(i);
-    }
-    if (!emitters.length) this.clear();
+    // Emission follows visible content; bubbles already emitted have their own lifetime.
+    if (!emitters.length) this.credit = 0;
+    if (!emitters.length && !this.particles.length) this.clear();
     else this.start();
   }
 
@@ -104,7 +102,7 @@ export class TerminalParticles {
   }
 
   private start(): void {
-    if (this.disposed || this.frameId !== undefined || !this.rate || !this.emitters.length
+    if (this.disposed || this.frameId !== undefined || !this.rate || (!this.emitters.length && !this.particles.length)
       || !this.width || !this.height || document.hidden || !document.hasFocus()) return;
     this.frameId = requestAnimationFrame(this.frame);
   }
@@ -118,7 +116,10 @@ export class TerminalParticles {
   private emit(): void {
     const source = this.emitters[Math.floor(Math.random() * this.emitters.length)];
     const particle = this.pool.pop() ?? {} as Particle;
-    particle.source = source;
+    // Snapshot the emitter so later text edits, movement or recoloring cannot affect this bubble.
+    particle.y = source.y;
+    particle.color = source.color;
+    particle.fontSize = source.fontSize;
     particle.x = source.x + Math.random() * source.width;
     particle.age = 0;
     particle.lifetime = 1.2 + Math.random() * 0.8;
@@ -140,8 +141,8 @@ export class TerminalParticles {
       // Never catch up with a burst after a stall or a background window.
       const dt = Math.min(elapsed / 1000, 0.067);
       this.lastFrame = now;
-      this.credit = Math.min(this.credit + dt * this.rate, 6);
-      while (this.credit >= 1 && this.particles.length < MAX_PARTICLES) {
+      this.credit = this.emitters.length ? Math.min(this.credit + dt * this.rate, 6) : 0;
+      while (this.emitters.length && this.credit >= 1 && this.particles.length < MAX_PARTICLES) {
         this.emit();
         this.credit--;
       }
@@ -156,13 +157,13 @@ export class TerminalParticles {
           continue;
         }
         const x = particle.x + particle.drift * particle.age
-          + Math.sin(particle.phase + particle.age * 4) * particle.source.fontSize * 0.13;
-        const y = particle.source.y - particle.rise * particle.age;
+          + Math.sin(particle.phase + particle.age * 4) * particle.fontSize * 0.13;
+        const y = particle.y - particle.rise * particle.age;
         const radius = particle.radius * (0.7 + progress * 0.6);
         const opacity = Math.min(1, progress * 8) * (1 - progress) * 0.55;
-        context.strokeStyle = particle.source.color;
-        context.fillStyle = particle.source.color;
-        context.lineWidth = Math.max(0.5, particle.source.fontSize * 0.05);
+        context.strokeStyle = particle.color;
+        context.fillStyle = particle.color;
+        context.lineWidth = Math.max(0.5, particle.fontSize * 0.05);
         context.beginPath();
         context.arc(x, y, radius, 0, Math.PI * 2);
         context.globalAlpha = opacity * 0.22;
@@ -172,6 +173,7 @@ export class TerminalParticles {
       }
       context.globalAlpha = 1;
     }
-    this.start();
+    if (!this.emitters.length && !this.particles.length) this.clear();
+    else this.start();
   };
 }

@@ -195,7 +195,7 @@ export class TerminalMotion {
     const emitters: ParticleEmitter[] = [];
     const elements = this.screen.querySelectorAll<HTMLElement>(".prompt-hud:not(.prompt-hud-glow) .hud-motion-ink");
     for (const element of elements) {
-      if (!/[\p{L}\p{N}]/u.test(element.textContent ?? "")) continue;
+      if (!element.textContent?.trim()) continue;
       const rect = element.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.top < bounds.top || rect.bottom > bounds.bottom
         || rect.left < bounds.left || rect.right > bounds.right) continue;
@@ -205,8 +205,7 @@ export class TerminalMotion {
       const x = rect.left - bounds.left;
       const y = rect.top - bounds.top + rect.height * 0.65;
       const fontSize = Number.parseFloat(computed.fontSize) || this.terminal.options.fontSize || 14;
-      emitters.push({ key: `hud:${x}:${y}:${rect.width}:${style.css}:${fontSize}:${element.textContent}`,
-        x, y, width: rect.width, color: style.css, fontSize });
+      emitters.push({ x, y, width: rect.width, color: style.css, fontSize });
     }
     return emitters;
   }
@@ -259,7 +258,6 @@ export class TerminalMotion {
       this.screen.style.setProperty(`--motion-${name}-strength`, String(this.colorStyle(rgb).alpha));
     }
     this.hudDirty = true;
-    this.particles.clear();
   }
 
   private cellColor(cell: IBufferCell): number {
@@ -302,7 +300,6 @@ export class TerminalMotion {
       end = terminal.rows - 1;
     }
     if (buffer !== this.buffer || buffer.viewportY !== this.viewportY) {
-      this.particles.clear();
       this.hudDirty = true;
       start = 0;
       end = terminal.rows - 1;
@@ -338,14 +335,13 @@ export class TerminalMotion {
       let wordEnd = 0;
       const flushWord = (): void => {
         if (!word) return;
-        if (this.settings.particleCount && !(runFlags & 1) && /[\p{L}\p{N}]/u.test(word)) {
+        if (this.settings.particleCount && !(runFlags & 1)) {
           const style = this.colorStyle(runColor);
           if (style.alpha >= 0.18) {
             const x = wordX * cellWidth;
             const y = (row + 0.65) * cellHeight;
             const width = (wordEnd - wordX) * cellWidth;
-            emitters.push({ key: `${row}:${x}:${y}:${width}:${style.css}:${fontSize}:${word}`,
-              x, y, width, color: style.css, fontSize });
+            emitters.push({ x, y, width, color: style.css, fontSize });
           }
         }
         word = "";

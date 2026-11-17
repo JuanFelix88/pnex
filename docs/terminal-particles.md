@@ -4,9 +4,10 @@
 - Máximo de 160 partículas vivas, com reutilização dos objetos e desenho limitado a aproximadamente 30 fps. Um canvas transparente, sem blur por partícula e com DPR limitado a 1,5.
 - Raio inicial aleatório entre 5,5% e 16% da fonte do emissor; deslocamento e espessura também escalam com a fonte. A bolha cresce suavemente durante sua vida.
 - Reutiliza a leitura das linhas visíveis alteradas pelo xterm, as cores ANSI/truecolor e o filtro cromático do blur. Não modifica a saída, não lê scrollback e não examina o buffer durante a animação.
-- Palavras são delimitadas por células, respeitando espaços, caracteres largos e combinantes. Branco/cinza, texto invisível/dim e trechos sem letras/números não emitem.
+- Trechos não vazios são delimitados por células, respeitando espaços, caracteres largos e combinantes. Letras, números, hastes, bordas, barras e outros símbolos coloridos emitem; branco/cinza e texto invisível/dim continuam excluídos.
 - O HUD tem emissores cacheados, atualizados por mutações/layout/fonte/tema, sem medições DOM no loop de partículas.
-- Sem foco, com documento oculto, sem emissores ou com Motion desligado: cancela o loop e limpa as bolhas. Scroll, troca de buffer, remoção/recoloração e resize invalidam partículas antigas.
+- Cada bolha guarda sua posição, cor e tamanho de fonte ao nascer. Remover, recolorir ou mover o conteúdo, rolar a tela ou trocar de buffer só altera os emissores; bolhas existentes terminam sua vida de 1,2–2 segundos na posição original da tela.
+- Sem emissores, o loop continua apenas até a última bolha expirar e então para. Sem foco, com documento oculto, com Motion desligado ou ao redimensionar/destruir o canvas: cancela o loop e limpa as bolhas.
 - O controle explícito de Motion do aplicativo continua sendo a preferência de animação. O shimmer aleatório foi removido; seleção e carregamento não mudaram.
 
 ## Verificação

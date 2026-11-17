@@ -43,6 +43,7 @@ function fixture() {
   const scope = createContext({
     document, window, Element, HTMLElement: Element, Math: math,
     performance: { now: () => now },
+    getComputedStyle: (element) => element.computed,
     ResizeObserver: class { observe() {} disconnect() {} },
     MutationObserver: class { observe() {} disconnect() {} },
     requestAnimationFrame: (fn) => { frames.set(++nextFrame, fn); return nextFrame; },
@@ -97,8 +98,8 @@ function cell(chars, rgb = 0xff0000, extra = {}) {
   };
 }
 
-const source = (fontSize = 14, key = "word") => ({
-  key, x: 10, y: 80, width: 50, color: "#ff0000", fontSize,
+const source = (fontSize = 14) => ({
+  x: 10, y: 80, width: 50, color: "#ff0000", fontSize,
 });
 
 test("normalizes legacy, disabled and malformed particle settings", () => {
@@ -113,7 +114,7 @@ test("normalizes legacy, disabled and malformed particle settings", () => {
   assert.equal(settings({ particleCount: 7.8 }).particleCount, 8);
 });
 
-test("emits only from visible, saturated, non-dim words; respects spaces and cell widths", () => {
+test("emits from visible colored text and structures; respects spaces, dim, invisibility and cell widths", () => {
   const f = fixture();
   f.lines[0][0] = cell("R");
   f.lines[0][1] = cell("e");
@@ -127,18 +128,20 @@ test("emits only from visible, saturated, non-dim words; respects spaces and cel
   f.lines[0][15] = cell("─");
   const motion = new f.TerminalMotion(f.terminal);
   const emitters = motion.emitterRows.get(0);
-  assert.equal(emitters.length, 3);
+  assert.equal(emitters.length, 4);
   assert.equal(emitters[0].x, 0);
   assert.equal(emitters[0].width, 30);
   assert.equal(emitters[0].color, "#ff0000");
   assert.equal(emitters[1].x, 100);
   assert.equal(emitters[1].width, 20);
   assert.equal(emitters[2].width, 10);
+  assert.equal(emitters[3].x, 150);
+  assert.equal(emitters[3].width, 10);
   motion.dispose();
   assert.equal(f.frames.size, 0);
 });
 
-test("dirty renders scan only changed rows; erasure, scroll and theme invalidate particles", () => {
+test("dirty renders scan only changed rows; erasure stops emission but lets existing bubbles expire", () => {
   const f = fixture();
   f.lines[0][0] = cell("R");
   const motion = new f.TerminalMotion(f.terminal);
@@ -152,19 +155,93 @@ test("dirty renders scan only changed rows; erasure, scroll and theme invalidate
   f.lines[0][0] = cell(" ");
   f.render(0);
   f.tick();
+  assert.equal(motion.particles.emitters.length, 0);
+  assert.ok(motion.particles.particles.length > 0);
+  f.tick(180);
   assert.equal(motion.particles.particles.length, 0);
   assert.equal(f.frames.size, 0);
+  motion.dispose();
+});
+
+test("scroll, buffer replacement and theme changes preserve emitted bubbles", () => {
+  const f = fixture();
   f.lines[0][0] = cell("R");
-  f.render(0);
+  const motion = new f.TerminalMotion(f.terminal);
   f.tick(120);
-  f.terminal.buffer.active.viewportY = 1;
-  f.render(0);
-  assert.equal(motion.particles.particles.length, 0);
-  f.terminal.buffer.active.viewportY = 0;
+  const bubble = motion.particles.particles[0];
   f.terminal.options.theme = { foreground: "#eeeeee", background: "#111111" };
   f.render(0);
+  assert.ok(motion.particles.particles.includes(bubble));
+  f.terminal.buffer.active = { ...f.terminal.buffer.active, viewportY: 1 };
+  f.render(0);
+  assert.ok(motion.particles.particles.includes(bubble));
+  f.tick();
+  assert.equal(motion.particles.emitters.length, 0);
+  assert.ok(motion.particles.particles.length > 0);
+  f.tick(180);
   assert.equal(motion.particles.particles.length, 0);
+  assert.equal(f.frames.size, 0);
   motion.dispose();
+});
+
+test("box drawing, blocks, braille and ASCII structures emit without letters or numbers", () => {
+  const f = fixture();
+  const structures = ["┌──┐", "│└─┘", "█▓▒░", "⠋⠙⠹⠸", "|-+=[]"];
+  structures.forEach((text, row) => [...text].forEach((char, column) => {
+    f.lines[row][column] = cell(char, 0x00ff00);
+  }));
+  const motion = new f.TerminalMotion(f.terminal);
+  structures.forEach((text, row) => {
+    const emitters = motion.emitterRows.get(row);
+    assert.equal(emitters.length, 1);
+    assert.equal(emitters[0].width, [...text].length * 10);
+    assert.equal(emitters[0].color, "#00ff00");
+  });
+  motion.dispose();
+});
+
+test("HUD structures emit too, but whitespace remains excluded", () => {
+  const f = fixture();
+  const ink = f.document.createElement("span");
+  ink.textContent = "│──│";
+  ink.computed = { color: "#00ff00", fontSize: "14px" };
+  ink.getBoundingClientRect = () => ({ top: 20, bottom: 40, left: 10, right: 50, width: 40, height: 20 });
+  f.screen.querySelectorAll = () => [ink];
+  const motion = new f.TerminalMotion(f.terminal);
+  f.tick();
+  assert.equal(motion.hudEmitters.length, 1);
+  assert.equal(motion.hudEmitters[0].color, "#00ff00");
+  ink.textContent = "   ";
+  assert.equal(motion.readHudEmitters().length, 0);
+  motion.dispose();
+});
+
+test("bubbles snapshot emitter appearance and drain independently without accumulating emission credit", () => {
+  const f = fixture();
+  const particles = new f.TerminalParticles(f.screen);
+  particles.resize(400, 100);
+  const emitter = source();
+  particles.setEmitters([emitter]);
+  particles.configure(80);
+  f.tick(60);
+  const bubble = particles.particles[0];
+  emitter.y = 10;
+  emitter.color = "#00ff00";
+  emitter.fontSize = 28;
+  particles.setEmitters([]);
+  assert.ok(particles.particles.includes(bubble));
+  assert.equal(bubble.y, 80);
+  assert.equal(bubble.color, "#ff0000");
+  assert.equal(bubble.fontSize, 14);
+  f.tick(30);
+  assert.equal(particles.credit, 0);
+  f.tick(180);
+  assert.equal(particles.particles.length, 0);
+  assert.equal(f.frames.size, 0);
+  particles.setEmitters([emitter]);
+  f.tick();
+  assert.ok(particles.particles.length <= 3);
+  particles.dispose();
 });
 
 test("palette, bold-bright, inverse and truecolor use the rendered foreground", () => {
@@ -204,7 +281,7 @@ test("global budget does not grow with word count; pool and paint rate stay boun
     const f = fixture();
     const particles = new f.TerminalParticles(f.screen);
     particles.resize(400, 100);
-    particles.setEmitters(Array.from({ length: count }, (_, i) => source(14, String(i))));
+    particles.setEmitters(Array.from({ length: count }, () => source()));
     particles.configure(80);
     let maximum = 0;
     for (let i = 0; i < 1200; i++) {
