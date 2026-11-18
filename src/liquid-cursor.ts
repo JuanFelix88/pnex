@@ -41,6 +41,7 @@ interface AnimatedPoint extends Point {
 const BLINK_DELAY_MS = 170;
 const BLINK_INTERVAL_MS = 140;
 const CORNER_COUNT = 4;
+const INITIAL_FRAME_STEP_SECONDS = 1 / 60;
 const MAXIMUM_FRAME_GAP_SECONDS = 0.25;
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
 const TYPING_PULSE_FADE_MS = 60;
@@ -63,9 +64,9 @@ export class LiquidCursor {
   private cellHeight = 0;
   private targetCenter: Point | null = null;
   private animationFrame: number | null = null;
-  private targetUpdateFrame: number | null = null;
+  private targetUpdatePending = false;
   private targetUpdateNeedsSnap = false;
-  private lastFrameAt = 0;
+  private lastFrameAt: number | null = null;
   private lastActivityAt = performance.now();
   private lastTypingAt = Number.NEGATIVE_INFINITY;
   private pulse = 0;
@@ -124,8 +125,8 @@ export class LiquidCursor {
 
     terminal.textarea?.addEventListener("focus", () => {
       this.focused = true;
-      this.wake();
-      this.updateTarget(true);
+      this.lastActivityAt = performance.now();
+      this.scheduleTargetUpdate(true);
     });
     terminal.textarea?.addEventListener("blur", () => {
       this.focused = false;
@@ -138,23 +139,19 @@ export class LiquidCursor {
     }, BLINK_INTERVAL_MS);
 
     this.setMode(mode);
-    this.updateTarget(true);
   }
 
   setMode(mode: CursorAnimation): void {
     this.mode = mode;
     this.canvas.hidden = mode === "disabled";
     if (mode === "liquid") {
-      this.wake();
-      this.updateTarget(true);
+      this.lastActivityAt = performance.now();
+      this.scheduleTargetUpdate(true);
     } else {
       this.pulse = 0;
       this.pulseStrength = 0;
       this.pulsePeakPending = false;
-      if (this.animationFrame !== null) {
-        cancelAnimationFrame(this.animationFrame);
-        this.animationFrame = null;
-      }
+      this.cancelFrame();
     }
   }
 
@@ -171,7 +168,7 @@ export class LiquidCursor {
       this.pulseStrength = 0;
       this.pulsePeakPending = false;
     }
-    this.updateTarget();
+    this.scheduleTargetUpdate();
   }
 
   pulseTyping(): void {
@@ -192,44 +189,31 @@ export class LiquidCursor {
     this.pulsePeakPending = true;
     this.lastTypingAt = now;
     this.draw();
-    this.startAnimation();
-  }
-
-  private wake(): void {
-    if (this.mode === "disabled") return;
-    this.lastActivityAt = performance.now();
-    if (this.terminalCursorVisible) this.startAnimation();
+    this.requestFrame();
   }
 
   private scheduleTargetUpdate(snap = false): void {
+    this.targetUpdatePending = true;
     this.targetUpdateNeedsSnap ||= snap;
-    if (this.targetUpdateFrame !== null) return;
-
-    this.targetUpdateFrame = requestAnimationFrame(() => {
-      this.targetUpdateFrame = null;
-      const shouldSnap = this.targetUpdateNeedsSnap;
-      this.targetUpdateNeedsSnap = false;
-      this.updateTarget(shouldSnap);
-    });
+    this.requestFrame();
   }
 
-  private updateTarget(snap = false): void {
-    if (this.mode === "disabled") return;
-
-    const bounds = this.screen.getBoundingClientRect();
-    const { width, height } = bounds;
-    if (width <= 0 || height <= 0 || this.terminal.cols <= 0 || this.terminal.rows <= 0) return;
+  // Returns whether a configured instant-move trail should start at this paint.
+  private updateTarget(snap: boolean): boolean {
+    const { width, height } = this.screen.getBoundingClientRect();
+    if (width <= 0 || height <= 0 || this.terminal.cols <= 0 || this.terminal.rows <= 0) {
+      this.cursorInsideViewport = false;
+      return false;
+    }
 
     this.cellWidth = width / this.terminal.cols;
     this.cellHeight = height / this.terminal.rows;
 
     const buffer = this.terminal.buffer.active;
     const row = buffer.baseY + buffer.cursorY - buffer.viewportY;
+    const wasInsideViewport = this.cursorInsideViewport;
     this.cursorInsideViewport = row >= 0 && row < this.terminal.rows;
-    if (!this.cursorInsideViewport) {
-      this.draw();
-      return;
-    }
+    if (!this.cursorInsideViewport) return false;
 
     const column = Math.min(buffer.cursorX, this.terminal.cols - 1);
     const left = column * this.cellWidth;
@@ -248,25 +232,16 @@ export class LiquidCursor {
       { x: right, y: bottom },
       { x: left, y: bottom },
     ];
-    if (moved) this.configureCornerAnimations(deltaX, deltaY);
-    this.resizeCanvas(left, top, right, bottom);
-
-    if (!this.terminalCursorVisible) {
-      if (this.corners.length !== CORNER_COUNT) this.snapToTarget();
-      this.draw();
-      return;
-    }
-
-    if (this.corners.length !== CORNER_COUNT || snap || !this.focused) {
+    let deferTrailStep = false;
+    if (this.corners.length !== CORNER_COUNT || snap || !this.focused || !wasInsideViewport) {
       this.snapToTarget();
     } else if (moved) {
       this.lastActivityAt = performance.now();
-      this.startAnimation();
-    } else if (this.pulse > 0.01) {
-      this.startAnimation();
+      deferTrailStep = this.configureCornerAnimations(deltaX, deltaY);
     }
 
-    this.draw();
+    this.resizeCanvas(left, top, right, bottom);
+    return deferTrailStep;
   }
 
   private hideCursor(): void {
@@ -274,10 +249,7 @@ export class LiquidCursor {
     this.terminalCursorVisible = false;
     this.pulse = 0;
     this.pulsePeakPending = false;
-    if (this.animationFrame !== null) {
-      cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = null;
-    }
+    this.cancelFrame();
     for (const corner of this.corners) {
       corner.velocityX = 0;
       corner.velocityY = 0;
@@ -288,34 +260,7 @@ export class LiquidCursor {
   private restoreCursorVisibility(snap: boolean): void {
     if (this.terminalCursorVisible && !snap) return;
     this.terminalCursorVisible = true;
-    if (this.targetUpdateFrame !== null) {
-      cancelAnimationFrame(this.targetUpdateFrame);
-      this.targetUpdateFrame = null;
-    }
-    const shouldSnap = snap || !this.focused || this.targetUpdateNeedsSnap;
-    this.targetUpdateNeedsSnap = false;
-    this.updateTarget(shouldSnap);
-    if (
-      shouldSnap
-      || !this.focused
-      || !this.cursorInsideViewport
-      || !this.targetCenter
-      || this.corners.length !== CORNER_COUNT
-    ) return;
-
-    const center = this.cornerCenter();
-    const deltaX = this.targetCenter.x - center.x;
-    const deltaY = this.targetCenter.y - center.y;
-    const distance = Math.hypot(deltaX, deltaY);
-    if (distance <= 0.01) {
-      this.draw();
-      return;
-    }
-
-    this.configureCornerAnimations(deltaX, deltaY);
-    this.draw();
-    this.lastActivityAt = performance.now();
-    this.startAnimation();
+    this.scheduleTargetUpdate(snap);
   }
 
   private resizeCanvas(left: number, top: number, right: number, bottom: number): void {
@@ -359,19 +304,45 @@ export class LiquidCursor {
     }
   }
 
-  private configureCornerAnimations(deltaX: number, deltaY: number): void {
-    if (
-      this.corners.length !== CORNER_COUNT
-      || this.targetCorners.length !== CORNER_COUNT
-      || !this.targetCenter
-    ) return;
+  private configureCornerAnimations(deltaX: number, deltaY: number): boolean {
+    const targetCenter = this.targetCenter;
+    if (!targetCenter) return false;
 
     const animationLength = this.settings.animationLength / 1_000;
-    const shortAnimationLength = this.settings.shortAnimationLength / 1_000;
+    const horizontalCells = Math.abs(deltaX / this.cellWidth);
+    const isHorizontal = horizontalCells > 0.001 && Math.abs(deltaY / this.cellHeight) <= 0.001;
+    const instantShortMove = isHorizontal && this.settings.instantShortMoves
+      && horizontalCells <= this.settings.instantShortMoveDistance + 0.001;
+    if (isHorizontal && (horizontalCells <= 1.001 || instantShortMove)) {
+      // Pin the front to the confirmed cell. Only the trailing edge needs to catch up.
+      const direction = Math.sign(deltaX);
+      const duration = instantShortMove
+        ? Math.min(animationLength, this.settings.shortAnimationLength / 1_000)
+        : animationLength;
+      const trailDuration = duration * this.settings.trailSize / 100;
+      for (let index = 0; index < CORNER_COUNT; index += 1) {
+        const corner = this.corners[index];
+        const target = this.targetCorners[index];
+        const trailing = (target.x - targetCenter.x) * direction < 0;
+        corner.animationLength = trailing ? trailDuration / (index < 2 ? 1 : 2) : 0;
+        // Keep the target cell covered without growing the trail on key repeat or reversal.
+        const lag = (target.x - corner.x) * direction;
+        corner.x = corner.animationLength > 0
+          ? target.x - Math.min(Math.max(lag, 0), Math.abs(deltaX)) * direction
+          : target.x;
+        corner.y = target.y;
+        corner.velocityX = 0;
+        corner.velocityY = 0;
+        corner.animationDelay = instantShortMove && corner.x !== target.x
+          ? this.settings.instantShortMoveDelay / 1_000
+          : 0;
+      }
+      return instantShortMove;
+    }
     const alignments = this.corners.map((corner, index) => {
       const target = this.targetCorners[index];
-      const relativeX = target.x - this.targetCenter!.x;
-      const relativeY = target.y - this.targetCenter!.y;
+      const relativeX = target.x - targetCenter.x;
+      const relativeY = target.y - targetCenter.y;
       const relativeLength = Math.hypot(relativeX, relativeY) || 1;
       const travelX = target.x - corner.x;
       const travelY = target.y - corner.y;
@@ -383,26 +354,6 @@ export class LiquidCursor {
       };
     }).sort((first, second) => first.alignment - second.alignment || first.index - second.index);
 
-    const isShortHorizontalMove = this.settings.instantShortMoves
-      && Math.abs(deltaX / this.cellWidth) <= this.settings.instantShortMoveDistance + 0.001
-      && Math.abs(deltaY / this.cellHeight) <= 0.001;
-    if (isShortHorizontalMove) {
-      const trailDuration = Math.min(animationLength, shortAnimationLength)
-        * this.settings.trailSize / 100;
-      for (let rank = 0; rank < alignments.length; rank += 1) {
-        const index = alignments[rank].index;
-        const corner = this.corners[index];
-        corner.animationLength = rank === 0 ? trailDuration : rank === 1 ? trailDuration / 2 : 0;
-        corner.animationDelay = corner.animationLength > 0
-          ? this.settings.instantShortMoveDelay / 1_000
-          : 0;
-        if (corner.animationLength === 0) {
-          Object.assign(corner, this.targetCorners[index], { velocityX: 0, velocityY: 0 });
-        }
-      }
-      return;
-    }
-
     const leading = animationLength * (1 - this.settings.trailSize / 100);
     const middle = (leading + animationLength) / 2;
     for (let rank = 0; rank < alignments.length; rank += 1) {
@@ -410,6 +361,7 @@ export class LiquidCursor {
       corner.animationLength = rank === 0 ? animationLength : rank === 1 ? middle : leading;
       corner.animationDelay = 0;
     }
+    return false;
   }
 
   private validateCorners(): void {
@@ -432,14 +384,15 @@ export class LiquidCursor {
     }
   }
 
-  private startAnimation(): void {
-    if (
-      this.animationFrame !== null
-      || this.mode === "disabled"
-      || !this.terminalCursorVisible
-    ) return;
-    this.lastFrameAt = performance.now();
+  private requestFrame(): void {
+    if (this.animationFrame !== null || this.mode === "disabled" || !this.terminalCursorVisible) return;
     this.animationFrame = requestAnimationFrame((time) => this.animate(time));
+  }
+
+  private cancelFrame(): void {
+    if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = null;
+    this.lastFrameAt = null;
   }
 
   private advanceCorner(corner: AnimatedPoint, target: Point, deltaTime: number): void {
@@ -472,10 +425,25 @@ export class LiquidCursor {
 
   private animate(time: number): void {
     this.animationFrame = null;
-    if (this.mode === "disabled") return;
+    if (this.mode === "disabled" || !this.terminalCursorVisible) return;
 
-    const deltaTime = (time - this.lastFrameAt) / 1_000;
-    this.lastFrameAt = time;
+    const deltaTime = this.lastFrameAt === null
+      ? INITIAL_FRAME_STEP_SECONDS
+      : (time - this.lastFrameAt) / 1_000;
+    this.lastFrameAt = null;
+
+    // Coalesce xterm notifications and update the geometry in the frame that will draw it.
+    let deferTrailStep = false;
+    if (this.targetUpdatePending) {
+      const snap = this.targetUpdateNeedsSnap;
+      this.targetUpdatePending = false;
+      this.targetUpdateNeedsSnap = false;
+      deferTrailStep = this.updateTarget(snap);
+    }
+    if (!this.cursorInsideViewport) {
+      this.draw();
+      return;
+    }
     if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > MAXIMUM_FRAME_GAP_SECONDS) {
       this.pulse = 0;
       this.pulsePeakPending = false;
@@ -493,7 +461,8 @@ export class LiquidCursor {
       const corner = this.corners[index];
       const target = this.targetCorners[index];
 
-      this.advanceCorner(corner, target, deltaTime);
+      // The configured instant-move trail starts only after its front has been painted.
+      if (!deferTrailStep) this.advanceCorner(corner, target, deltaTime);
       if (![
         corner.x,
         corner.y,
@@ -528,7 +497,10 @@ export class LiquidCursor {
     }
 
     this.draw();
-    if (moving) this.animationFrame = requestAnimationFrame((nextTime) => this.animate(nextTime));
+    if (moving) {
+      this.lastFrameAt = time;
+      this.requestFrame();
+    }
   }
 
   private updateTypingPulse(time: number): void {
@@ -598,14 +570,6 @@ export class LiquidCursor {
     const elapsed = performance.now() - this.lastActivityAt;
     return elapsed < BLINK_DELAY_MS
       || Math.floor((elapsed - BLINK_DELAY_MS) / BLINK_INTERVAL_MS) % 2 === 0;
-  }
-
-  private cornerCenter(): Point {
-    const total = this.corners.reduce(
-      (result, corner) => ({ x: result.x + corner.x, y: result.y + corner.y }),
-      { x: 0, y: 0 },
-    );
-    return { x: total.x / CORNER_COUNT, y: total.y / CORNER_COUNT };
   }
 
   private squarePolygon(points: Point[]): void {

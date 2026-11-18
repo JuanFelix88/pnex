@@ -658,14 +658,14 @@ function currentSize(terminal: Terminal): TerminalSize {
 }
 
 const terminalInputEncoder = new TextEncoder();
-let terminalInputQueue = Promise.resolve();
+let terminalInputQueue: Promise<void> | null = null;
 
 function sendTerminalInput(data: string | Uint8Array): void {
   const sessionId = activeSessionId;
   if (sessionId === null) return;
 
   const bytes = typeof data === "string" ? terminalInputEncoder.encode(data) : data;
-  terminalInputQueue = terminalInputQueue.then(async () => {
+  const write = async (): Promise<void> => {
     if (activeSessionId !== sessionId) return;
 
     try {
@@ -673,6 +673,13 @@ function sendTerminalInput(data: string | Uint8Array): void {
     } catch (error: unknown) {
       showError(`Could not send data to the terminal: ${String(error)}`);
     }
+  };
+
+  // Start IPC on this stack when idle; only wait when an earlier write is pending.
+  const pending = terminalInputQueue ? terminalInputQueue.then(write) : write();
+  terminalInputQueue = pending;
+  void pending.then(() => {
+    if (terminalInputQueue === pending) terminalInputQueue = null;
   });
 }
 
@@ -861,6 +868,7 @@ function setupTerminal(
     return true;
   });
   terminal.onData((data) => {
+    sendTerminalInput(data);
     liquidCursor.pulseTyping();
     inputShadow.show(data);
     terminalMotion.pulseTyping(data, activeHud?.element.querySelector<HTMLElement>(".prompt-hud-glow") ?? null);
@@ -876,7 +884,6 @@ function setupTerminal(
         updatePromptHudState(activeHud);
       }
     }
-    sendTerminalInput(data);
   });
   terminal.onBinary((data) => sendTerminalInput(binaryStringToBytes(data)));
   setupShortcuts(terminal);
