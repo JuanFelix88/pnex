@@ -339,3 +339,80 @@ test("disabling Motion cancels animation, releases the render listener and can b
   assert.ok(motion.particles.particles.length > 0);
   motion.dispose();
 });
+
+test("focus requirement defaults on and accepts only booleans", () => {
+  const f = fixture();
+  assert.equal(f.configuredTerminalMotionSettings().particlesRequireFocus, true);
+  assert.equal(f.configuredTerminalMotionSettings({ particlesRequireFocus: false }).particlesRequireFocus, false);
+  assert.equal(f.configuredTerminalMotionSettings({ particlesRequireFocus: "false" }).particlesRequireFocus, true);
+});
+
+test("HUD text crossing a grid edge still emits from its visible portion", () => {
+  const f = fixture();
+  const ink = f.document.createElement("span");
+  ink.textContent = "long-directory";
+  ink.computed = { color: "#00ff00", fontSize: "14px" };
+  ink.getBoundingClientRect = () => ({ top: -2, bottom: 18, left: -5, right: 450, width: 455, height: 20 });
+  f.screen.querySelectorAll = () => [ink];
+  const motion = new f.TerminalMotion(f.terminal);
+  f.tick();
+  assert.equal(motion.hudEmitters.length, 1);
+  assert.equal(motion.hudEmitters[0].x, 0);
+  assert.equal(motion.hudEmitters[0].width, 400);
+  assert.equal(motion.hudEmitters[0].y, 18 * 0.65);
+  ink.getBoundingClientRect = () => ({ top: -30, bottom: -10, left: 0, right: 50, width: 50, height: 20 });
+  assert.equal(motion.readHudEmitters().length, 0);
+  motion.dispose();
+});
+
+test("padded canvas draws and clears bubbles outside the grid without shifting emitters", () => {
+  const f = fixture();
+  const particles = new f.TerminalParticles(f.screen);
+  const transforms = [];
+  const clears = [];
+  particles.context.setTransform = (...args) => transforms.push(args);
+  particles.context.clearRect = (...args) => clears.push(args);
+  particles.resize(400, 100);
+  assert.equal(particles.canvas.style.width, "528px");
+  assert.equal(particles.canvas.style.height, "228px");
+  assert.equal(particles.canvas.width, 792);
+  assert.equal(particles.canvas.height, 342);
+  assert.equal(particles.canvas.style.transform, "translate(-64px, -64px)");
+  assert.deepEqual(transforms[0], [1.5, 0, 0, 1.5, 96, 96]);
+  particles.setEmitters([{ ...source(), y: 2 }]);
+  particles.configure(30);
+  f.tick(30);
+  assert.ok(f.stats.arcs.some(({ y }) => y < 0));
+  assert.deepEqual(clears.at(-1), [-64, -64, 528, 228]);
+  particles.dispose();
+});
+
+test("optional window focus requirement preserves bubbles on blur and still pauses when hidden", () => {
+  const f = fixture();
+  f.lines[0][0] = cell("R");
+  const settings = f.configuredTerminalMotionSettings({ particlesRequireFocus: false });
+  const motion = new f.TerminalMotion(f.terminal, settings);
+  f.tick(30);
+  const bubble = motion.particles.particles[0];
+  f.focus(false);
+  assert.ok(motion.particles.particles.includes(bubble));
+  f.tick(10);
+  assert.ok(motion.particles.particles.includes(bubble));
+  assert.ok(f.frames.size > 0);
+  motion.setSettings({ ...settings, particlesRequireFocus: true });
+  assert.equal(motion.particles.particles.length, 0);
+  f.tick(); // Drain the one-shot emitter refresh; no animation loop should remain.
+  assert.equal(f.frames.size, 0);
+  motion.setSettings(settings);
+  f.tick(30);
+  assert.ok(motion.particles.particles.length > 0);
+  f.document.hidden = true;
+  f.document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(motion.particles.particles.length, 0);
+  assert.equal(f.frames.size, 0);
+  f.document.hidden = false;
+  f.document.dispatchEvent(new Event("visibilitychange"));
+  f.tick(30);
+  assert.ok(motion.particles.particles.length > 0);
+  motion.dispose();
+});

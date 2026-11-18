@@ -87,6 +87,7 @@ pub struct TerminalMotionSettings {
     pub motion: u8,
     pub reactive_glow: bool,
     pub particle_count: u8,
+    pub particles_require_focus: bool,
 }
 
 impl Default for TerminalMotionSettings {
@@ -96,6 +97,7 @@ impl Default for TerminalMotionSettings {
             motion: 2,
             reactive_glow: true,
             particle_count: 12,
+            particles_require_focus: true,
         }
     }
 }
@@ -638,6 +640,7 @@ mod tests {
         assert_eq!(config.terminal_motion.particle_count, 12);
         assert_eq!(config.terminal_motion.motion, 3);
         assert!(!config.terminal_motion.reactive_glow);
+        assert!(config.terminal_motion.particles_require_focus);
     }
 
     #[test]
@@ -650,6 +653,7 @@ mod tests {
             store
                 .save_terminal_motion(super::TerminalMotionSettings {
                     particle_count,
+                    particles_require_focus: false,
                     ..Default::default()
                 })
                 .expect("valid particle budget");
@@ -670,6 +674,11 @@ mod tests {
                 .particle_count,
             80
         );
+        assert!(!reloaded
+            .get()
+            .expect("config")
+            .terminal_motion
+            .particles_require_focus);
         fs::remove_dir_all(directory).expect("remove test directory");
     }
 

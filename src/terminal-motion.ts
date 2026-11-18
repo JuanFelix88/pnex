@@ -6,6 +6,7 @@ export interface TerminalMotionSettings {
   motion: number;
   reactiveGlow: boolean;
   particleCount: number;
+  particlesRequireFocus: boolean;
 }
 
 export function configuredTerminalMotionSettings(
@@ -18,6 +19,7 @@ export function configuredTerminalMotionSettings(
     reactiveGlow: typeof value?.reactiveGlow === "boolean" ? value.reactiveGlow : true,
     particleCount: typeof value?.particleCount === "number" && Number.isFinite(value.particleCount)
       ? Math.min(80, Math.max(0, Math.round(value.particleCount))) : 12,
+    particlesRequireFocus: typeof value?.particlesRequireFocus === "boolean" ? value.particlesRequireFocus : true,
   };
 }
 
@@ -119,7 +121,7 @@ export class TerminalMotion {
   setSettings(settings: TerminalMotionSettings): void {
     this.stopPulse();
     this.settings = settings;
-    this.particles.configure(settings.enabled ? settings.particleCount : 0);
+    this.particles.configure(settings.enabled ? settings.particleCount : 0, settings.particlesRequireFocus);
     this.canvas.hidden = !settings.enabled;
     this.canvas.style.opacity = String(INTENSITY[settings.motion - 1]);
     this.screen.dataset.terminalMotion = String(settings.enabled);
@@ -197,15 +199,18 @@ export class TerminalMotion {
     for (const element of elements) {
       if (!element.textContent?.trim()) continue;
       const rect = element.getBoundingClientRect();
-      if (!rect.width || !rect.height || rect.top < bounds.top || rect.bottom > bounds.bottom
-        || rect.left < bounds.left || rect.right > bounds.right) continue;
+      const left = Math.max(rect.left, bounds.left);
+      const right = Math.min(rect.right, bounds.right);
+      const top = Math.max(rect.top, bounds.top);
+      const bottom = Math.min(rect.bottom, bounds.bottom);
+      if (right <= left || bottom <= top) continue;
       const computed = getComputedStyle(element);
       const style = this.colorStyle(this.readColor(computed.color, this.foreground));
       if (style.alpha < 0.18) continue;
-      const x = rect.left - bounds.left;
-      const y = rect.top - bounds.top + rect.height * 0.65;
+      const x = left - bounds.left;
+      const y = top - bounds.top + (bottom - top) * 0.65;
       const fontSize = Number.parseFloat(computed.fontSize) || this.terminal.options.fontSize || 14;
-      emitters.push({ x, y, width: rect.width, color: style.css, fontSize });
+      emitters.push({ x, y, width: right - left, color: style.css, fontSize });
     }
     return emitters;
   }

@@ -1591,6 +1591,7 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
   const value = requiredElement("#terminal-motion-value");
   const particles = requiredElement("#terminal-motion-particles") as HTMLInputElement;
   const particleValue = requiredElement("#terminal-motion-particles-value");
+  const requireFocus = requiredElement("#terminal-motion-particles-require-focus") as HTMLInputElement;
   let revision = 0;
   const synchronize = (settings?: Partial<TerminalMotionSettings>): void => {
     revision++;
@@ -1605,11 +1606,14 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
     particles.disabled = !normalized.enabled;
     particles.value = String(normalized.particleCount);
     particleValue.textContent = normalized.particleCount ? `${normalized.particleCount}/s` : "Off";
+    requireFocus.checked = normalized.particlesRequireFocus;
+    requireFocus.disabled = !normalized.enabled;
     motion.setSettings(normalized);
   };
   const apply = (): void => synchronize({
     enabled: enabled.checked, motion: Number(level.value), reactiveGlow: reactive.checked,
     particleCount: Number(particles.value),
+    particlesRequireFocus: requireFocus.checked,
   });
   const persist = (): void => {
     const terminalMotion = configuredTerminalMotionSettings(config.terminalMotion);
@@ -1625,6 +1629,7 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
   synchronize(config.terminalMotion);
   enabled.addEventListener("change", () => { apply(); persist(); });
   reactive.addEventListener("change", () => { apply(); persist(); });
+  requireFocus.addEventListener("change", () => { apply(); persist(); });
   level.addEventListener("input", apply);
   level.addEventListener("change", () => { apply(); persist(); });
   particles.addEventListener("input", apply);

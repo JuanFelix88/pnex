@@ -22,6 +22,7 @@ interface Particle {
 // A global budget, not a budget per word: dense output cannot multiply the cost.
 const MAX_PARTICLES = 160;
 const FRAME_INTERVAL = 1000 / 30;
+const CANVAS_MARGIN = 64;
 
 export class TerminalParticles {
   private readonly canvas = document.createElement("canvas");
@@ -33,11 +34,12 @@ export class TerminalParticles {
   private lastFrame = 0;
   private credit = 0;
   private rate = 0;
+  private requireFocus = true;
   private width = 0;
   private height = 0;
   private disposed = false;
   private readonly synchronize = (): void => {
-    if (document.hidden || !document.hasFocus()) this.clear();
+    if (this.isPaused()) this.clear();
     else this.start();
   };
 
@@ -53,9 +55,10 @@ export class TerminalParticles {
     document.addEventListener("visibilitychange", this.synchronize);
   }
 
-  configure(rate: number): void {
+  configure(rate: number, requireFocus = true): void {
     this.rate = rate;
-    if (!rate) this.clear();
+    this.requireFocus = requireFocus;
+    if (!rate || this.isPaused()) this.clear();
     else this.start();
   }
 
@@ -65,11 +68,15 @@ export class TerminalParticles {
     this.height = height;
     // Small circles do not need an unbounded high-DPI backing surface.
     const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
-    this.canvas.width = Math.ceil(width * ratio);
-    this.canvas.height = Math.ceil(height * ratio);
-    this.canvas.style.width = `${width}px`;
-    this.canvas.style.height = `${height}px`;
-    this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    // Keep screen-local emitter coordinates, but leave room outside the grid for bubbles.
+    const canvasWidth = width + CANVAS_MARGIN * 2;
+    const canvasHeight = height + CANVAS_MARGIN * 2;
+    this.canvas.width = Math.ceil(canvasWidth * ratio);
+    this.canvas.height = Math.ceil(canvasHeight * ratio);
+    this.canvas.style.width = `${canvasWidth}px`;
+    this.canvas.style.height = `${canvasHeight}px`;
+    this.canvas.style.transform = `translate(${-CANVAS_MARGIN}px, ${-CANVAS_MARGIN}px)`;
+    this.context.setTransform(ratio, 0, 0, ratio, CANVAS_MARGIN * ratio, CANVAS_MARGIN * ratio);
   }
 
   setEmitters(emitters: ParticleEmitter[]): void {
@@ -87,7 +94,7 @@ export class TerminalParticles {
     this.credit = 0;
     this.pool.push(...this.particles);
     this.particles.length = 0;
-    this.context.clearRect(0, 0, this.width, this.height);
+    this.clearCanvas();
   }
 
   dispose(): void {
@@ -101,9 +108,18 @@ export class TerminalParticles {
     this.pool.length = 0;
   }
 
+  private isPaused(): boolean {
+    return document.hidden || (this.requireFocus && !document.hasFocus());
+  }
+
+  private clearCanvas(): void {
+    this.context.clearRect(-CANVAS_MARGIN, -CANVAS_MARGIN,
+      this.width + CANVAS_MARGIN * 2, this.height + CANVAS_MARGIN * 2);
+  }
+
   private start(): void {
     if (this.disposed || this.frameId !== undefined || !this.rate || (!this.emitters.length && !this.particles.length)
-      || !this.width || !this.height || document.hidden || !document.hasFocus()) return;
+      || !this.width || !this.height || this.isPaused()) return;
     this.frameId = requestAnimationFrame(this.frame);
   }
 
@@ -132,7 +148,7 @@ export class TerminalParticles {
 
   private readonly frame = (now: number): void => {
     this.frameId = undefined;
-    if (document.hidden || !document.hasFocus()) {
+    if (this.isPaused()) {
       this.clear();
       return;
     }
@@ -147,7 +163,7 @@ export class TerminalParticles {
         this.credit--;
       }
       const context = this.context;
-      context.clearRect(0, 0, this.width, this.height);
+      this.clearCanvas();
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const particle = this.particles[i];
         particle.age += dt;
