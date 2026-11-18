@@ -1445,6 +1445,7 @@ async function runMenuAction(
     case "center-window":
     case "restore-window":
       await changeWindowPlacement(action);
+      if (action === "center-window") terminal.focus();
       return;
     case "copy":
       await copyTerminal(terminal);
