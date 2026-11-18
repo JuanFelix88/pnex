@@ -1,6 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow, ProgressBarStatus } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow, PhysicalPosition, PhysicalSize, ProgressBarStatus } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -91,6 +91,8 @@ type MenuAction =
   | "copy"
   | "paste"
   | "select-all"
+  | "center-window"
+  | "restore-window"
   | "set-theme"
   | "set-ui-theme"
   | "open-liquid-cursor"
@@ -117,6 +119,8 @@ const PROMPT_HUD_SENTINELS_PATTERN = /\uE000\d+\uE001/g;
 const MAX_PROMPT_HUDS = 2_000;
 
 const appWindow = getCurrentWindow();
+let previousPlacement: { position: PhysicalPosition; size: PhysicalSize; maximized: boolean } | null = null;
+let changingPlacement = false;
 const terminalElement = requiredElement("#terminal");
 const terminalContainer = requiredElement("#terminal-container");
 const errorElement = requiredElement("#terminal-error");
@@ -1353,6 +1357,11 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
         { label: "Paste", action: "paste", hint: "Ctrl+V" },
         { label: "Select All", action: "select-all", hint: "Ctrl+A" },
       ];
+    case "view":
+      return [
+        { label: "Center Window in Desktop", action: "center-window", disabled: changingPlacement },
+        { label: "Restore Window Position", action: "restore-window", disabled: changingPlacement || !previousPlacement },
+      ];
     case "help":
       return [
         ...(import.meta.env.DEV
@@ -1362,6 +1371,43 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
       ];
     default:
       return [];
+  }
+}
+
+async function changeWindowPlacement(action: "center-window" | "restore-window"): Promise<void> {
+  if (changingPlacement) return;
+  changingPlacement = true;
+  try {
+    if (action === "restore-window") {
+      if (!previousPlacement) return;
+      if (await appWindow.isMaximized()) await appWindow.unmaximize();
+      await appWindow.setPosition(previousPlacement.position);
+      await appWindow.setSize(previousPlacement.size);
+      if (previousPlacement.maximized) await appWindow.maximize();
+      previousPlacement = null;
+      return;
+    }
+
+    const monitor = await currentMonitor();
+    if (!monitor) throw new Error("Could not determine the current monitor.");
+    const maximized = await appWindow.isMaximized();
+    if (maximized) await appWindow.unmaximize();
+    // Keep the original normal bounds, even if Center is selected again.
+    if (!previousPlacement) {
+      const [position, size] = await Promise.all([appWindow.outerPosition(), appWindow.innerSize()]);
+      previousPlacement = { position, size, maximized };
+    }
+
+    const { position, size } = monitor.workArea;
+    const width = Math.round(size.width * 0.7);
+    const height = Math.round(size.height * 0.7);
+    await appWindow.setPosition(new PhysicalPosition(
+      position.x + Math.round((size.width - width) / 2),
+      position.y + Math.round((size.height - height) / 2),
+    ));
+    await appWindow.setSize(new PhysicalSize(width, height));
+  } finally {
+    changingPlacement = false;
   }
 }
 
@@ -1395,6 +1441,10 @@ async function runMenuAction(
       return;
     case "open-config":
       await invoke("open_config");
+      return;
+    case "center-window":
+    case "restore-window":
+      await changeWindowPlacement(action);
       return;
     case "copy":
       await copyTerminal(terminal);
@@ -2105,7 +2155,7 @@ function setupTitlebar(
     if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
 
     const trigger = document.querySelector<HTMLButtonElement>(
-      `.menu-trigger[data-menu="${({ f: "file", o: "options", e: "edit", h: "help" } as const)[event.key.toLowerCase() as "f" | "o" | "e" | "h"] ?? ""}"]`,
+      `.menu-trigger[data-menu="${({ f: "file", o: "options", e: "edit", v: "view", h: "help" } as const)[event.key.toLowerCase() as "f" | "o" | "e" | "v" | "h"] ?? ""}"]`,
     );
     if (!trigger) return;
     event.preventDefault();
