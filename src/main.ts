@@ -1364,7 +1364,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
         { label: "Paste", action: "paste", hint: "Ctrl+V" },
         { label: "Select All", action: "select-all", hint: "Ctrl+A" },
       ];
-    case "view":
+    case "window":
       return [
         { label: "Center Window in Desktop", action: "center-window", disabled: changingPlacement },
         { label: "Restore Window Position", action: "restore-window", disabled: changingPlacement || !previousPlacement },
@@ -1407,7 +1407,7 @@ async function changeWindowPlacement(action: "center-window" | "restore-window")
 
     const { position, size } = monitor.workArea;
     const width = Math.round(size.width * 0.7);
-    const height = Math.round(size.height * 0.7);
+    const height = Math.round(size.height * 0.85);
     await appWindow.setPosition(new PhysicalPosition(
       position.x + Math.round((size.width - width) / 2),
       position.y + Math.round((size.height - height) / 2),
@@ -2163,7 +2163,7 @@ function setupTitlebar(
     if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
 
     const trigger = document.querySelector<HTMLButtonElement>(
-      `.menu-trigger[data-menu="${({ f: "file", o: "options", e: "edit", v: "view", h: "help" } as const)[event.key.toLowerCase() as "f" | "o" | "e" | "v" | "h"] ?? ""}"]`,
+      `.menu-trigger[data-menu="${({ f: "file", o: "options", e: "edit", w: "window", h: "help" } as const)[event.key.toLowerCase() as "f" | "o" | "e" | "w" | "h"] ?? ""}"]`,
     );
     if (!trigger) return;
     event.preventDefault();
