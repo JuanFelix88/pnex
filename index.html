@@ -211,8 +211,48 @@
         </div>
         <button id="terminal-motion-reset" class="settings-reset" type="button">Reset default values</button>
       </section>
+      <section id="keyboard-feedback-panel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="keyboard-feedback-title" hidden>
+        <div class="settings-panel-header">
+          <h2 id="keyboard-feedback-title">Keyboard Feedback</h2>
+          <button id="keyboard-feedback-close" class="settings-panel-close" type="button" aria-label="Close Keyboard Feedback settings">×</button>
+        </div>
+        <label class="settings-switch-row" for="keyboard-feedback-enabled">
+          <span>
+            <strong>Enable</strong>
+            <small>Vignette on every terminal keystroke</small>
+          </span>
+          <span class="settings-switch">
+            <input id="keyboard-feedback-enabled" type="checkbox" role="switch" />
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
+        <div class="settings-slider-group">
+          <label class="settings-slider" for="keyboard-feedback-level">
+            <strong>Intensity <output id="keyboard-feedback-value" for="keyboard-feedback-level">2</output></strong>
+            <input id="keyboard-feedback-level" type="range" min="1" max="5" step="1" value="2" aria-label="Intensity" />
+            <span><small>Soft</small><small>Strong</small></span>
+          </label>
+          <label class="settings-field" for="keyboard-feedback-color">
+            <strong>Color</strong>
+            <input id="keyboard-feedback-color" type="color" value="#78dce8" />
+          </label>
+          <label class="settings-field" for="keyboard-feedback-fade-in">
+            <strong>Fade in (ms)</strong>
+            <input id="keyboard-feedback-fade-in" type="number" min="0" max="2000" step="1" value="45" />
+          </label>
+          <label class="settings-field" for="keyboard-feedback-fade-out">
+            <strong>Fade out (ms)</strong>
+            <input id="keyboard-feedback-fade-out" type="number" min="0" max="2000" step="1" value="320" />
+          </label>
+        </div>
+        <div class="settings-actions">
+          <button id="keyboard-feedback-preview" class="settings-action" type="button">Preview</button>
+          <button id="keyboard-feedback-reset" class="settings-reset" type="button">Reset default values</button>
+        </div>
+      </section>
       <section id="terminal-container" aria-label="Interactive terminal">
         <div id="terminal"></div>
+        <div id="keyboard-feedback" aria-hidden="true"></div>
       </section>
       <div id="terminal-error" role="alert" hidden></div>
     </main>

@@ -231,6 +231,17 @@ nav,
   height: 100%;
 }
 
+#keyboard-feedback {
+  position: absolute;
+  z-index: 22;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 clamp(8px, 2vmin, 24px) color-mix(in srgb, var(--keyboard-feedback-color) var(--keyboard-feedback-strength), transparent),
+    inset 0 0 clamp(20px, 8vmin, 96px) var(--keyboard-feedback-depth) color-mix(in srgb, var(--keyboard-feedback-color) calc(var(--keyboard-feedback-strength) * 0.7), transparent);
+}
+
 .terminal-motion {
   z-index: 2;
   pointer-events: none;
@@ -563,6 +574,7 @@ nav,
 }
 
 .settings-switch-row strong,
+.settings-field strong,
 .settings-slider strong {
   font-size: 12px;
   font-weight: 600;
@@ -681,9 +693,49 @@ nav,
   font-variant-numeric: tabular-nums;
 }
 
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-field input {
+  width: 78px;
+  height: 28px;
+  border: 1px solid var(--terminal-border);
+  border-radius: 3px;
+  background: var(--terminal-menu);
+  padding: 3px 7px;
+  color: var(--terminal-foreground);
+  font: 12px/1.35 system-ui, sans-serif;
+}
+
+.settings-field input:focus-visible {
+  outline: 1px solid var(--terminal-foreground);
+  outline-offset: 2px;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.settings-actions .settings-reset {
+  margin-top: 0;
+}
+
+.settings-action {
+  flex: 0 0 auto;
+}
+
 .settings-reset {
   width: 100%;
   margin-top: 16px;
+}
+
+.settings-action,
+.settings-reset {
   border: 1px solid var(--terminal-border);
   border-radius: 3px;
   background: transparent;
@@ -692,12 +744,13 @@ nav,
   font: 12px/1.35 system-ui, sans-serif;
 }
 
+.settings-action:hover,
+.settings-action:focus-visible,
 .settings-reset:hover,
 .settings-reset:focus-visible {
   background: color-mix(in srgb, var(--terminal-foreground) 14%, transparent);
   outline: none;
 }
-
 .prompt-hud-layer {
   position: absolute;
   z-index: 20;

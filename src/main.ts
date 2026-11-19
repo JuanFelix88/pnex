@@ -8,6 +8,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { InputShadow } from "./input-shadow";
+import { KeyboardFeedback, configuredKeyboardFeedbackSettings, type KeyboardFeedbackSettings } from "./keyboard-feedback";
 import {
   DEFAULT_LIQUID_CURSOR_SETTINGS,
   LiquidCursor,
@@ -31,6 +32,7 @@ interface AppConfig {
   liquidCursor?: Partial<LiquidCursorSettings>;
   headerLoading?: Partial<HeaderLoadingSettings>;
   terminalMotion?: Partial<TerminalMotionSettings>;
+  keyboardFeedback?: Partial<KeyboardFeedbackSettings>;
 }
 
 interface LiquidCursorConfigChanged {
@@ -54,6 +56,11 @@ interface HeaderLoadingConfigChanged {
 interface TerminalMotionConfigChanged {
   sourceWindow: string;
   terminalMotion: TerminalMotionSettings;
+}
+
+interface KeyboardFeedbackConfigChanged {
+  sourceWindow: string;
+  keyboardFeedback: KeyboardFeedbackSettings;
 }
 
 interface TerminalSize {
@@ -98,6 +105,7 @@ type MenuAction =
   | "open-liquid-cursor"
   | "open-header-loading"
   | "open-terminal-motion"
+  | "open-keyboard-feedback"
   | "toggle-devtools"
   | "about";
 
@@ -155,6 +163,7 @@ let waitingForResetHud = false;
 let liquidCursorSaveQueue = Promise.resolve();
 let headerLoadingSaveQueue = Promise.resolve();
 let terminalMotionSaveQueue = Promise.resolve();
+let keyboardFeedbackSaveQueue = Promise.resolve();
 let closingAfterCursorSave = false;
 let terminalConnectionVersion = 0;
 let resetSessionPromise: Promise<void> | null = null;
@@ -176,8 +185,8 @@ interface PromptHud {
   hasAppeared: boolean;
 }
 
-function requiredElement(selector: string): HTMLElement {
-  const element = document.querySelector<HTMLElement>(selector);
+function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
+  const element = document.querySelector<T>(selector);
   if (!element) {
     throw new Error(`Required element not found: ${selector}`);
   }
@@ -1348,6 +1357,7 @@ function menuItems(menuName: string, config: AppConfig): MenuItem[] {
         { label: "Liquid Cursor", action: "open-liquid-cursor", opensView: true },
         { label: "Header Loading", action: "open-header-loading", opensView: true },
         { label: "Terminal Motion", action: "open-terminal-motion", opensView: true },
+        { label: "Keyboard Feedback", action: "open-keyboard-feedback", opensView: true },
         { separator: true },
         { label: "UI Themes", heading: true },
         {
@@ -1488,6 +1498,14 @@ async function runMenuAction(
       panel.hidden = false;
       positionSettingsPanel(panel);
       requiredElement("#terminal-motion-enabled").focus();
+      return;
+    }
+    case "open-keyboard-feedback": {
+      closeSettingsPanels();
+      const panel = requiredElement("#keyboard-feedback-panel");
+      panel.hidden = false;
+      positionSettingsPanel(panel);
+      requiredElement("#keyboard-feedback-enabled").focus();
       return;
     }
     case "toggle-devtools":
@@ -1724,6 +1742,86 @@ function setupTerminalMotionPanel(terminal: Terminal, config: AppConfig, motion:
     const latest = await invoke<AppConfig>("get_config");
     if (revision === initialRevision) synchronize(latest.terminalMotion);
   }).catch((error: unknown) => console.warn("Could not synchronize Terminal Motion settings.", error));
+}
+
+function setupKeyboardFeedbackPanel(terminal: Terminal, config: AppConfig): void {
+  const feedback = new KeyboardFeedback(terminalContainer, requiredElement("#keyboard-feedback"));
+  const panel = requiredElement("#keyboard-feedback-panel");
+  const enabled = requiredElement<HTMLInputElement>("#keyboard-feedback-enabled");
+  const level = requiredElement<HTMLInputElement>("#keyboard-feedback-level");
+  const intensity = requiredElement("#keyboard-feedback-value");
+  const color = requiredElement<HTMLInputElement>("#keyboard-feedback-color");
+  const fadeIn = requiredElement<HTMLInputElement>("#keyboard-feedback-fade-in");
+  const fadeOut = requiredElement<HTMLInputElement>("#keyboard-feedback-fade-out");
+  let revision = 0;
+
+  const synchronize = (settings?: Partial<KeyboardFeedbackSettings>): KeyboardFeedbackSettings => {
+    revision++;
+    const normalized = configuredKeyboardFeedbackSettings(settings);
+    config.keyboardFeedback = normalized;
+    enabled.checked = normalized.enabled;
+    level.value = String(normalized.level);
+    intensity.textContent = level.value;
+    color.value = normalized.color;
+    fadeIn.value = String(normalized.fadeInMs);
+    fadeOut.value = String(normalized.fadeOutMs);
+    feedback.setSettings(normalized);
+    return normalized;
+  };
+  const save = (keyboardFeedback: KeyboardFeedbackSettings): void => {
+    const pending = keyboardFeedbackSaveQueue.catch(() => undefined)
+      .then(() => invoke<void>("save_keyboard_feedback", { keyboardFeedback }));
+    keyboardFeedbackSaveQueue = pending;
+    void pending.catch((error: unknown) => showError(`Could not save Keyboard Feedback settings: ${String(error)}`));
+  };
+  const apply = (): void => save(synchronize({
+    enabled: enabled.checked,
+    level: level.valueAsNumber,
+    color: color.value,
+    fadeInMs: fadeIn.valueAsNumber,
+    fadeOutMs: fadeOut.valueAsNumber,
+  }));
+  const hide = (focus: boolean): void => {
+    panel.hidden = true;
+    if (focus) terminal.focus();
+  };
+
+  synchronize(config.keyboardFeedback);
+  level.addEventListener("input", () => { intensity.textContent = level.value; });
+  for (const input of [enabled, level, color, fadeIn, fadeOut]) input.addEventListener("change", apply);
+  requiredElement("#keyboard-feedback-preview").addEventListener("click", () => feedback.preview());
+  requiredElement("#keyboard-feedback-reset").addEventListener("click", () => save(synchronize()));
+  requiredElement("#keyboard-feedback-close").addEventListener("click", () => hide(true));
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const first = requiredElement("#keyboard-feedback-close");
+    const last = requiredElement("#keyboard-feedback-reset");
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!panel.hidden && event.target instanceof Node
+      && !menuPopup.contains(event.target) && !panel.contains(event.target)) hide(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) hide(true);
+  });
+  window.addEventListener("resize", () => { if (!panel.hidden) positionSettingsPanel(panel); });
+  window.addEventListener("beforeunload", () => feedback.dispose(), { once: true });
+
+  void listen<KeyboardFeedbackConfigChanged>("keyboard-feedback-config-changed", ({ payload }) => {
+    if (payload.sourceWindow !== appWindow.label) synchronize(payload.keyboardFeedback);
+  }).then(async () => {
+    const initialRevision = revision;
+    const latest = await invoke<AppConfig>("get_config");
+    if (revision === initialRevision) synchronize(latest.keyboardFeedback);
+  }).catch((error: unknown) => console.warn("Could not synchronize Keyboard Feedback settings.", error));
 }
 
 function showLiquidCursorPanel(): void {
@@ -2209,7 +2307,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
       event.preventDefault();
       if (closingAfterCursorSave) return;
       closingAfterCursorSave = true;
-      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue, terminalMotionSaveQueue])
+      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue, terminalMotionSaveQueue, keyboardFeedbackSaveQueue])
         .then(() => appWindow.destroy())
         .catch((error: unknown) => {
           closingAfterCursorSave = false;
@@ -2217,7 +2315,7 @@ async function setupCloseAfterCursorSave(): Promise<void> {
         });
     }),
     listen("app-close-requested", () => {
-      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue, terminalMotionSaveQueue])
+      void Promise.all([liquidCursorSaveQueue, headerLoadingSaveQueue, terminalMotionSaveQueue, keyboardFeedbackSaveQueue])
         .then(() => invoke("confirm_app_close"))
         .catch((error: unknown) => {
           showError(`Could not close the app: ${String(error)}`);
@@ -2235,6 +2333,7 @@ async function bootstrap(): Promise<void> {
   const { terminal, fitAddon, liquidCursor, inputShadow } = createTerminal(config);
   const terminalMotion = new TerminalMotion(terminal, config.terminalMotion);
   setupTerminalMotionPanel(terminal, config, terminalMotion);
+  setupKeyboardFeedbackPanel(terminal, config);
 
   setupTerminal(terminal, fitAddon, liquidCursor, inputShadow, terminalMotion);
   const restoreTerminalFocus = setupTitlebar(terminal, config, liquidCursor, inputShadow);

@@ -4,8 +4,8 @@ mod pty;
 mod terminal_output;
 
 use config::{
-    AppConfig, ConfigStore, CursorAnimation, HeaderLoadingSettings, LiquidCursorSettings,
-    TerminalMotionSettings,
+    AppConfig, ConfigStore, CursorAnimation, HeaderLoadingSettings, KeyboardFeedbackSettings,
+    LiquidCursorSettings, TerminalMotionSettings,
 };
 use notification::{Notification, NotificationSystem};
 use pty::{PtyState, TerminalSize, TerminalStarted};
@@ -156,6 +156,31 @@ fn save_terminal_motion(
         TerminalMotionConfigChanged {
             source_window: window.label().to_owned(),
             terminal_motion,
+        },
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct KeyboardFeedbackConfigChanged {
+    source_window: String,
+    keyboard_feedback: KeyboardFeedbackSettings,
+}
+
+#[tauri::command]
+fn save_keyboard_feedback(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, ConfigStore>,
+    keyboard_feedback: KeyboardFeedbackSettings,
+) -> Result<(), String> {
+    state.save_keyboard_feedback(keyboard_feedback.clone())?;
+    app.emit(
+        "keyboard-feedback-config-changed",
+        KeyboardFeedbackConfigChanged {
+            source_window: window.label().to_owned(),
+            keyboard_feedback,
         },
     )
     .map_err(|error| error.to_string())
@@ -707,6 +732,7 @@ pub fn run() {
             save_liquid_cursor,
             save_header_loading,
             save_terminal_motion,
+            save_keyboard_feedback,
             set_window_loading,
             open_config,
             show_notification,

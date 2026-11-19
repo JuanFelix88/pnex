@@ -102,6 +102,28 @@ impl Default for TerminalMotionSettings {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct KeyboardFeedbackSettings {
+    pub enabled: bool,
+    pub level: u8,
+    pub color: String,
+    pub fade_in_ms: u16,
+    pub fade_out_ms: u16,
+}
+
+impl Default for KeyboardFeedbackSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            level: 2,
+            color: "#78dce8".to_owned(),
+            fade_in_ms: 45,
+            fade_out_ms: 320,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
@@ -114,6 +136,7 @@ pub struct AppConfig {
     pub liquid_cursor: LiquidCursorSettings,
     pub header_loading: HeaderLoadingSettings,
     pub terminal_motion: TerminalMotionSettings,
+    pub keyboard_feedback: KeyboardFeedbackSettings,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -130,6 +153,7 @@ impl Default for AppConfig {
             liquid_cursor: LiquidCursorSettings::default(),
             header_loading: HeaderLoadingSettings::default(),
             terminal_motion: TerminalMotionSettings::default(),
+            keyboard_feedback: KeyboardFeedbackSettings::default(),
             extra: BTreeMap::new(),
         }
     }
@@ -274,6 +298,7 @@ impl ConfigStore {
         config.liquid_cursor = current.liquid_cursor.clone();
         config.header_loading = current.header_loading.clone();
         config.terminal_motion = current.terminal_motion.clone();
+        config.keyboard_feedback = current.keyboard_feedback.clone();
         validate(&config)?;
         persist(&self.path, &config)?;
         *current = config;
@@ -312,6 +337,19 @@ impl ConfigStore {
         let mut current = self.config.lock().map_err(lock_error)?;
         let mut next = current.clone();
         next.terminal_motion = terminal_motion;
+        validate(&next)?;
+        persist(&self.path, &next)?;
+        *current = next;
+        Ok(())
+    }
+
+    pub fn save_keyboard_feedback(
+        &self,
+        keyboard_feedback: KeyboardFeedbackSettings,
+    ) -> Result<(), String> {
+        let mut current = self.config.lock().map_err(lock_error)?;
+        let mut next = current.clone();
+        next.keyboard_feedback = keyboard_feedback;
         validate(&next)?;
         persist(&self.path, &next)?;
         *current = next;
@@ -375,6 +413,20 @@ fn validate(config: &AppConfig) -> Result<(), String> {
     }
     if config.terminal_motion.particle_count > 80 {
         return Err("terminalMotion.particleCount must be between 0 and 80.".to_owned());
+    }
+    let feedback = &config.keyboard_feedback;
+    if !(1..=5).contains(&feedback.level) {
+        return Err("keyboardFeedback.level must be between 1 and 5.".to_owned());
+    }
+    if !feedback
+        .color
+        .strip_prefix('#')
+        .is_some_and(|hex| hex.len() == 6 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+    {
+        return Err("keyboardFeedback.color must be a hex color (#RRGGBB).".to_owned());
+    }
+    if feedback.fade_in_ms > 2000 || feedback.fade_out_ms > 2000 {
+        return Err("keyboardFeedback fade durations must be between 0 and 2000 ms.".to_owned());
     }
     if config.header_loading.mask_opacity > 100 {
         return Err("headerLoading.maskOpacity must be between 0 and 100.".to_owned());
@@ -448,6 +500,8 @@ mod tests {
         assert!(config.liquid_cursor.input_shadow);
         assert_eq!(config.liquid_cursor.input_shadow_opacity, 45);
         assert_eq!(config.header_loading, Default::default());
+        assert_eq!(config.keyboard_feedback, Default::default());
+        assert!(!config.keyboard_feedback.enabled);
         assert!(store.path().is_file());
 
         fs::remove_dir_all(directory).expect("remove test directory");
@@ -679,6 +733,71 @@ mod tests {
             .expect("config")
             .terminal_motion
             .particles_require_focus);
+        fs::remove_dir_all(directory).expect("remove test directory");
+    }
+
+    #[test]
+    fn keyboard_feedback_defaults_to_off_for_legacy_and_partial_configs() {
+        let legacy: AppConfig = serde_json::from_str("{}").expect("legacy config");
+        let partial: AppConfig =
+            serde_json::from_str(r##"{"keyboardFeedback":{"color":"#ABCDEF"}}"##)
+                .expect("partial config");
+        assert!(!legacy.keyboard_feedback.enabled);
+        assert_eq!(
+            partial.keyboard_feedback,
+            super::KeyboardFeedbackSettings {
+                color: "#ABCDEF".to_owned(),
+                ..legacy.keyboard_feedback
+            }
+        );
+    }
+
+    #[test]
+    fn keyboard_feedback_is_validated_persisted_and_preserved() {
+        use super::KeyboardFeedbackSettings;
+
+        let directory = test_directory();
+        fs::create_dir_all(&directory).expect("test directory");
+        let store = ConfigStore::load(directory.clone()).expect("config store");
+        let stale_config = store.get().expect("stale config");
+        let settings = KeyboardFeedbackSettings {
+            enabled: true,
+            level: 5,
+            color: "#F06AC0".to_owned(),
+            fade_in_ms: 0,
+            fade_out_ms: 2000,
+        };
+        store
+            .save_keyboard_feedback(settings.clone())
+            .expect("save keyboard feedback");
+
+        for invalid in [
+            KeyboardFeedbackSettings {
+                level: 0,
+                ..settings.clone()
+            },
+            KeyboardFeedbackSettings {
+                level: 6,
+                ..settings.clone()
+            },
+            KeyboardFeedbackSettings {
+                color: "#rgb".to_owned(),
+                ..settings.clone()
+            },
+            KeyboardFeedbackSettings {
+                fade_in_ms: 2001,
+                ..settings.clone()
+            },
+            KeyboardFeedbackSettings {
+                fade_out_ms: 2001,
+                ..settings.clone()
+            },
+        ] {
+            assert!(store.save_keyboard_feedback(invalid).is_err());
+        }
+        store.save(stale_config).expect("save stale config");
+        let reloaded = ConfigStore::load(directory.clone()).expect("reload config");
+        assert_eq!(reloaded.get().expect("config").keyboard_feedback, settings);
         fs::remove_dir_all(directory).expect("remove test directory");
     }
 
