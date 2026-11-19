@@ -821,6 +821,7 @@ function setupTerminal(
   let queuedPtyResize: TerminalSize | null = null;
   let ptyResizeInFlight = false;
   let resizeTimer: number | null = null;
+  let lastResizeAt = -Infinity;
 
   const flushPtyResize = async (): Promise<void> => {
     if (ptyResizeInFlight) return;
@@ -900,16 +901,22 @@ function setupTerminal(
     void flushPtyResize();
   });
 
-  const resizeObserver = new ResizeObserver(() => {
-    if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+  const fitTerminal = (): void => {
+    resizeTimer = null;
+    if (terminalContainer.clientWidth > 0 && terminalContainer.clientHeight > 0) {
+      lastResizeAt = performance.now();
+      fitAddon.fit();
+    }
+  };
 
-    // xterm recommends debouncing resize so the PTY can finish its previous redraw.
-    resizeTimer = window.setTimeout(() => {
-      resizeTimer = null;
-      if (terminalContainer.clientWidth > 0 && terminalContainer.clientHeight > 0) {
-        fitAddon.fit();
-      }
-    }, 200);
+  const resizeObserver = new ResizeObserver(() => {
+    const remaining = 150 - (performance.now() - lastResizeAt);
+    if (remaining <= 0) {
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      fitTerminal();
+    } else if (resizeTimer === null) {
+      resizeTimer = window.setTimeout(fitTerminal, remaining);
+    }
   });
 
   resizeObserver.observe(terminalContainer);
