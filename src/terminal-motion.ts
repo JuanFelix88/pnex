@@ -1,4 +1,5 @@
 import type { IBufferCell, IDisposable, ITheme, Terminal } from "@xterm/xterm";
+import { TerminalGlowWebgl } from "./terminal-glow-webgl";
 import { TerminalParticles, type ParticleEmitter } from "./terminal-particles";
 
 export interface TerminalMotionSettings {
@@ -32,6 +33,13 @@ const INTENSITY = [0.18, 0.3, 0.45, 0.65, 0.9];
 const HUD_INTENSITY = [0.3, 0.48, 0.64, 0.8, 0.95];
 const SCALE = 0.5;
 
+interface GlowRun {
+  text: string;
+  x: number;
+  rgb: number;
+  flags: number;
+}
+
 export function createHudMotionGlow(content: HTMLElement): HTMLElement {
   const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
   const texts: Text[] = [];
@@ -58,6 +66,13 @@ export function createHudMotionGlow(content: HTMLElement): HTMLElement {
 export class TerminalMotion {
   private readonly canvas = document.createElement("canvas");
   private readonly context: CanvasRenderingContext2D;
+  private glow?: TerminalGlowWebgl;
+  private gpuAllowed = true;
+  private readonly glowRows: GlowRun[][] = [];
+  private maskDirty = true;
+  private cols = 0;
+  private rows = 0;
+  private fontFamily?: string;
   private readonly particles: TerminalParticles;
   private readonly emitterRows = new Map<number, ParticleEmitter[]>();
   private hudEmitters: ParticleEmitter[] = [];
@@ -124,12 +139,16 @@ export class TerminalMotion {
     this.particles.configure(settings.enabled ? settings.particleCount : 0, settings.particlesRequireFocus);
     this.canvas.hidden = !settings.enabled;
     this.canvas.style.opacity = String(INTENSITY[settings.motion - 1]);
+    if (this.glow) this.glow.canvas.style.opacity = this.canvas.style.opacity;
     this.screen.dataset.terminalMotion = String(settings.enabled);
     this.screen.style.setProperty("--terminal-hud-motion-intensity", String(HUD_INTENSITY[settings.motion - 1]));
     this.hudDirty = true;
     if (!settings.enabled) {
       this.renderListener?.dispose();
       this.renderListener = undefined;
+      this.releaseGlow();
+      this.maskDirty = true;
+      this.glowRows.length = 0;
       this.emitterRows.clear();
       this.hudEmitters = [];
       if (this.emitterFrame !== undefined) cancelAnimationFrame(this.emitterFrame);
@@ -159,7 +178,7 @@ export class TerminalMotion {
       { opacity },
     ];
     const timing = { duration: 240, easing: "ease-out" };
-    this.pulses.push(this.canvas.animate(frames(INTENSITY[this.settings.motion - 1]), timing));
+    this.pulses.push((this.glow?.canvas ?? this.canvas).animate(frames(INTENSITY[this.settings.motion - 1]), timing));
     if (hudGlow?.isConnected) {
       this.pulses.push(hudGlow.animate(frames(HUD_INTENSITY[this.settings.motion - 1]), timing));
     }
@@ -174,6 +193,7 @@ export class TerminalMotion {
     document.removeEventListener("visibilitychange", this.stopPulse);
     this.renderListener?.dispose();
     this.observer.disconnect();
+    this.releaseGlow();
     this.canvas.remove();
     this.emitterRows.clear();
     this.hudEmitters = [];
@@ -223,15 +243,102 @@ export class TerminalMotion {
     this.height = height;
     this.particles.resize(width, height);
     this.hudDirty = true;
+    this.maskDirty = true;
     this.canvas.width = Math.ceil(width * SCALE);
     this.canvas.height = Math.ceil(height * SCALE);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     this.context.setTransform(this.canvas.width / width, 0, 0, this.canvas.height / height, 0, 0);
     this.context.textBaseline = "middle";
+    if (this.glow) {
+      try {
+        this.glow.resize(this.canvas, width, height);
+      } catch (error: unknown) {
+        this.disableGpuGlow(error);
+      }
+    }
     return true;
   }
 
+  private updateGlow(top: number, bottom: number): void {
+    if (!this.gpuAllowed || bottom <= top) return;
+    try {
+      if (!this.glow) {
+        if (!this.glowRows.some((runs) => runs?.length)) return;
+        const canvas = document.createElement("canvas");
+        const gl = canvas.getContext("webgl2", {
+          alpha: true, premultipliedAlpha: true, antialias: false,
+          depth: false, stencil: false, failIfMajorPerformanceCaveat: true,
+        });
+        if (!gl) {
+          this.gpuAllowed = false;
+          return;
+        }
+        try {
+          this.glow = new TerminalGlowWebgl(canvas, gl);
+        } catch (error: unknown) {
+          if (!gl.isContextLost()) gl.getExtension("WEBGL_lose_context")?.loseContext();
+          throw error;
+        }
+        this.glow.resize(this.canvas, this.width, this.height);
+        canvas.className = "terminal-motion terminal-motion-gpu";
+        canvas.style.opacity = this.canvas.style.opacity;
+        canvas.setAttribute("aria-hidden", "true");
+        canvas.addEventListener("webglcontextlost", this.onGlowContextLost);
+        this.screen.append(canvas);
+        this.canvas.style.visibility = "hidden";
+      }
+      this.glow.render(this.canvas, top, bottom);
+    } catch (error: unknown) {
+      this.disableGpuGlow(error);
+    }
+  }
+
+  private disableGpuGlow(error: unknown): void {
+    console.warn("Terminal glow WebGL renderer unavailable; using CSS blur.", error);
+    this.onGlowContextLost();
+  }
+  private readonly onGlowContextLost = (): void => {
+    this.gpuAllowed = false;
+    this.releaseGlow();
+  };
+
+  private releaseGlow(): void {
+    if (!this.glow) return;
+    const { canvas } = this.glow;
+    canvas.removeEventListener("webglcontextlost", this.onGlowContextLost);
+    this.glow.dispose();
+    canvas.remove();
+    this.glow = undefined;
+    this.canvas.style.visibility = "";
+  }
+
+  private updateGlowRow(row: number, runs: GlowRun[], cellWidth: number, cellHeight: number): boolean {
+    const previous = this.glowRows[row];
+    if (previous?.length === runs.length && runs.every(({ text, x, rgb, flags }, i) => {
+      const old = previous[i];
+      return text === old.text && x === old.x && rgb === old.rgb && flags === old.flags;
+    })) return false;
+    this.glowRows[row] = runs;
+    if (!runs.length && !previous?.length) return false;
+    const context = this.context;
+    const top = row * cellHeight;
+    context.clearRect(0, top, this.width, cellHeight);
+    if (!runs.length) return true;
+    context.save();
+    context.beginPath();
+    context.rect(0, top, this.width, cellHeight);
+    context.clip();
+    for (const { text, x, rgb, flags } of runs) {
+      const style = this.colorStyle(rgb);
+      context.fillStyle = style.css;
+      context.globalAlpha = style.alpha * (flags & 1 ? 0.5 : 1);
+      context.font = `${flags & 2 ? "italic " : ""}${flags & 4 ? "bold " : ""}${this.fontSize}px ${this.fontFamily}`;
+      context.fillText(text, x * cellWidth, top + cellHeight / 2);
+    }
+    context.restore();
+    return true;
+  }
   private readColor(css: string | undefined, fallback: number): number {
     this.context.fillStyle = `#${fallback.toString(16).padStart(6, "0")}`;
     if (css) this.context.fillStyle = css;
@@ -311,26 +418,36 @@ export class TerminalMotion {
       this.buffer = buffer;
       this.viewportY = buffer.viewportY;
     }
-    if (start === 0 && end === terminal.rows - 1) this.emitterRows.clear();
-    const context = this.context;
     const cellWidth = this.width / terminal.cols;
     const cellHeight = this.height / terminal.rows;
     const fontSize = terminal.options.fontSize || 14;
-    if (fontSize !== this.fontSize) {
+    const fontFamily = terminal.options.fontFamily;
+    if (terminal.cols !== this.cols || terminal.rows !== this.rows || fontSize !== this.fontSize || fontFamily !== this.fontFamily) {
+      this.cols = terminal.cols;
+      this.rows = terminal.rows;
       this.fontSize = fontSize;
+      this.fontFamily = fontFamily;
+      this.maskDirty = true;
       this.hudDirty = true;
     }
-    context.clearRect(0, start * cellHeight, this.width, (end - start + 1) * cellHeight);
-    // Only dirty visible rows are scanned; runs share a draw call and a cached color.
+    let top = this.canvas.height;
+    let bottom = 0;
+    if (this.maskDirty) {
+      this.maskDirty = false;
+      this.glowRows.length = 0;
+      this.context.clearRect(0, 0, this.width, this.height);
+      start = 0;
+      end = terminal.rows - 1;
+      top = 0;
+      bottom = this.canvas.height;
+    }
+    if (start === 0 && end === terminal.rows - 1) this.emitterRows.clear();
+    // Scan only affected rows; unchanged glyph runs keep their cached pixels.
     for (let row = start; row <= end; row++) {
       const emitters: ParticleEmitter[] = [];
+      const runs: GlowRun[] = [];
       this.emitterRows.set(row, emitters);
       const line = buffer.getLine(buffer.viewportY + row);
-      if (!line) continue;
-      context.save();
-      context.beginPath();
-      context.rect(0, row * cellHeight, this.width, cellHeight);
-      context.clip();
       let text = "";
       let runX = 0;
       let runColor = -1;
@@ -353,14 +470,9 @@ export class TerminalMotion {
       };
       const flush = (): void => {
         flushWord();
-        if (!text.trim()) return;
-        const style = this.colorStyle(runColor);
-        context.fillStyle = style.css;
-        context.globalAlpha = style.alpha * (runFlags & 1 ? 0.5 : 1);
-        context.font = `${runFlags & 2 ? "italic " : ""}${runFlags & 4 ? "bold " : ""}${fontSize}px ${terminal.options.fontFamily}`;
-        context.fillText(text, runX * cellWidth, (row + 0.5) * cellHeight);
+        if (text.trim()) runs.push({ text, x: runX, rgb: runColor, flags: runFlags });
       };
-      for (let column = 0; column < terminal.cols; column++) {
+      for (let column = 0; line && column < terminal.cols; column++) {
         const cell = line.getCell(column, this.cell);
         if (!cell || cell.getWidth() === 0) continue;
         const chars = cell.isInvisible() ? " " : cell.getChars() || " ";
@@ -388,8 +500,12 @@ export class TerminalMotion {
         }
       }
       flush();
-      context.restore();
+      if (this.updateGlowRow(row, runs, cellWidth, cellHeight)) {
+        top = Math.min(top, Math.floor(row * this.canvas.height / terminal.rows));
+        bottom = Math.max(bottom, Math.ceil((row + 1) * this.canvas.height / terminal.rows));
+      }
     }
+    this.updateGlow(top, bottom);
     this.scheduleEmitters();
   }
 }

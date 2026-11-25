@@ -10,13 +10,14 @@ function fixture(webgl = null) {
   let nextFrame = 0;
   let now = 0;
   let focused = true;
-  const stats = { arcs: [], reads: 0, clears: [], transforms: [], warnings: [] };
+  const stats = { arcs: [], reads: 0, clears: [], transforms: [], warnings: [], text: [] };
   const context2d = () => ({
     fillStyle: "#ffffff", globalAlpha: 1,
     setTransform(...args) { stats.transforms.push(args); },
     clearRect(...args) { stats.clears.push(args); },
     save() {}, restore() {}, beginPath() {},
-    rect() {}, clip() {}, fillText() {}, fill() {}, stroke() {},
+    rect() {}, clip() {}, fill() {}, stroke() {},
+    fillText(...args) { stats.text.push(args); },
     arc(x, y, radius) { stats.arcs.push({ x, y, radius }); },
   });
   class Element extends EventTarget {
@@ -70,7 +71,10 @@ function fixture(webgl = null) {
   }
   const webglModule = load("../src/terminal-particles-webgl.ts");
   const particlesModule = load("../src/terminal-particles.ts", { "./terminal-particles-webgl": webglModule });
-  const motionModule = load("../src/terminal-motion.ts", { "./terminal-particles": particlesModule });
+  const glowModule = load("../src/terminal-glow-webgl.ts");
+  const motionModule = load("../src/terminal-motion.ts", {
+    "./terminal-particles": particlesModule, "./terminal-glow-webgl": glowModule,
+  });
   const lines = Array.from({ length: 5 }, () => Array.from({ length: 40 }, () => cell(" ")));
   let render;
   const buffer = {
@@ -518,4 +522,76 @@ test("WebGL context loss switches to Canvas 2D without resetting live particles"
   assert.ok(f.stats.arcs.length > 0);
   assert.equal(gl.calls.losses, 0);
   particles.dispose();
+});
+
+test("glow caches identical runs and repaints changes, erasures and font changes in CSS fallback", () => {
+  const f = fixture();
+  f.lines[0][0] = cell("A");
+  f.lines[2][0] = cell("B");
+  const motion = new f.TerminalMotion(f.terminal, { particleCount: 0 });
+  assert.equal(motion.glow, undefined);
+  assert.equal(f.stats.text.length, 2);
+  f.render(0, 4);
+  assert.equal(f.stats.text.length, 2);
+  f.lines[2][0] = cell("B", 0x00ff00);
+  f.render(2);
+  assert.equal(f.stats.text.length, 3);
+  f.lines[0][0] = cell(" ");
+  f.render(0);
+  assert.deepEqual(f.stats.clears.at(-1), [0, 0, 400, 20]);
+  f.terminal.options.fontFamily = "Consolas";
+  f.render(0);
+  assert.equal(f.stats.text.length, 4);
+  motion.dispose();
+});
+
+function fakeGlowWebgl() {
+  const gl = fakeWebgl();
+  let skip = 0;
+  const calls = { draws: 0, uploads: [], textures: [], scissors: [] };
+  return Object.assign(gl, {
+    glowCalls: calls, TEXTURE_2D: 20, FRAMEBUFFER: 21, MAX_TEXTURE_SIZE: 22,
+    FRAMEBUFFER_COMPLETE: 23, NO_ERROR: 0, UNPACK_SKIP_ROWS: 24,
+    createTexture: () => ({}), createFramebuffer: () => ({}),
+    getParameter: () => 4096, getError: () => 0, checkFramebufferStatus: () => 23,
+    bindTexture() {}, texParameteri() {}, bindFramebuffer() {}, framebufferTexture2D() {},
+    deleteFramebuffer() {}, deleteTexture() {}, uniform1i() {}, disable() {},
+    scissor(...args) { calls.scissors.push(args); },
+    texImage2D(_target, _level, _internalFormat, width, height) { calls.textures.push([width, height]); },
+    pixelStorei(parameter, value) { if (parameter === this.UNPACK_SKIP_ROWS) skip = value; },
+    texSubImage2D(_target, _level, _x, y, width, height) { calls.uploads.push({ y, width, height, skip }); },
+    drawArrays() { calls.draws++; },
+  });
+}
+
+test("GPU glow redraws only on mask changes, updates only the dirty strip and restores CSS after context loss", () => {
+  const gl = fakeGlowWebgl();
+  const f = fixture(gl);
+  f.lines[2][0] = cell("A");
+  const motion = new f.TerminalMotion(f.terminal, { particleCount: 0 });
+  assert.equal(motion.canvas.style.visibility, "hidden");
+  assert.deepEqual(gl.glowCalls.textures, [[248, 98], [124, 49]]);
+  assert.deepEqual(gl.glowCalls.uploads, [{ y: 24, width: 200, height: 50, skip: 0 }]);
+  assert.equal(gl.glowCalls.draws, 2);
+  f.render(1, 3);
+  assert.equal(gl.glowCalls.draws, 2);
+  f.lines[2][0] = cell("B");
+  f.render(2);
+  assert.deepEqual(gl.glowCalls.uploads.at(-1), { y: 44, width: 200, height: 10, skip: 20 });
+  assert.deepEqual(gl.glowCalls.scissors.at(-1), [0, 21, 124, 7]);
+  assert.equal(gl.glowCalls.draws, 4);
+  f.screen.clientHeight = 120;
+  assert.equal(motion.resize(), true);
+  f.render(2);
+  assert.deepEqual(gl.glowCalls.uploads.at(-1), { y: 24, width: 200, height: 60, skip: 0 });
+  const canvas = motion.glow.canvas;
+  gl.lost = true;
+  canvas.dispatchEvent(new Event("webglcontextlost"));
+  assert.equal(canvas.removed, true);
+  assert.equal(motion.canvas.style.visibility, "");
+  assert.equal(motion.glow, undefined);
+  f.lines[2][0] = cell("C");
+  f.render(2);
+  assert.equal(f.stats.text.at(-1)[0].trim(), "C");
+  motion.dispose();
 });

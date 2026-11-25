@@ -250,6 +250,9 @@ nav,
   transition: opacity 140ms ease;
 }
 
+.terminal-motion-gpu {
+  filter: none;
+}
 .terminal-motion[hidden] {
   display: none;
 }

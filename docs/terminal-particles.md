@@ -1,4 +1,6 @@
-# Partículas do Terminal Motion
+# Terminal Motion
+
+## Partículas
 
 - `terminalMotion.particleCount`: 0–80 bolhas/segundo no total; 0 desliga. Padrão: 12.
 - Máximo de 160 partículas vivas, com reutilização dos objetos e desenho limitado a aproximadamente 30 fps. Um canvas transparente, sem blur por partícula e com DPR limitado a 1,5.
@@ -11,6 +13,11 @@
 - Sem emissores, o loop continua apenas até a última bolha expirar e então para. Com a opção de foco ligada, ao perder foco ele também para. Documento oculto, Motion desligado, redimensionamento ou destruição do canvas cancelam o loop e limpam as bolhas.
 - O controle explícito de Motion do aplicativo continua sendo a preferência de animação. O shimmer aleatório foi removido; seleção e carregamento não mudaram.
 
+## Brilho do texto
+
+- A grade mantém uma máscara de texto em Canvas 2D a meia resolução. Linhas com conteúdo e estilo idênticos não são redesenhadas nem reenviadas ao WebGL.
+- O WebGL2 aplica um gaussiano separável a um quarto da resolução, com upload da faixa alterada e sem loop de animação próprio. O pulso de digitação continua ajustando a opacidade, sem recalcular a máscara.
+- Se o contexto não iniciar ou for perdido, a máscara continua disponível e volta a ser exibida com blur CSS. O HUD do prompt continua usando CSS.
 ## Verificação
 
 ```sh
