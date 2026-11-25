@@ -2,12 +2,13 @@
 
 - `terminalMotion.particleCount`: 0–80 bolhas/segundo no total; 0 desliga. Padrão: 12.
 - Máximo de 160 partículas vivas, com reutilização dos objetos e desenho limitado a aproximadamente 30 fps. Um canvas transparente, sem blur por partícula e com DPR limitado a 1,5.
+- Quando há bolhas visíveis, o WebGL2 calcula trajetória, raio, opacidade e contorno em shaders e desenha o lote com uma chamada instanciada. O buffer tem tamanho fixo, só é reenviado quando o lote muda ou o relógio relativo é recalibrado, e é liberado ao desligar as bolhas ou fechar a janela. Se o WebGL2 não iniciar ou perder o contexto, o Canvas 2D assume.
 - Raio inicial aleatório entre 5,5% e 16% da fonte do emissor; deslocamento e espessura também escalam com a fonte. A bolha cresce suavemente durante sua vida.
 - Reutiliza a leitura das linhas visíveis alteradas pelo xterm, as cores ANSI/truecolor e o filtro cromático do blur. Não modifica a saída, não lê scrollback e não examina o buffer durante a animação.
 - Trechos não vazios são delimitados por células, respeitando espaços, caracteres largos e combinantes. Letras, números, hastes, bordas, barras e outros símbolos coloridos emitem; branco/cinza e texto invisível/dim continuam excluídos.
 - O HUD tem emissores cacheados, atualizados por mutações/layout/fonte/tema, sem medições DOM no loop de partículas.
 - Cada bolha guarda sua posição, cor e tamanho de fonte ao nascer. Remover, recolorir ou mover o conteúdo, rolar a tela ou trocar de buffer só altera os emissores; bolhas existentes terminam sua vida de 1,2–2 segundos na posição original da tela.
-- Sem emissores, o loop continua apenas até a última bolha expirar e então para. Sem foco, com documento oculto, com Motion desligado ou ao redimensionar/destruir o canvas: cancela o loop e limpa as bolhas.
+- Sem emissores, o loop continua apenas até a última bolha expirar e então para. Com a opção de foco ligada, ao perder foco ele também para. Documento oculto, Motion desligado, redimensionamento ou destruição do canvas cancelam o loop e limpam as bolhas.
 - O controle explícito de Motion do aplicativo continua sendo a preferência de animação. O shimmer aleatório foi removido; seleção e carregamento não mudaram.
 
 ## Verificação

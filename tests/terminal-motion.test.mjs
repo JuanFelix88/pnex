@@ -5,19 +5,21 @@ import test from "node:test";
 import ts from "typescript";
 
 // Exercise the actual TS modules with a deterministic canvas/RAF, without adding dependencies.
-function fixture() {
+function fixture(webgl = null) {
   const frames = new Map();
   let nextFrame = 0;
   let now = 0;
   let focused = true;
-  const stats = { arcs: [], reads: 0 };
+  const stats = { arcs: [], reads: 0, clears: [], transforms: [], warnings: [] };
   const context2d = () => ({
     fillStyle: "#ffffff", globalAlpha: 1,
-    setTransform() {}, clearRect() {}, save() {}, restore() {}, beginPath() {},
+    setTransform(...args) { stats.transforms.push(args); },
+    clearRect(...args) { stats.clears.push(args); },
+    save() {}, restore() {}, beginPath() {},
     rect() {}, clip() {}, fillText() {}, fill() {}, stroke() {},
     arc(x, y, radius) { stats.arcs.push({ x, y, radius }); },
   });
-  class Element {
+  class Element extends EventTarget {
     style = { setProperty() {} };
     dataset = {};
     children = [];
@@ -31,7 +33,13 @@ function fixture() {
     closest() { return null; }
     matches() { return false; }
     getBoundingClientRect() { return { top: 0, left: 0, right: 400, bottom: 100 }; }
-    getContext() { return context2d(); }
+    getContext(kind) {
+      if (kind === "webgl2" && webgl) {
+        this.hasWebgl = true;
+        return webgl;
+      }
+      return kind === "2d" && !this.hasWebgl ? context2d() : null;
+    }
   }
   const screen = new Element();
   const document = Object.assign(new EventTarget(), {
@@ -42,6 +50,7 @@ function fixture() {
   math.random = () => 0.5;
   const scope = createContext({
     document, window, Element, HTMLElement: Element, Math: math,
+    console: { warn: (...args) => stats.warnings.push(args) },
     performance: { now: () => now },
     getComputedStyle: (element) => element.computed,
     ResizeObserver: class { observe() {} disconnect() {} },
@@ -59,7 +68,8 @@ function fixture() {
     runInContext(outputText, scope);
     return scope.exports;
   }
-  const particlesModule = load("../src/terminal-particles.ts");
+  const webglModule = load("../src/terminal-particles-webgl.ts");
+  const particlesModule = load("../src/terminal-particles.ts", { "./terminal-particles-webgl": webglModule });
   const motionModule = load("../src/terminal-motion.ts", { "./terminal-particles": particlesModule });
   const lines = Array.from({ length: 5 }, () => Array.from({ length: 40 }, () => cell(" ")));
   let render;
@@ -368,22 +378,18 @@ test("HUD text crossing a grid edge still emits from its visible portion", () =>
 test("padded canvas draws and clears bubbles outside the grid without shifting emitters", () => {
   const f = fixture();
   const particles = new f.TerminalParticles(f.screen);
-  const transforms = [];
-  const clears = [];
-  particles.context.setTransform = (...args) => transforms.push(args);
-  particles.context.clearRect = (...args) => clears.push(args);
   particles.resize(400, 100);
+  particles.setEmitters([{ ...source(), y: 2 }]);
+  particles.configure(30);
+  f.tick(30);
   assert.equal(particles.canvas.style.width, "528px");
   assert.equal(particles.canvas.style.height, "228px");
   assert.equal(particles.canvas.width, 792);
   assert.equal(particles.canvas.height, 342);
   assert.equal(particles.canvas.style.transform, "translate(-64px, -64px)");
-  assert.deepEqual(transforms[0], [1.5, 0, 0, 1.5, 96, 96]);
-  particles.setEmitters([{ ...source(), y: 2 }]);
-  particles.configure(30);
-  f.tick(30);
+  assert.deepEqual(f.stats.transforms[0], [1.5, 0, 0, 1.5, 96, 96]);
   assert.ok(f.stats.arcs.some(({ y }) => y < 0));
-  assert.deepEqual(clears.at(-1), [-64, -64, 528, 228]);
+  assert.deepEqual(f.stats.clears.at(-1), [-64, -64, 528, 228]);
   particles.dispose();
 });
 
@@ -415,4 +421,101 @@ test("optional window focus requirement preserves bubbles on blur and still paus
   f.tick(30);
   assert.ok(motion.particles.particles.length > 0);
   motion.dispose();
+});
+
+function fakeWebgl({ compile = true } = {}) {
+  const calls = { allocations: [], uploads: [], draws: [], viewport: [], deleted: [], losses: 0 };
+  const gl = {
+    calls, lost: false,
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, DYNAMIC_DRAW: 6, FLOAT: 7, BLEND: 8, ONE: 9,
+    ONE_MINUS_SRC_ALPHA: 10, TRIANGLE_STRIP: 11, COLOR_BUFFER_BIT: 12,
+    createProgram: () => ({}), createShader: () => ({}), createBuffer: () => ({}),
+    createVertexArray: () => ({}), getUniformLocation: () => ({}),
+    shaderSource() {}, compileShader() {}, getShaderParameter: () => compile,
+    getShaderInfoLog: () => "test compilation failure", attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, detachShader() {}, deleteShader() {},
+    useProgram() {}, bindVertexArray() {}, bindBuffer() {}, enableVertexAttribArray() {},
+    vertexAttribPointer() {}, vertexAttribDivisor() {}, clearColor() {}, enable() {},
+    blendFunc() {}, uniform1f() {}, uniform2f() {}, clear() {},
+    viewport(...args) { calls.viewport.push(args); },
+    bufferData(_target, bytes) { calls.allocations.push(bytes); },
+    bufferSubData(_target, _byteOffset, data, offset, length) {
+      calls.uploads.push(Array.from(data.slice(offset, offset + length)));
+    },
+    drawArraysInstanced(_mode, _first, vertices, count) { calls.draws.push({ vertices, count }); },
+    deleteVertexArray() { calls.deleted.push("vao"); },
+    deleteBuffer() { calls.deleted.push("buffer"); },
+    deleteProgram() { calls.deleted.push("program"); },
+    isContextLost() { return this.lost; },
+    getExtension: () => ({ loseContext() { calls.losses++; } }),
+  };
+  return gl;
+}
+
+test("WebGL uses one bounded instance buffer and one draw per frame; stable batches are not uploaded again", () => {
+  const gl = fakeWebgl();
+  const f = fixture(gl);
+  const particles = new f.TerminalParticles(f.screen);
+  particles.resize(400, 100);
+  particles.setEmitters([source()]);
+  assert.equal(f.screen.children.length, 0, "an idle effect needs no GL context");
+  particles.configure(80);
+  f.tick();
+  assert.deepEqual(gl.calls.allocations, [160 * 12 * 4]);
+  assert.deepEqual(gl.calls.viewport, [[0, 0, 792, 342]]);
+  assert.deepEqual(gl.calls.draws, [{ vertices: 4, count: 2 }]);
+  assert.equal(gl.calls.uploads[0].length, 24);
+  assert.deepEqual(gl.calls.uploads[0].slice(0, 2), [99, 144]);
+  assert.deepEqual(gl.calls.uploads[0].slice(9, 12), [1, 0, 0]);
+  assert.equal(f.stats.arcs.length, 0);
+  particles.setEmitters([]);
+  f.tick(30);
+  assert.ok(gl.calls.draws.length > 1);
+  assert.equal(gl.calls.uploads.length, 1);
+  f.tick(120);
+  assert.equal(f.frames.size, 0);
+  const canvas = particles.canvas;
+  particles.configure(0);
+  assert.equal(canvas.removed, true);
+  assert.deepEqual(gl.calls.deleted, ["vao", "buffer", "program"]);
+  assert.equal(gl.calls.losses, 1);
+  particles.dispose();
+});
+
+test("a shader compile failure falls back to a fresh Canvas 2D surface", () => {
+  const gl = fakeWebgl({ compile: false });
+  const f = fixture(gl);
+  const particles = new f.TerminalParticles(f.screen);
+  particles.resize(400, 100);
+  particles.setEmitters([source()]);
+  particles.configure(80);
+  f.tick(8);
+  assert.equal(f.stats.warnings.length, 1);
+  assert.equal(gl.calls.losses, 1);
+  assert.equal(particles.canvas.hasWebgl, undefined);
+  assert.ok(f.stats.arcs.length > 0);
+  particles.dispose();
+});
+
+test("WebGL context loss switches to Canvas 2D without resetting live particles", () => {
+  const gl = fakeWebgl();
+  const f = fixture(gl);
+  const particles = new f.TerminalParticles(f.screen);
+  particles.resize(400, 100);
+  particles.setEmitters([source()]);
+  particles.configure(80);
+  f.tick();
+  const canvas = particles.canvas;
+  const bubble = particles.particles[0];
+  gl.lost = true;
+  canvas.dispatchEvent(new Event("webglcontextlost"));
+  assert.equal(canvas.removed, true);
+  const draws = gl.calls.draws.length;
+  f.tick(8);
+  assert.equal(gl.calls.draws.length, draws);
+  assert.ok(particles.particles.includes(bubble));
+  assert.ok(f.stats.arcs.length > 0);
+  assert.equal(gl.calls.losses, 0);
+  particles.dispose();
 });
